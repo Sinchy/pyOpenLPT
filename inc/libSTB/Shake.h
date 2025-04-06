@@ -77,7 +77,8 @@ private:
     // Remove ghost particles.
     void findGhost(std::vector<Tracer3D>& tr3d_list);
     void removeGhostResidue(std::vector<Tracer3D>& tr3d_list);
-
+    
+    // TODO: use kd tree for checking
     void checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d);
 
     //                     //

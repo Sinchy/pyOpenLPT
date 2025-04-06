@@ -12,6 +12,7 @@
 #include "IPR.h"
 #include "PredField.h"
 #include "Track.h"
+#include "nanoflann.hpp"
 
 #include <vector>
 #include <deque>
@@ -111,6 +112,42 @@ private:
     // Dummy variables to identify the no. of tracks added and subtracted 
     int _a_sa = 0, _a_la = 0, _s_sa = 0, _s_la = 0, _a_li = 0;
 
+    // Define KDtree type
+    struct Obj3dCloud 
+    {
+        std::vector<T3D> const& _obj3d_list;  // 3D points
+        Obj3dCloud(std::vector<T3D> const& obj3d_list) : _obj3d_list(obj3d_list) {}
+
+        // Must define the interface required by nanoflann
+        inline size_t kdtree_get_point_count() const { return _obj3d_list.size(); }
+        inline float kdtree_get_pt(const size_t idx, int dim) const { return _obj3d_list[idx]._pt_center[dim]; }
+
+        // Bounding box (not needed for standard KD-tree queries)
+        template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
+    };
+    struct TrackCloud 
+    {
+        std::deque<Track<T3D>> const& _track_list;  // 3D points
+        TrackCloud(std::deque<Track<T3D>> const& track_list) : _track_list(track_list) {}
+
+        // Must define the interface required by nanoflann
+        inline size_t kdtree_get_point_count() const { return _track_list.size(); }
+        inline float kdtree_get_pt(const size_t idx, int dim) const { return _track_list[idx]._obj3d_list[_track_list[idx]._n_obj3d-2]._pt_center[dim]; }
+
+        // Bounding box (not needed for standard KD-tree queries)
+        template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
+    };
+    using KDTreeObj3d = nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Simple_Adaptor<double, Obj3dCloud>,
+        Obj3dCloud,
+        3 // dimensionality
+    >;
+    using KDTreeTrack = nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Simple_Adaptor<double, TrackCloud>,
+        TrackCloud,
+        3 // dimensionality
+    >;
+
 
     // FUNCTIONS //
     void createFolder (std::string const& folder);
@@ -122,6 +159,7 @@ private:
     void runConvPhase (int frame_id, std::vector<Image>& img_list, bool is_update_img = false);
     
     // remove overlap IPR objects
+    // TODO: use kd tree for checking
     void removeOverlap (std::vector<T3D>& obj3d_list);
     void removeOverlapTracer (std::vector<Tracer3D>& obj3d_list);
 
@@ -129,19 +167,22 @@ private:
     void findRepeatObj (std::vector<int>& is_repeat, std::vector<T3D> const& obj3d_list, double tol_3d);
 
     // make all possible links for tracks
-    int makeLink (Track<T3D> const& track, int nextframe, Pt3D const& vel_curr, double radius);
+    // int makeLink (Track<T3D> const& track, int nextframe, Pt3D const& vel_curr, double radius);
 
-    void startTrack (int frame, PredField& pf);
+    // void startTrack (int frame, PredField& pf);
+    void startTrack (int frame, PredField& pf, KDTreeObj3d const& tree_obj3d);
 
     bool findPredObj (T3D& obj3d, std::vector<Image> const& img_list);
     bool checkObj2D (T3D& obj3d);
 
-    int linkShortTrack (Track<T3D> const& track, std::vector<T3D> const& obj3d_list, int n_iter);
+    // int linkShortTrack (Track<T3D> const& track, std::vector<T3D> const& obj3d_list, int n_iter);
+    int linkShortTrack (Track<T3D> const& track, int n_iter, KDTreeObj3d const& tree_obj3d, KDTreeTrack const& tree_track);
 
     bool checkLinearFit (Track<T3D> const& track);
 
     // find nearest neighbor around a position
-    int findNN (std::vector<T3D> const& obj3d_list, Pt3D const& pt3d_est, double radius);
+    // int findNN (std::vector<T3D> const& obj3d_list, Pt3D const& pt3d_est, double radius);
+    int findNN (KDTreeObj3d const& tree_obj3d, Pt3D const& pt3d_est, double radius);
 
 };
 
