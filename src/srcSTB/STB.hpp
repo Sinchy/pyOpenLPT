@@ -509,7 +509,7 @@ void STB<T3D>::runInitPhase (int frame, std::vector<Image>& img_list, bool is_up
                 t_start = clock();
                 
                 // build kdtree for the next frame
-                Obj3dCloud cloud_obj3d(_ipr_matched[i+1]);
+                Obj3dCloud<T3D> cloud_obj3d(_ipr_matched[i+1]);
                 KDTreeObj3d tree_obj3d(3, cloud_obj3d, {10});
 
                 // extend all the tracks that are active in current frame
@@ -781,12 +781,12 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
         std::vector<int> is_obj_used(n_obj3d, 0);
         
         // build kd tree for obj3d_list
-        Obj3dCloud cloud_obj3d(obj3d_list);
+        Obj3dCloud<T3D> cloud_obj3d(obj3d_list);
         KDTreeObj3d tree_obj3d(3, cloud_obj3d, {10 /* max leaf */});
         tree_obj3d.buildIndex();
 
         // build kd tree for active long tracks
-        TrackCloud cloud_track(_long_track_active);
+        TrackCloud<T3D> cloud_track(_long_track_active);
         KDTreeTrack tree_track(3, cloud_track, {10 /* max leaf */});
         tree_track.buildIndex();
 
@@ -803,7 +803,7 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
             link_id[i] = linkShortTrack (_short_track_active[i], 5, tree_obj3d, tree_track);
         }
         t_query_2 = clock();
-        std::cout << " (Query time: " << (double) (t_query_2 - t_query_1)/CLOCKS_PER_SEC << " s) ";
+        std::cout << "(Query time: " << (double) (t_query_2 - t_query_1)/CLOCKS_PER_SEC << " s) ";
 
         // update _short_track_active and _is_tracked status 
         for (int i = n_sa-1; i >= 0; i --)

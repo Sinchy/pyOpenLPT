@@ -12,6 +12,7 @@
 #include "ObjectInfo.h"
 #include "Camera.h"
 #include "OTF.h"
+#include "nanoflann.hpp"
 
 struct ImgAugList
 {

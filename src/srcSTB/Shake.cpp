@@ -9,18 +9,55 @@ void Shake::runShake(std::vector<Tracer3D>& tr3d_list, OTF const& otf, std::vect
 }
 
 
+// void Shake::checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d)
+// {
+//     int n_tr3d = tr3d_list.size();
+//     _is_repeated.resize(n_tr3d, 0);
+//     _n_repeated = 0;
+
+//     // Remove repeated tracks
+//     if (_n_thread > 0)
+//     {
+//         omp_set_num_threads(_n_thread);
+//     }
+
+//     double repeat_thres_2 = tol_3d * tol_3d;
+//     for (int i = 0; i < n_tr3d-1; i ++)
+//     {
+//         if (_is_repeated[i])
+//         {
+//             continue;
+//         }
+
+//         #pragma omp parallel for
+//         for (int j = i+1; j < n_tr3d; j ++)
+//         {
+//             if (myMATH::dist2(tr3d_list[i]._pt_center, tr3d_list[j]._pt_center) < repeat_thres_2)
+//             {
+//                 _is_repeated[j] = 1;
+//                 _n_repeated ++;
+//             }
+//         }
+//     }
+// }
+
 void Shake::checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d)
 {
     int n_tr3d = tr3d_list.size();
     _is_repeated.resize(n_tr3d, 0);
     _n_repeated = 0;
 
-    // Remove repeated tracks
-    if (_n_thread > 0)
-    {
-        omp_set_num_threads(_n_thread);
-    }
+    // Build KD tree for fast neighbor search
+    using KDTreeObj3d = nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Simple_Adaptor<double, Obj3dCloud<Tracer3D>>,
+        Obj3dCloud<Tracer3D>,
+        3 // dimensionality
+    >;
+    Obj3dCloud<Tracer3D> obj3d_cloud(tr3d_list);
+    KDTreeObj3d tree_obj3d(3, obj3d_cloud, {10});
+    tree_obj3d.buildIndex();
 
+    // Remove repeated tracks
     double repeat_thres_2 = tol_3d * tol_3d;
     for (int i = 0; i < n_tr3d-1; i ++)
     {
@@ -29,14 +66,21 @@ void Shake::checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3
             continue;
         }
 
-        #pragma omp parallel for
-        for (int j = i+1; j < n_tr3d; j ++)
+        std::vector<nanoflann::ResultItem<size_t, double>> indices_dists;
+        nanoflann::RadiusResultSet<double, size_t> resultSet(repeat_thres_2, indices_dists);
+        tree_obj3d.findNeighbors(resultSet, tr3d_list[i]._pt_center.data(), nanoflann::SearchParameters());
+        
+        for (int j = 1; j < resultSet.size(); j ++)
         {
-            if (myMATH::dist2(tr3d_list[i]._pt_center, tr3d_list[j]._pt_center) < repeat_thres_2)
+            #ifdef DEBUG
+            if (indices_dists[j].first <= i)
             {
-                _is_repeated[j] = 1;
-                _n_repeated ++;
+                std::cout << "(i,j) = (" << i << "," << indices_dists[j].first << ")" << std::endl;
+                continue;
             }
+            #endif
+            _is_repeated[indices_dists[j].first] = 1;
+            _n_repeated ++;
         }
     }
 }

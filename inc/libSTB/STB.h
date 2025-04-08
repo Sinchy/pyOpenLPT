@@ -113,38 +113,14 @@ private:
     int _a_sa = 0, _a_la = 0, _s_sa = 0, _s_la = 0, _a_li = 0;
 
     // Define KDtree type
-    struct Obj3dCloud 
-    {
-        std::vector<T3D> const& _obj3d_list;  // 3D points
-        Obj3dCloud(std::vector<T3D> const& obj3d_list) : _obj3d_list(obj3d_list) {}
-
-        // Must define the interface required by nanoflann
-        inline size_t kdtree_get_point_count() const { return _obj3d_list.size(); }
-        inline float kdtree_get_pt(const size_t idx, int dim) const { return _obj3d_list[idx]._pt_center[dim]; }
-
-        // Bounding box (not needed for standard KD-tree queries)
-        template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
-    };
-    struct TrackCloud 
-    {
-        std::deque<Track<T3D>> const& _track_list;  // 3D points
-        TrackCloud(std::deque<Track<T3D>> const& track_list) : _track_list(track_list) {}
-
-        // Must define the interface required by nanoflann
-        inline size_t kdtree_get_point_count() const { return _track_list.size(); }
-        inline float kdtree_get_pt(const size_t idx, int dim) const { return _track_list[idx]._obj3d_list[_track_list[idx]._n_obj3d-2]._pt_center[dim]; }
-
-        // Bounding box (not needed for standard KD-tree queries)
-        template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
-    };
     using KDTreeObj3d = nanoflann::KDTreeSingleIndexAdaptor<
-        nanoflann::L2_Simple_Adaptor<double, Obj3dCloud>,
-        Obj3dCloud,
+        nanoflann::L2_Simple_Adaptor<double, Obj3dCloud<T3D>>,
+        Obj3dCloud<T3D>,
         3 // dimensionality
     >;
     using KDTreeTrack = nanoflann::KDTreeSingleIndexAdaptor<
-        nanoflann::L2_Simple_Adaptor<double, TrackCloud>,
-        TrackCloud,
+        nanoflann::L2_Simple_Adaptor<double, TrackCloud<T3D>>,
+        TrackCloud<T3D>,
         3 // dimensionality
     >;
 
