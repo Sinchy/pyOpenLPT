@@ -729,23 +729,45 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
 
         // Add the corrected particle position in nextFrame to its respective track
         // remove the track if the particle is a ghost
-        for (int i = obj3d_list_pred.size()-1; i >= 0; i --)
+        // for (int i = obj3d_list_pred.size()-1; i >= 0; i --)
+        // {
+        //     if (!s._is_ghost[i])
+        //     {
+        //         _long_track_active[i].addNext(obj3d_list_pred[i], frame);
+        //     }
+        //     else
+        //     {
+        //         n_fail_shaking ++;
+
+        //         if (_long_track_active[i]._n_obj3d >= LEN_LONG_TRACK)
+        //         {
+        //             _long_track_inactive.push_back(_long_track_active[i]);
+        //             _a_li ++;
+        //         }
+
+        //         _long_track_active.erase(_long_track_active.begin()+i);
+        //         _s_la ++;
+        //     }
+        // }
+        long_track_active_tmp = _long_track_active;
+        _long_track_active.clear();
+        for (int i = 0; i < obj3d_list_pred.size(); i ++)
         {
             if (!s._is_ghost[i])
             {
-                _long_track_active[i].addNext(obj3d_list_pred[i], frame);
+                long_track_active_tmp[i].addNext(obj3d_list_pred[i], frame);
+                _long_track_active.push_back(long_track_active_tmp[i]);
             }
             else
             {
                 n_fail_shaking ++;
 
-                if (_long_track_active[i]._n_obj3d >= LEN_LONG_TRACK)
+                if (long_track_active_tmp[i]._n_obj3d >= LEN_LONG_TRACK)
                 {
-                    _long_track_inactive.push_back(_long_track_active[i]);
+                    _long_track_inactive.push_back(long_track_active_tmp[i]);
                     _a_li ++;
                 }
-
-                _long_track_active.erase(_long_track_active.begin()+i);
+                
                 _s_la ++;
             }
         }

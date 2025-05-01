@@ -103,11 +103,13 @@ void IPR::runIPR(
         #endif
 
         // Save tracer info after shaking
-        for (int i = tr3d_list.size()-1; i >= 0; i --)
+        std::vector<Tracer3D> tr3d_list_tmp = tr3d_list;
+        tr3d_list.clear();
+        for (int i = 0; i < tr3d_list_tmp.size(); i ++)
         {
-            if (s._is_ghost[i])
+            if (!s._is_ghost[i])
             {
-                tr3d_list.erase(tr3d_list.begin()+i);
+                tr3d_list.push_back(tr3d_list_tmp[i]);
             }
         }
         tr3d_list_all.insert(tr3d_list_all.end(), tr3d_list.begin(), tr3d_list.end());
@@ -265,11 +267,13 @@ void IPR::reducedCamLoop(std::vector<Tracer3D>& tr3d_list_all, std::vector<doubl
             #endif
 
             // Save tracer info after shaking
-            for (int i = tr3d_list.size()-1; i >= 0; i --)
+            std::vector<Tracer3D> tr3d_list_tmp = tr3d_list;
+            tr3d_list.clear();
+            for (int i = 0; i < tr3d_list_tmp.size(); i ++)
             {
-                if (s._is_ghost[i])
+                if (!s._is_ghost[i])
                 {
-                    tr3d_list.erase(tr3d_list.begin()+i);
+                    tr3d_list.push_back(tr3d_list_tmp[i]);
                 }
             }
             tr3d_list_all.insert(tr3d_list_all.end(), tr3d_list.begin(), tr3d_list.end());
