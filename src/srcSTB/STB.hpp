@@ -653,18 +653,24 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
     }
 
     // Remove out-of-range tracks
-    for (int i = n_la-1; i >= 0; i --)
+    std::deque<Track<T3D>> long_track_active_tmp = _long_track_active;
+    std::vector<T3D> obj3d_list_pred_tmp = obj3d_list_pred;
+    _long_track_active.clear();
+    obj3d_list_pred.clear();
+    for (int i = 0; i < n_la; i ++)
     {
         if (!is_inRange[i])
         {
-            if (_long_track_active[i]._n_obj3d >= LEN_LONG_TRACK)
+            if (long_track_active_tmp[i]._n_obj3d >= LEN_LONG_TRACK)
             {
-                _exit_track.push_back(_long_track_active[i]);
+                _exit_track.push_back(long_track_active_tmp[i]);
             }
-            
-            _long_track_active.erase(_long_track_active.begin()+i);
-            obj3d_list_pred.erase(obj3d_list_pred.begin()+i);
             _s_la ++;
+        }
+        else
+        {
+            _long_track_active.push_back(long_track_active_tmp[i]);
+            obj3d_list_pred.push_back(obj3d_list_pred_tmp[i]);
         }
     }
 
@@ -676,18 +682,24 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
         obj3d_list_pred, 
         2*_ipr_param.tol_3d
     );
-    for (int i = n_pred-1; i >= 0; i --)
+    long_track_active_tmp = _long_track_active;
+    obj3d_list_pred_tmp = obj3d_list_pred;
+    _long_track_active.clear();
+    obj3d_list_pred.clear();
+    for (int i = 0; i < n_pred; i ++)
     {
         if (is_repeat[i])
         {
-            if (_long_track_active[i]._n_obj3d >= LEN_LONG_TRACK)
+            if (long_track_active_tmp[i]._n_obj3d >= LEN_LONG_TRACK)
             {
-                _long_track_inactive.push_back(_long_track_active[i]);
+                _long_track_inactive.push_back(long_track_active_tmp[i]);
             }
-
-            _long_track_active.erase(_long_track_active.begin()+i);
-            obj3d_list_pred.erase(obj3d_list_pred.begin()+i);
             _s_la ++;
+        }
+        else
+        {
+            _long_track_active.push_back(long_track_active_tmp[i]);
+            obj3d_list_pred.push_back(obj3d_list_pred_tmp[i]);
         }
     }
 
@@ -752,7 +764,10 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
     ipr.runIPR(obj3d_list, _obj_param, _otf, _n_reduced);
 
     // remove the particles that are close to the active long tracks
+    t_start = clock();
     removeOverlap(obj3d_list);
+    t_end = clock();    
+    std::cout << " Remove overlap: " << (double) (t_end - t_start)/CLOCKS_PER_SEC << " s." << std::endl;
 
     // update img_list
     if (is_update_img)
@@ -790,8 +805,6 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
         KDTreeTrack tree_track(3, cloud_track, {10 /* max leaf */});
         tree_track.buildIndex();
 
-        clock_t t_query_1, t_query_2;
-        t_query_1 = clock();
         // query the kd tree for each active short track
         if (_n_thread>0)
         {
@@ -802,33 +815,29 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
         {
             link_id[i] = linkShortTrack (_short_track_active[i], 5, tree_obj3d, tree_track);
         }
-        t_query_2 = clock();
-        std::cout << "(Query time: " << (double) (t_query_2 - t_query_1)/CLOCKS_PER_SEC << " s) ";
 
         // update _short_track_active and _is_tracked status 
-        for (int i = n_sa-1; i >= 0; i --)
+        std::deque<Track<T3D>> short_track_active_tmp = _short_track_active;
+        _short_track_active.clear();
+        for (int i = 0; i < n_sa; i ++)
         {
             if (link_id[i] != UNLINKED)
             {
-                _short_track_active[i].addNext(obj3d_list[link_id[i]], frame);
+                short_track_active_tmp[i].addNext(obj3d_list[link_id[i]], frame);
                 obj3d_list[link_id[i]]._is_tracked = true;
+                if (short_track_active_tmp[i]._n_obj3d >= _n_initPhase)
+                {
+                    _long_track_active.push_back(short_track_active_tmp[i]);
+                    _a_la ++;
+                    _s_sa ++;
+                }
+                else
+                {
+                    _short_track_active.push_back(short_track_active_tmp[i]);
+                }
             }
             else
             {
-                _short_track_active.erase(_short_track_active.begin()+i);
-                _s_sa ++;
-            }
-        }
-
-        // move all active short tracks to long tracks if they have >= _n_initPhase particles
-        int n_short_track_active = _short_track_active.size();
-        for (int i = n_short_track_active-1; i >= 0; i --)
-        {
-            if (_short_track_active[i]._n_obj3d >= _n_initPhase)
-            {
-                _long_track_active.push_back(_short_track_active[i]);
-                _short_track_active.erase(_short_track_active.begin()+i);
-                _a_la ++;
                 _s_sa ++;
             }
         }
@@ -873,19 +882,23 @@ void STB<T3D>::runConvPhase (int frame, std::vector<Image>& img_list, bool is_up
         }
 
         // remove the tracks that are not linear    
-        for (int i = n_la_new-1; i >= 0; i --)
+        std::deque<Track<T3D>> long_track_active_tmp = _long_track_active;
+        _long_track_active.clear();
+        for (int i = 0; i < n_la_new; i ++)
         {
             if (is_erase[i])
             {
-                if (_long_track_active[i]._obj3d_list.size() >= LEN_LONG_TRACK)
+                if (long_track_active_tmp[i]._obj3d_list.size() >= LEN_LONG_TRACK)
                 {
-                    _long_track_inactive.push_back(_long_track_active[i]);
+                    _long_track_inactive.push_back(long_track_active_tmp[i]);
                     _a_li ++;
                 }
-
-                _long_track_active.erase(_long_track_active.begin()+i);
                 _s_la ++;
                 n_fail_lf ++;
+            }
+            else
+            {
+                _long_track_active.push_back(long_track_active_tmp[i]);
             }
         }
 
@@ -971,11 +984,13 @@ void STB<T3D>::removeOverlapTracer(std::vector<Tracer3D>& obj3d_list)
         }
     }
 
-    for (int i = n_obj3d-1; i >= 0; i --)
+    std::vector<Tracer3D> obj3d_list_tmp = obj3d_list;
+    obj3d_list.clear();
+    for (int i = 0; i < n_obj3d; i ++)
     {
-        if (is_overlap[i])
+        if (!is_overlap[i])
         {
-            obj3d_list.erase(obj3d_list.begin()+i);
+            obj3d_list.push_back(obj3d_list_tmp[i]);
         }
     }
 
@@ -988,16 +1003,18 @@ void STB<T3D>::findRepeatObj(std::vector<int>& is_repeat, std::vector<T3D> const
 {
     int n_obj = obj3d_list.size();
     
+    #ifdef DEBUG
     if (is_repeat.size() != n_obj)
     {
         is_repeat.resize(n_obj);
     }
     std::fill(is_repeat.begin(), is_repeat.end(), 0);
+    #endif
 
-    if (_n_thread > 0)
-    {
-        omp_set_num_threads(_n_thread);
-    }
+    // build kd tree for obj3d_list
+    Obj3dCloud<T3D> cloud_obj3d(obj3d_list);
+    KDTreeObj3d tree_obj3d(3, cloud_obj3d, {10 /* max leaf */});
+    tree_obj3d.buildIndex();
 
     double repeat_thres_2 = tol_3d * tol_3d;
     for (int i = 0; i < n_obj-1; i ++)
@@ -1007,13 +1024,20 @@ void STB<T3D>::findRepeatObj(std::vector<int>& is_repeat, std::vector<T3D> const
             continue;
         }
 
-        #pragma omp parallel for
-        for (int j = i+1; j < n_obj; j ++)
+        std::vector<nanoflann::ResultItem<size_t, double>> indices_dists;
+        nanoflann::RadiusResultSet<double, size_t> resultSet(repeat_thres_2, indices_dists);
+        tree_obj3d.findNeighbors(resultSet, obj3d_list[i]._pt_center.data(), nanoflann::SearchParameters());
+        
+        for (int j = 1; j < resultSet.size(); j ++)
         {
-            if (myMATH::dist2(obj3d_list[i]._pt_center, obj3d_list[j]._pt_center) < repeat_thres_2)
+            #ifdef DEBUG
+            if (indices_dists[j].first <= i)
             {
-                is_repeat[j] = 1;
+                std::cout << "(i,j) = (" << i << "," << indices_dists[j].first << ")" << std::endl;
+                continue;
             }
+            #endif
+            is_repeat[indices_dists[j].first] = 1;
         }
     }
 }
