@@ -503,6 +503,9 @@ bool isLocalMax (Matrix<T> const& mtx, int row_id, int col_id)
 // y = coeff[0] + coeff[1] * x + coeff[2] * x^2 + ...
 void polyfit (std::vector<double>& coeff, std::vector<double> const& x, std::vector<double> const& y, int order);
 
+// Create 1D Gaussian kernel
+std::vector<double> createGaussianKernel(int radius, double sigma);
+
 }
 
 

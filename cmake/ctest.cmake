@@ -171,3 +171,10 @@ add_executable(test_PIVChallenge
 )
 target_link_libraries(test_PIVChallenge PRIVATE ImageIO STB Matrix ObjectInfo ObjectFinder StereoMatch OTF Shake IPR PredField Track)
 add_test(test_PIVChallenge test_PIVChallenge)
+
+# test nanoflann
+add_executable(test_nanoflann
+    ${CMAKE_HOME_DIRECTORY}/test/test_nanoflann.cpp
+    ${TESTHEADERFILES}
+)
+add_test(test_nanoflann test_nanoflann)

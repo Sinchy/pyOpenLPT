@@ -11,6 +11,10 @@ void init_PredField(py::module &m)
         .def_readwrite("nBin_x", &PFParam::nBin_x)
         .def_readwrite("nBin_y", &PFParam::nBin_y)
         .def_readwrite("nBin_z", &PFParam::nBin_z)
+        .def_readwrite("is_smooth", &PFParam::is_smooth)
+        .def_readwrite("sigma_x", &PFParam::sigma_x)
+        .def_readwrite("sigma_y", &PFParam::sigma_y)
+        .def_readwrite("sigma_z", &PFParam::sigma_z)
         .def("to_dict", [](PFParam const& self){
             return py::dict(
                 "limit"_a=self.limit, "nx"_a=self.nx, "ny"_a=self.ny, "nz"_a=self.nz, "r"_a=self.r, "nBin_x"_a=self.nBin_x, "nBin_y"_a=self.nBin_y, "nBin_z"_a=self.nBin_z

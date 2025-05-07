@@ -12,6 +12,11 @@ PredField::PredField (PFParam const& param, std::vector<T3D> const& obj3d_list_p
     setGrid();
 
     calDispField(obj3d_list_prev, obj3d_list_curr);
+
+    if (_param.is_smooth)
+    {
+        smoothDispField(_param.sigma_x, _param.sigma_y, _param.sigma_z);
+    }
 }
 
 
@@ -21,6 +26,11 @@ PredField::PredField (PFParam const& param, std::vector<Pt3D> const& pt3d_list_p
     setGrid();
 
     calDispField(pt3d_list_prev, pt3d_list_curr);
+
+    if (_param.is_smooth)
+    {
+        smoothDispField(_param.sigma_x, _param.sigma_y, _param.sigma_z);
+    }
 }
 
 
@@ -154,7 +164,7 @@ void PredField::calDispField(std::vector<T3D> const& obj3d_list_prev, std::vecto
     _disp_field = Matrix<double>(_nGrid_tot,3,0);
 
     // calculate displacement field
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for collapse(2)
     for (int x_id = 0; x_id < _param.nx; x_id ++)
     {
         for (int y_id = 0; y_id < _param.ny; y_id ++)
@@ -175,7 +185,7 @@ void PredField::calDispField(std::vector<Pt3D> const& pt3d_list_prev, std::vecto
     _disp_field = Matrix<double>(_nGrid_tot,3,0);
 
     // calculate displacement field
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for collapse(2)
     for (int x_id = 0; x_id < _param.nx; x_id ++)
     {
         for (int y_id = 0; y_id < _param.ny; y_id ++)
@@ -236,11 +246,11 @@ void PredField::calDispGrid(std::vector<int> const& xyz_id, std::vector<T3D> con
     }
     
     // update displacement pdf
-    std::vector<double> disp_pdf(_nBin_tot);
+    std::vector<double> disp_pdf(_nBin_tot,0);
     updateDispPDF(disp_pdf, disp_list);
 
     // find the peak location of the displacement pdf
-    std::vector<double> disp_opt;
+    std::vector<double> disp_opt(3,0);
     findPDFPeakLoc(disp_opt, disp_pdf);
 
     _disp_field(grid_id, 0) = disp_opt[0];
@@ -294,11 +304,11 @@ void PredField::calDispGrid(std::vector<int> const& xyz_id, std::vector<Pt3D> co
     }
     
     // update displacement pdf
-    std::vector<double> disp_pdf(_nBin_tot);
+    std::vector<double> disp_pdf(_nBin_tot,0);
     updateDispPDF(disp_pdf, disp_list);
 
     // find the peak location of the displacement pdf
-    std::vector<double> disp_opt;
+    std::vector<double> disp_opt(3,0);
     findPDFPeakLoc(disp_opt, disp_pdf);
 
     _disp_field(grid_id, 0) = disp_opt[0];
@@ -315,7 +325,7 @@ void PredField::findNeighbor (std::vector<int>& pt_list_id, std::vector<int> con
     double z = _grid_z[xyz_id[2]];
 
     double dx, dy, dz, distsqr;
-    double rsqr = _param.r*_param.r;
+    // double rsqr = _param.r*_param.r;
 
     for (int i = 0; i < obj3d_list.size(); i++)
     {
@@ -327,11 +337,12 @@ void PredField::findNeighbor (std::vector<int>& pt_list_id, std::vector<int> con
             dy<_param.r && dy>-_param.r &&
             dz<_param.r && dz>-_param.r)
         {
-            distsqr = dx*dx + dy*dy + dz*dz;
-            if (distsqr < rsqr)
-            {
-                pt_list_id.push_back(i);
-            }
+            // distsqr = dx*dx + dy*dy + dz*dz;
+            // if (distsqr < rsqr)
+            // {
+            //     pt_list_id.push_back(i);
+            // }
+            pt_list_id.push_back(i);
         }
     }
 }
@@ -344,7 +355,7 @@ void PredField::findNeighbor (std::vector<int>& pt_list_id, std::vector<int> con
     double z = _grid_z[xyz_id[2]];
 
     double dx, dy, dz, distsqr;
-    double rsqr = _param.r*_param.r;
+    // double rsqr = _param.r*_param.r;
 
     for (int i = 0; i < pt3d_list.size(); i++)
     {
@@ -356,11 +367,12 @@ void PredField::findNeighbor (std::vector<int>& pt_list_id, std::vector<int> con
             dy<_param.r && dy>-_param.r &&
             dz<_param.r && dz>-_param.r)
         {
-            distsqr = dx*dx + dy*dy + dz*dz;
-            if (distsqr < rsqr)
-            {
-                pt_list_id.push_back(i);
-            }
+            // distsqr = dx*dx + dy*dy + dz*dz;
+            // if (distsqr < rsqr)
+            // {
+            //     pt_list_id.push_back(i);
+            // }
+            pt_list_id.push_back(i);
         }
     }
 }
@@ -380,10 +392,10 @@ int PredField::mapBinID (int xBin_id, int yBin_id, int zBin_id)
 
 void PredField::updateDispPDF(std::vector<double>& disp_pdf, std::vector<std::vector<double>> const& disp_list)
 {
-    if (disp_pdf.size() != _nBin_tot)
-    {
-        disp_pdf.resize(_nBin_tot);
-    }
+    // if (disp_pdf.size() != _nBin_tot)
+    // {
+    //     disp_pdf.resize(_nBin_tot);
+    // }
 
     // initialize disp_pdf
     std::fill(disp_pdf.begin(), disp_pdf.end(), 0);
@@ -424,22 +436,26 @@ void PredField::updateDispPDF(std::vector<double>& disp_pdf, std::vector<std::ve
 
 void PredField::findPDFPeakLoc(std::vector<double>& dist_opt, std::vector<double> const& disp_pdf)
 {
-    if (dist_opt.size() != 3)
-    {
-        dist_opt.resize(3);
-    }
+    // if (dist_opt.size() != 3)
+    // {
+    //     dist_opt.resize(3);
+    // }
 
-    std::vector<int> peak_id;
+    std::vector<int> peak_id(3,-1);
     findPDFPeakID(peak_id, disp_pdf);
 
     // finding the peak using 1D Gaussian in x, y & z direction
     int x1, y1, z1, x2, y2, z2, x3, y3, z3;
     for (int i = 0; i < 3; i ++)
     {
-        if (peak_id[i] == 0)
+        if (peak_id[i] < 0)
         {
-            dist_opt[i] = 0.0; // no need to calculate, it is possible that there is only one bin 
-            // dist_opt[i] = -2*_param.r;
+            dist_opt[i] = 0.0;
+        }
+        else if (peak_id[i] == 0)
+        {
+            // dist_opt[i] = 0.0; // no need to calculate, it is possible that there is only one bin 
+            dist_opt[i] = -2*_param.r;
         }
         else if (peak_id[i] == _param.nBin_x-1)
         {
@@ -447,17 +463,17 @@ void PredField::findPDFPeakLoc(std::vector<double>& dist_opt, std::vector<double
         }
         else
         {
-            x1 = peak_id[i] - 1 * (i==0);
-            y1 = peak_id[i] - 1 * (i==1);
-            z1 = peak_id[i] - 1 * (i==2);
+            x1 = peak_id[0] - 1 * (i==0);
+            y1 = peak_id[1] - 1 * (i==1);
+            z1 = peak_id[2] - 1 * (i==2);
 
-            x2 = peak_id[i];
-            y2 = peak_id[i];
-            z2 = peak_id[i];
+            x2 = peak_id[0];
+            y2 = peak_id[1];
+            z2 = peak_id[2];
 
-            x3 = peak_id[i] + 1 * (i==0);
-            y3 = peak_id[i] + 1 * (i==1);
-            z3 = peak_id[i] + 1 * (i==2);
+            x3 = peak_id[0] + 1 * (i==0);
+            y3 = peak_id[1] + 1 * (i==1);
+            z3 = peak_id[2] + 1 * (i==2);
 
             double loc = fitPeakBinLocGauss(
                 peak_id[i]-1, disp_pdf[mapBinID(x1,y1,z1)],
@@ -473,32 +489,18 @@ void PredField::findPDFPeakLoc(std::vector<double>& dist_opt, std::vector<double
 
 void PredField::findPDFPeakID(std::vector<int>& peak_id, std::vector<double> const& disp_pdf)
 {
-    if (peak_id.size() != 3)
+    int bind_id = std::distance(disp_pdf.begin(), std::max_element(disp_pdf.begin(), disp_pdf.end()));
+    if (disp_pdf[bind_id] > 1e-1)
     {
-        peak_id.resize(3);
+        peak_id[0] = bind_id / (_param.nBin_y*_param.nBin_z);
+        peak_id[1] = (bind_id - peak_id[0]*_param.nBin_y*_param.nBin_z) / _param.nBin_z;
+        peak_id[2] = bind_id % _param.nBin_z;
     }
-
-    std::fill(peak_id.begin(), peak_id.end(), 0);
-
-    double val = disp_pdf[0];
-    int bin_id = 0;
-    for (int i = 0; i < _param.nBin_x; i ++)
+    else
     {
-        for (int j = 0; j < _param.nBin_y; j ++)
-        {
-            for (int k = 0; k < _param.nBin_z; k ++)
-            {
-                bin_id = mapBinID(i,j,k);
-                if (disp_pdf[bin_id] > val)
-                {
-                    val = disp_pdf[bin_id];
-
-                    peak_id[0] = i;
-                    peak_id[1] = j;
-                    peak_id[2] = k;
-                }
-            }
-        }
+        peak_id[0] = -1;
+        peak_id[1] = -1;
+        peak_id[2] = -1;
     }
 }
 
@@ -526,5 +528,105 @@ double PredField::fitPeakBinLocGauss (double y1, double v1, double y2, double v2
     return yc;
 }
 
+
+void PredField::applyGaussian (Matrix<double>& field, int nx, int ny, int nz, std::vector<double> const& kernel, int radius, int axis)
+{
+    Matrix<double> temp(field); // Copy input data
+
+    // along x-direction
+    #pragma omp parallel for collapse(2)
+    for (int x = 0; x < nx; x++) 
+    {
+        for (int y = 0; y < ny; y++) 
+        {
+            for (int z = 0; z < nz; z++) 
+            {
+                double sum = 0.0;
+                // double weight = 0.0;
+                for (int k = -radius; k <= radius; k++) 
+                {
+                    int idx = x + k;
+                    if (idx >= 0 && idx < nx) 
+                    {
+                        int src = mapGridID(idx, y, z);
+                        sum += temp(src,axis) * kernel[k + radius];
+                    }
+                }
+                int dst = mapGridID(x, y, z);
+                field(dst,axis) = sum;
+            }
+        }
+    }
+    temp = field; // update temp
+
+    // along y-direction
+    #pragma omp parallel for collapse(2)
+    for (int x = 0; x < nx; x++) 
+    {
+        for (int y = 0; y < ny; y++) 
+        {
+            for (int z = 0; z < nz; z++) 
+            {
+                double sum = 0.0;
+                for (int k = -radius; k <= radius; k++) 
+                {
+                    int idx = y + k;
+                    if (idx >= 0 && idx < ny) 
+                    {
+                        int src = mapGridID(x, idx, z);
+                        sum += temp(src,axis) * kernel[k + radius];
+                    }
+                }
+                int dst = mapGridID(x, y, z);
+                field(dst,axis) = sum;
+            }
+        }
+    }
+    temp = field; // update temp
+
+    // along z-direction
+    #pragma omp parallel for collapse(2)
+    for (int x = 0; x < nx; x++) 
+    {
+        for (int y = 0; y < ny; y++) 
+        {
+            for (int z = 0; z < nz; z++) 
+            {
+                double sum = 0.0;
+                // double weight = 0.0;
+                for (int k = -radius; k <= radius; k++) 
+                {
+                    int idx = z + k;
+                    if (idx >= 0 && idx < nz) 
+                    {
+                        int src = mapGridID(x, y, idx);
+                        sum += temp(src,axis) * kernel[k + radius];
+                    }
+                }
+                int dst = mapGridID(x, y, z);
+                field(dst,axis) = sum;
+            }
+        }
+    }
+}
+
+
+void PredField::smoothDispField(double sigma_x, double sigma_y, double sigma_z)
+{
+    // Typically 3σ for good results
+    int radius_x = std::round(3 * sigma_x);
+    int radius_y = std::round(3 * sigma_y);
+    int radius_z = std::round(3 * sigma_z);  
+    std::vector<double> kernel_x = myMATH::createGaussianKernel(radius_x, sigma_x);
+    std::vector<double> kernel_y = myMATH::createGaussianKernel(radius_y, sigma_y);
+    std::vector<double> kernel_z = myMATH::createGaussianKernel(radius_z, sigma_z);
+
+    // ux
+    applyGaussian(_disp_field,_param.nx,_param.ny,_param.nz,kernel_x,radius_x,0); 
+    // uy
+    applyGaussian(_disp_field,_param.nx,_param.ny,_param.nz,kernel_y,radius_y,1); 
+    // uz
+    applyGaussian(_disp_field,_param.nx,_param.ny,_param.nz,kernel_z,radius_z,2); 
+}
 
 #endif

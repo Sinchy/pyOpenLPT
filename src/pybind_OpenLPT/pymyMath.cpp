@@ -170,4 +170,6 @@ void init_myMath(py::module& m)
         myMATH::polyfit(coeff, x, y, order);
         return coeff;
     }, "Polynomial fitting for vector<double>");
+
+    m.def("createGaussianKernel", &myMATH::createGaussianKernel, "Create a Gaussian kernel for 1D convolution");
 }

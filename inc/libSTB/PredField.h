@@ -28,6 +28,12 @@ struct PFParam
     int nBin_x = 5; // >=2, if <2, set to 2
     int nBin_y = 5; // >=2, if <2, set to 2
     int nBin_z = 5; // >=2, if <2, set to 2
+
+    // smoothing param
+    bool is_smooth = true;
+    double sigma_x = 1.0;
+    double sigma_y = 1.0;
+    double sigma_z = 1.0;
 };
 
 
@@ -64,7 +70,7 @@ private:
 
     // Calculate displacement (dx,dy,dz) statistics at each grid point
     // dx,dy,dz in [-2r,2r]
-    // bin_center = -2r + 4r*bin_id/(disp_bins-1), bin_id in [0,disp_bins-1]
+    // bin_center = -2r + 4r*bin_id/(n_bins-1), bin_id in [0,n_bins-1]
     //  e.g. n_bins = 3, bin_center = [-2r,0,2r], bin_id = [0,1,2]
     //  _size = n_bins: # of bins >=2
     //  _m = (_size-1)/(4*r): 1/bin_width
@@ -120,6 +126,10 @@ private:
 
     // fit the peak location based on guassian distribution
     double fitPeakBinLocGauss (double y1, double v1, double y2, double v2, double y3, double v3);
+
+    void applyGaussian (Matrix<double>& field, int nx, int ny, int nz, std::vector<double> const& kernel, int radius, int axis);
+
+    void smoothDispField (double sigma_x, double sigma_y, double sigma_z); // radius = round(3*sigma)
 
 };
 

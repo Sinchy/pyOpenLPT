@@ -12,6 +12,7 @@
 #include "IPR.h"
 #include "PredField.h"
 #include "Track.h"
+#include "nanoflann.hpp"
 
 #include <vector>
 #include <deque>
@@ -111,6 +112,18 @@ private:
     // Dummy variables to identify the no. of tracks added and subtracted 
     int _a_sa = 0, _a_la = 0, _s_sa = 0, _s_la = 0, _a_li = 0;
 
+    // Define KDtree type
+    using KDTreeObj3d = nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Simple_Adaptor<double, Obj3dCloud<T3D>>,
+        Obj3dCloud<T3D>,
+        3 // dimensionality
+    >;
+    using KDTreeTrack = nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Simple_Adaptor<double, TrackCloud<T3D>>,
+        TrackCloud<T3D>,
+        3 // dimensionality
+    >;
+
 
     // FUNCTIONS //
     void createFolder (std::string const& folder);
@@ -122,6 +135,7 @@ private:
     void runConvPhase (int frame_id, std::vector<Image>& img_list, bool is_update_img = false);
     
     // remove overlap IPR objects
+    // TODO: use kd tree for checking
     void removeOverlap (std::vector<T3D>& obj3d_list);
     void removeOverlapTracer (std::vector<Tracer3D>& obj3d_list);
 
@@ -129,19 +143,22 @@ private:
     void findRepeatObj (std::vector<int>& is_repeat, std::vector<T3D> const& obj3d_list, double tol_3d);
 
     // make all possible links for tracks
-    int makeLink (Track<T3D> const& track, int nextframe, Pt3D const& vel_curr, double radius);
+    // int makeLink (Track<T3D> const& track, int nextframe, Pt3D const& vel_curr, double radius);
 
-    void startTrack (int frame, PredField& pf);
+    // void startTrack (int frame, PredField& pf);
+    void startTrack (int frame, PredField& pf, KDTreeObj3d const& tree_obj3d);
 
     bool findPredObj (T3D& obj3d, std::vector<Image> const& img_list);
     bool checkObj2D (T3D& obj3d);
 
-    int linkShortTrack (Track<T3D> const& track, std::vector<T3D> const& obj3d_list, int n_iter);
+    // int linkShortTrack (Track<T3D> const& track, std::vector<T3D> const& obj3d_list, int n_iter);
+    int linkShortTrack (Track<T3D> const& track, int n_iter, KDTreeObj3d const& tree_obj3d, KDTreeTrack const& tree_track);
 
     bool checkLinearFit (Track<T3D> const& track);
 
     // find nearest neighbor around a position
-    int findNN (std::vector<T3D> const& obj3d_list, Pt3D const& pt3d_est, double radius);
+    // int findNN (std::vector<T3D> const& obj3d_list, Pt3D const& pt3d_est, double radius);
+    int findNN (KDTreeObj3d const& tree_obj3d, Pt3D const& pt3d_est, double radius);
 
 };
 

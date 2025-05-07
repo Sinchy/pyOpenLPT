@@ -439,4 +439,27 @@ void polyfit (std::vector<double>& coeff, std::vector<double> const& x, std::vec
     }
 }
 
+// Create Gaussian kernel
+std::vector<double> createGaussianKernel(int radius, double sigma) 
+{
+    int size = 2 * radius + 1;
+    std::vector<double> kernel(size);
+    double sum = 0.0;
+
+    for (int i = 0; i < size; i++) 
+    {
+        int x = i - radius;
+        kernel[i] = std::exp(-(x * x) / (2 * sigma * sigma));
+        sum += kernel[i];
+    }
+
+    // Normalize the kernel
+    for (int i = 0; i < size; i++) 
+    {
+        kernel[i] /= sum;
+    }
+
+    return kernel;
+}
+
 }

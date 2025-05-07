@@ -1,7 +1,7 @@
 #ifndef TRACK_H
 #define TRACK_H
 
-// #include <deque>
+#include <deque>
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -74,6 +74,22 @@ private:
     KalmanFilter _kf;
     bool _is_kf_init = false;
     void predKalman (T3D& obj3d);
+};
+
+
+// Define TrackCloud class for KD-tree
+template<class T3D>
+struct TrackCloud 
+{
+    std::deque<Track<T3D>> const& _track_list;  // 3D points
+    TrackCloud(std::deque<Track<T3D>> const& track_list) : _track_list(track_list) {}
+
+    // Must define the interface required by nanoflann
+    inline size_t kdtree_get_point_count() const { return _track_list.size(); }
+    inline float kdtree_get_pt(const size_t idx, int dim) const { return _track_list[idx]._obj3d_list[_track_list[idx]._n_obj3d-2]._pt_center[dim]; }
+
+    // Bounding box (not needed for standard KD-tree queries)
+    template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
 };
 
 #include "Track.hpp"

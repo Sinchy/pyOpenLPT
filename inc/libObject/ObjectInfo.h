@@ -95,4 +95,20 @@ public:
     void saveObject3D (std::ofstream& output, int n_cam_all) const;
 };
 
+
+// Define Obj3dCloud class for KD-tree
+template <class T3D>
+struct Obj3dCloud
+{
+    std::vector<T3D> const& _obj3d_list;  // 3D points
+    Obj3dCloud(std::vector<T3D> const& obj3d_list) : _obj3d_list(obj3d_list) {}
+
+    // Must define the interface required by nanoflann
+    inline size_t kdtree_get_point_count() const { return _obj3d_list.size(); }
+    inline float kdtree_get_pt(const size_t idx, int dim) const { return _obj3d_list[idx]._pt_center[dim]; }
+
+    // Bounding box (not needed for standard KD-tree queries)
+    template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
+};
+
 #endif

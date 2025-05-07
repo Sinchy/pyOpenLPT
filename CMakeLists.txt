@@ -18,6 +18,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall         ")
 
 # Add executable target with source files listed in SOURCE_FILES variable
 include_directories("${CMAKE_HOME_DIRECTORY}/inc/libtiff")
+include_directories("${CMAKE_HOME_DIRECTORY}/inc/nanoflann")
 include_directories("${CMAKE_HOME_DIRECTORY}/inc/libMath")
 include_directories("${CMAKE_HOME_DIRECTORY}/src/srcMath")
 include_directories("${CMAKE_HOME_DIRECTORY}/inc/libObject")
