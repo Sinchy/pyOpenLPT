@@ -82,14 +82,11 @@ private:
     // calculate augmented images for a tracer
     ImgAugList calAugimg(Tracer3D& tr3d, OTF const& otf);
 
-    // Remove negative pxiel and set them as zeros, this function is used to prepare residual image for the next run of IPR.
-    void absResImg ();
-
     // Remove ghost particles.
     void findGhost(std::vector<Tracer3D>& tr3d_list);
     void removeGhostResidue(std::vector<Tracer3D>& tr3d_list);
     
-    void checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d);
+    void checkRepeatedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d);
 
     // Bubbles //
 
@@ -104,7 +101,7 @@ private:
     // Remove ghost particles.
     void findGhost(std::vector<Bubble3D>& bb3d_list);
 
-    void checkReaptedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3d);
+    void checkRepeatedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3d);
 
 
     //                     //

@@ -772,7 +772,7 @@ double Shake::calBubbleScore(Bubble3D const& bb3d, ImgAugList const& imgAug_list
 
     // calculate the score on each cam
     std::vector<double> ratio_int(n_cam_match, 0); // intensity ratio
-    int id = 0;
+    id = 0;
     for (int id_use = 0; id_use < _n_cam_use; id_use ++) {
         if (myMATH::ismember(id_use, cam_useid_mismatch)) {
             continue; 
@@ -842,11 +842,45 @@ void Shake::findGhost(std::vector<Bubble3D>& bb3d_list)
 
     // find particles that are close to each other
     // _is_repeated.resize(n_tr3d, 0);
-    checkReaptedObj(bb3d_list, _tol_3d);
-    
+    checkRepeatedObj(bb3d_list, _tol_3d);
+
+    // remove outliers
+    double sum = 0;
+    int n_mean = 0;
+    double mean = 0;
+    for (int i = 0; i < n_bb3d; i ++)
+    {
+        if (_score_list[i] > 0 && !_is_repeated[i])
+        {
+            sum += _score_list[i];
+            n_mean ++;
+        }
+    }
+    mean = sum / n_mean;
+
+    // std::cout << "Shake score mean: " << mean << std::endl;
+
+    // remove ghost tracers if the score is less than _min_score*mean
+    _n_ghost = 0;
+    for (int i = 0; i < n_bb3d; i ++)
+    {
+        if (_score_list[i] < _score_min * mean || _is_repeated[i])
+        {
+            _is_ghost[i] = 1;
+            _n_ghost ++;
+        }
+        else
+        {
+            _is_ghost[i] = 0;
+        }
+    }
+
+    #ifdef DEBUG
+    std::cout << "\tShake::findGhost: find " << _n_ghost << " ghost bubbles, including " << _n_repeated << " repeated bubbles." << std::endl;
+    #endif
 }
 
-void Shake::checkReaptedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3d)
+void Shake::checkRepeatedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3d)
 {
     int n_bb3d = bb3d_list.size();
     _is_repeated.resize(n_bb3d, 0);
@@ -860,8 +894,15 @@ void Shake::checkReaptedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3
         }
         
         for (int j = i + 1; j < n_bb3d; j ++) {
-            _is_repeated[j] = 1;
-            _n_repeated ++;
+            double dist2 = myMATH::dist2(
+                bb3d_list[i]._pt_center, 
+                bb3d_list[j]._pt_center
+            );
+            if (dist2 < std::pow(bb3d_list[i]._r3d + bb3d_list[j]._r3d + tol_3d, 2)) {
+                // if the distance is smaller than the threshold, then they are repeated
+                _is_repeated[j] = 1;
+                _n_repeated ++;
+            }
         }
     }
 }

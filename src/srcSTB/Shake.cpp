@@ -41,7 +41,7 @@ void Shake::runShake(std::vector<Tracer3D>& tr3d_list, OTF const& otf, std::vect
 //     }
 // }
 
-void Shake::checkReaptedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d)
+void Shake::checkRepeatedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d)
 {
     int n_tr3d = tr3d_list.size();
     _is_repeated.resize(n_tr3d, 0);
@@ -984,7 +984,7 @@ void Shake::findGhost(std::vector<Tracer3D>& tr3d_list)
 
     // find particles that are close to each other
     // _is_repeated.resize(n_tr3d, 0);
-    checkReaptedObj(tr3d_list, _tol_3d);
+    checkRepeatedObj(tr3d_list, _tol_3d);
 
     // remove outliers
     double sum = 0;

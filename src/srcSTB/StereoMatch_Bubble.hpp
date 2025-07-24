@@ -2,6 +2,7 @@
 #define STEREOMATCH_BUBBLE_HPP
 
 #include "StereoMatch.h"
+#define R3D_RATIO_THRES 0.05
 
 //              //
 // Bubble match //
@@ -257,6 +258,9 @@ void StereoMatch::removeGhostBubble (std::vector<Bubble3D>& obj3d_list, std::vec
             }
             myMATH::triangulation(obj3d._pt_center, obj3d._error, sight3D_list);
 
+            // update 3d radius
+            obj3d.updateR3D(_cam_list.cam_list, R3D_RATIO_THRES, _param.tor_3d);
+
             obj3d_list.push_back(obj3d);
 
             if (_param.is_update_inner_var)
@@ -307,17 +311,20 @@ void StereoMatch::fillBubbleInfo (std::vector<Bubble3D>& obj3d_list, std::vector
 
         myMATH::triangulation(obj3d._pt_center, obj3d._error, sight3D_list);
 
+        // update 3d radius
+        obj3d.updateR3D(_cam_list.cam_list, R3D_RATIO_THRES, _param.tor_3d);
+
         obj3d_list.push_back(obj3d);
     }
 }
 
-// save tracer info
+// save bubble info
 void StereoMatch::saveBubbleInfo (std::string path, std::vector<Bubble3D> const& obj3d_list)
 {
     std::ofstream file;
     file.open(path, std::ios::out);
 
-    file << "WorldX,WorldY,WorldZ,Error,Ncam";
+    file << "WorldX,WorldY,WorldZ,Error,R3D,Ncam";
 
     int n_cam_all = _cam_list.cam_list.size();
     for (int i = 0; i < n_cam_all; i ++)
@@ -660,9 +667,23 @@ void StereoMatch::iterOnObjIDMap (
                     }
                     else 
                     {
-                        objID_match_list.push_back(objID_match_new);
-
-                        error_list.push_back(error_3d);
+                        // check if the radius is within the tolerance
+                        Bubble3D obj3d(pt3d);
+                        obj3d._camid_list = _cam_list.useid_list;
+                        obj3d._n_2d = _n_cam_use;
+                        for (int i = 0; i < _n_cam_use; i ++)
+                        {
+                            obj3d._bb2d_list.push_back(
+                                obj2d_list[i][objID_match_new[i]]
+                            );
+                        }
+                        bool is_valid = obj3d.updateR3D(_cam_list.cam_list, R3D_RATIO_THRES, _param.tor_3d);
+                        
+                        if (is_valid)
+                        {
+                            objID_match_list.push_back(objID_match_new);
+                            error_list.push_back(error_3d);
+                        }
                     }
                 }
             }

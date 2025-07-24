@@ -46,7 +46,7 @@ void Track<T3D>::saveTrack(std::ofstream& output, int track_id, float fps, int n
 {    
     if (_n_obj3d != _obj3d_list.size())
     {
-        std::cerr << "Track<Tracer3D>::saveTrack error at line " << __LINE__ << ": _n_obj3d != _obj3d_list.size()" << std::endl;
+        std::cerr << "Track<T3D>::saveTrack error at line " << __LINE__ << ": _n_obj3d != _obj3d_list.size()" << std::endl;
         std::cerr << "track_id: " << track_id << std::endl;
         std::cerr << "_n_obj3d: " << _n_obj3d << std::endl;
         std::cerr << "_obj3d_list.size(): " << _obj3d_list.size() << std::endl;
@@ -78,20 +78,13 @@ Track<T3D>& Track<T3D>::operator=(Track<T3D> const& track)
 template<class T3D>
 void Track<T3D>::predictNext(T3D& obj3d)
 {
-    if (typeid(T3D) == typeid(Tracer3D))
+    if (_track_pred_param.type == WIENER)
     {
-        if (_track_pred_param.type == WIENER)
-        {
-            predLMSWiener(obj3d);
-        }
-        else if (_track_pred_param.type == KALMAN)
-        {
-            predKalman(obj3d);
-        }
-        else
-        {
-            std::cerr << "Error: predictNext not implemented for this type" << std::endl;
-        }
+        predLMSWiener(obj3d);
+    }
+    else if (_track_pred_param.type == KALMAN)
+    {
+        predKalman(obj3d);
     }
     else
     {
@@ -121,6 +114,9 @@ void Track<T3D>::predLMSWiener(T3D& obj3d)
     {
         order = 5;
     }
+
+    // copy the last object
+    obj3d = _obj3d_list[_n_obj3d-1]; 
 
     // predict at each direction
     std::vector<double> series (order+1, 0);
@@ -186,16 +182,6 @@ void Track<T3D>::predLMSWiener(T3D& obj3d)
         }
         obj3d._pt_center[i] = prediction;
     } 
-
-    if (typeid(T3D) == typeid(Tracer3D))
-    {
-        obj3d._r2d_px = _obj3d_list[_n_obj3d-1]._r2d_px;
-    } 
-    else
-    {
-        std::cerr << "Error: predictNext not implemented for this type" << std::endl;
-    }
-
 }
 
 template<class T3D>
@@ -207,20 +193,13 @@ void Track<T3D>::update()
         return;
     }
 
-    if (typeid(T3D) == typeid(Tracer3D))
-    {
-        _kf.update(_obj3d_list[_n_obj3d-1]._pt_center);
+    _kf.update(_obj3d_list[_n_obj3d-1]._pt_center);
 
-        // // update the tracer position
-        // for (int i = 0; i < 3; i ++)
-        // {
-        //     _obj3d_list[_n_obj3d-1]._pt_center[i] = _kf._x[i];
-        // }
-    }
-    else
-    {
-        std::cerr << "Error: update not implemented for this type" << std::endl;
-    }
+    // // update the tracer position
+    // for (int i = 0; i < 3; i ++)
+    // {
+    //     _obj3d_list[_n_obj3d-1]._pt_center[i] = _kf._x[i];
+    // }
 }
 
 template<class T3D>
@@ -310,10 +289,11 @@ void Track<T3D>::predKalman(T3D& obj3d)
 
     _kf.predict();
 
-    // predict the tracer position
+    // predict the obj position
+    obj3d = _obj3d_list[_n_obj3d-1]; // copy the last object
     for (int i = 0; i < 3; i ++)
     {
-        obj3d._pt_center[i] = _kf._x[i];
+        obj3d._pt_center[i] = _kf._x[i]; // update the position
     }
 }
 

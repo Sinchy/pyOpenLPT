@@ -199,42 +199,14 @@ void Bubble3D::updateBubble2D(std::vector<Bubble2D> const& bb2d_list, std::vecto
 
 void Bubble3D::projectObject2D(std::vector<int> const& camid_list, std::vector<Camera> const& cam_list_all)
 {
-    bool is_same_cam = (_camid_list == camid_list);
-    
-    if (is_same_cam) {
-        for (int i = 0; i < _n_2d; i ++) {
-            int cam_id = _camid_list[i];
-            _bb2d_list[i]._pt_center = cam_list_all[cam_id].project(_pt_center);
-        }
-    } else {
-        // save original radius
-        std::vector<double> r_orig_list(_n_2d, 0.0);
-        for (int i = 0; i < _n_2d; i ++) {
-            r_orig_list[i] = _bb2d_list[i]._r_px;
-        }
-
-        // resize _bb2d_list
-        int n_2d_new = camid_list.size();
-        _bb2d_list.resize(n_2d_new);
-
-        // update 2d location and assign originalradius
-        for (int i = 0; i < n_2d_new; i ++) {
-            int cam_id = camid_list[i];
-            _bb2d_list[i]._pt_center = cam_list_all[cam_id].project(_pt_center);
-
-            // assign original radius
-            _bb2d_list[i]._r_px = 0;
-            for (int j = 0; j < _n_2d; j++) {
-                if (_camid_list[j] == cam_id) {
-                    _bb2d_list[i]._r_px = r_orig_list[j];
-                    break;
-                }
-            }
-        }
-
-        _n_2d = n_2d_new;
-        _camid_list = camid_list;
+    _camid_list = camid_list;
+    _n_2d = camid_list.size();
+    for (int i = 0; i < _n_2d; i ++)
+    {
+        int cam_id = _camid_list[i];
+        _bb2d_list[i]._pt_center = cam_list_all[cam_id].project(_pt_center);
     }
+    updateR2D(cam_list_all);
 }
 
 void Bubble3D::setRadius2D(std::vector<double> r_px_list)
