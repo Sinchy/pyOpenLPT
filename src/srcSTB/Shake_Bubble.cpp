@@ -588,9 +588,6 @@ std::pair<double, std::vector<double>> Shake::calBubbleResidue(std::vector<Image
         int n_col = imgAug_list.img_list[id].getDimCol();
         
         // calculate 1-corr as residue 
-        // 1. check if xc, yc are integer, 
-        //    if not, do interpolation; 
-        //    if so, calculate directly and save to corr_map_list
         int x_low = std::floor(xc); int x_high = x_low + 1;
         int y_low = std::floor(yc); int y_high = y_low + 1;
 
@@ -643,7 +640,7 @@ std::pair<double, std::vector<double>> Shake::calBubbleResidue(std::vector<Image
             );
             residue += residue_list[id];
         } else {
-            residue_list[id] = imgCrossCorr(
+            residue_list[id] = 1 - imgCrossCorr(
                 imgAug_list.img_list[id], 
                 imgAug_list.region_list[id], 
                 imgRef_list[cam_id], 
@@ -668,11 +665,24 @@ double Shake::imgCrossCorr(Image const& imgAug, PixelRange const& region, Image 
     double xc = center_x - region.col_min; // start from region.col_min
     double yc = center_y - region.row_min; // start from region.row_min
 
-    int r_int = std::floor(r);
-    int x_min = std::max(0, int(std::round(xc) - r_int));
-    int x_max = std::min(n_col, int(std::round(xc) + r_int) + 1);
-    int y_min = std::max(0, int(std::round(yc) - r_int));
-    int y_max = std::min(n_row, int(std::round(yc) + r_int) + 1);
+    // int r_int = std::floor(r);
+    // int x_min = std::max(0, int(std::round(xc) - r_int));
+    // int x_max = std::min(n_col, int(std::round(xc) + r_int) + 1);
+    // int y_min = std::max(0, int(std::round(yc) - r_int));
+    // int y_max = std::min(n_row, int(std::round(yc) + r_int) + 1);
+
+    // // get reference image 
+    // int npix = r_int * 2 + 1;
+    // int center_ref = r_int;
+    // Image img_ref(npix, npix, 0);
+    // BubbleResize bb_resizer;
+    // bb_resizer.ResizeBubble(img_ref, imgRef, npix, intMax);
+
+    int r_int = std::round(r);
+    int x_min = std::max(0, int(std::round(xc - r_int)));
+    int x_max = std::min(n_col, int(std::round(xc + r_int)) + 1);
+    int y_min = std::max(0, int(std::round(yc - r_int)));
+    int y_max = std::min(n_row, int(std::round(yc + r_int)) + 1);
 
     // get reference image 
     int npix = r_int * 2 + 1;
@@ -841,7 +851,6 @@ void Shake::findGhost(std::vector<Bubble3D>& bb3d_list)
     int n_bb3d = bb3d_list.size();
 
     // find particles that are close to each other
-    // _is_repeated.resize(n_tr3d, 0);
     checkRepeatedObj(bb3d_list, _tol_3d);
 
     // remove outliers

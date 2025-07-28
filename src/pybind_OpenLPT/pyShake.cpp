@@ -19,6 +19,11 @@ void init_Shake(py::module& m)
             self.runShake(tr3d_list_shake, otf, imgOrig_list, tri_only);
             return tr3d_list_shake;
         }, py::arg("obj3d_list"), py::arg("otf"), py::arg("imgOrig_list"), py::arg("tri_only")=false)
+        .def("runShake", [](Shake& self, std::vector<Bubble3D>const& obj3d_list, std::vector<Image> const& imgOrig_list, std::vector<Image> const& imgRef_list, bool tri_only){
+            std::vector<Bubble3D> bb3d_list_shake(obj3d_list);
+            self.runShake(bb3d_list_shake, imgOrig_list, imgRef_list, tri_only);
+            return bb3d_list_shake;
+        }, py::arg("obj3d_list"), py::arg("imgOrig_list"), py::arg("imgRef_list"), py::arg("tri_only")=false)
         .def_readwrite("_imgRes_list", &Shake::_imgRes_list)
         .def_readwrite("_score_list", &Shake::_score_list)
         .def_readwrite("_is_ghost", &Shake::_is_ghost)

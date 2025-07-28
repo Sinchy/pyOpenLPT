@@ -80,10 +80,14 @@ bool BubbleRefImg::GetBubbleRefImg(std::vector<Image>& img_out, std::vector<Bubb
                 double xc = bb3d_list[id]._bb2d_list[i]._pt_center[0];
                 double yc = bb3d_list[id]._bb2d_list[i]._pt_center[1];
 
-                int x_min = std::ceil(xc - r);
-                int x_max = std::floor(xc + r) + 1;
-                int y_min = std::ceil(yc - r);
-                int y_max = std::floor(yc + r) + 1;
+                // int x_min = std::ceil(xc - r);
+                // int x_max = std::floor(xc + r) + 1;
+                // int y_min = std::ceil(yc - r);
+                // int y_max = std::floor(yc + r) + 1;
+                int x_min = std::round(xc - r);
+                int x_max = std::round(xc + r) + 1;
+                int y_min = std::round(yc - r);
+                int y_max = std::round(yc + r) + 1;
 
                 // check if out of the image range
                 if (x_min < 0 || x_max > ncol || 
