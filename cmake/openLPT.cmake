@@ -27,7 +27,7 @@ file(GLOB CIRCLE_SRCS "${CMAKE_HOME_DIRECTORY}/src/srcObject/BubbleCenterAndSize
 add_library(CircleIdentifier SHARED ${CMAKE_HOME_DIRECTORY}/src/srcObject/CircleIdentifier.cpp ${CIRCLE_SRCS})
 target_link_libraries(CircleIdentifier PUBLIC Matrix)
 
-add_library(ObjectFinder SHARED ${CMAKE_HOME_DIRECTORY}/src/srcObject/ObjectFinder.hpp)
+add_library(ObjectFinder SHARED ${CMAKE_HOME_DIRECTORY}/src/srcObject/ObjectFinder.cpp)
 set_target_properties(ObjectFinder PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(ObjectFinder PUBLIC Matrix myMath ObjectInfo CircleIdentifier)
 
@@ -40,7 +40,7 @@ target_link_libraries(BubbleResize PUBLIC Matrix)
 add_library(BubbleRefImg SHARED ${CMAKE_HOME_DIRECTORY}/src/srcObject/BubbleRefImg.cpp)
 target_link_libraries(BubbleRefImg PUBLIC Matrix myMath ObjectInfo BubbleResize)
 
-add_library(StereoMatch SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/StereoMatch.hpp)
+add_library(StereoMatch SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/StereoMatch.cpp)
 set_target_properties(StereoMatch PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(StereoMatch PUBLIC Matrix myMath ObjectInfo Camera)
 
@@ -53,19 +53,19 @@ target_link_libraries(Shake PUBLIC Matrix myMath ObjectInfo CircleIdentifier Bub
 add_library(ShakeDebug SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/ShakeDebug.cpp)
 target_link_libraries(ShakeDebug PUBLIC Shake)
 
-add_library(IPR SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/IPR.hpp)
+add_library(IPR SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/IPR.cpp)
 set_target_properties(IPR PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(IPR PUBLIC Matrix Camera ObjectInfo ObjectFinder StereoMatch Shake OTF)
 
-add_library(PredField SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/PredField.hpp)
+add_library(PredField SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/PredField.cpp)
 set_target_properties(PredField PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(PredField PUBLIC Matrix myMath ObjectInfo)
 
-add_library(Track SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/Track.hpp)
+add_library(Track SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/Track.cpp)
 set_target_properties(Track PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(Track PUBLIC Matrix myMath ObjectInfo KalmanFilter)
 
-add_library(STB SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/STB.hpp)
+add_library(STB SHARED ${CMAKE_HOME_DIRECTORY}/src/srcSTB/STB.cpp)
 set_target_properties(STB PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(STB PUBLIC Matrix myMath ObjectInfo ObjectFinder StereoMatch OTF Shake IPR PredField Track KalmanFilter)
 

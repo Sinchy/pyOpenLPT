@@ -1,4 +1,5 @@
 #include "myMATH.h"
+#include <functional>
 
 namespace myMATH
 {
@@ -26,6 +27,47 @@ std::vector<double> linspace (double min, double max, int n)
     }
 
     return res;
+}
+
+//
+// Generate all size-K combinations from the set {0, 1, ..., N-1}.
+// - Output is in lexicographic order (e.g. N=4, K=3 -> [0,1,2], [0,1,3], [0,2,3], [1,2,3]).
+// - Uses a short DFS (backtracking) with two key invariants:
+//   1) We grow `comb` from left to right; at depth `d` we choose the next index i >= `start`.
+//   2) Prune when there are not enough elements left: i can go up to N - (K - d).
+//      (Because we still need (K - d) slots to fill after choosing position d.)
+static void generateCombinations(size_t N, size_t K, std::vector<std::vector<int>>& out)
+{
+    out.clear();
+    if (K > N) return;
+    if (K == 0) { out.push_back({}); return; }
+
+    std::vector<int> comb;
+    comb.reserve(K);
+
+    // DFS(start, depth): this is a definition of the recursive function
+    // - `start`: the minimum candidate value for the next position
+    // - `depth`: how many elements are already placed in `comb`
+    std::function<void(size_t, size_t)> DFS = [&](size_t start, size_t depth)
+    {
+        if (depth == K) {
+            // We placed K elements, record one combination
+            out.push_back(comb);
+            return;
+        }
+
+        // Choose value for comb[depth]. The maximum `i` we can pick is:
+        // N - (K - depth), so that there will still be enough numbers left to fill.
+        for (size_t i = start; i <= N - (K - depth); ++i) {
+            comb.push_back(static_cast<int>(i));   // place current choice
+            DFS(i + 1, depth + 1);                 // recurse with next start and depth
+                                                   // this step will recursively fill comb until depth == K
+            comb.pop_back();                       // after one combination is done, remove last element and find
+                                                   // the next candidate for comb[depth]
+        }
+    };
+
+    DFS(0, 0); // Start DFS with initial start=0 and depth=0
 }
 
 // Bilinear interpolation
@@ -518,6 +560,80 @@ std::vector<double> createGaussianKernel(int radius, double sigma)
 
     return kernel;
 }
+
+// img: image that need to perform crosscorrelation, ref_img: the reference image, (cx, cy): the location of pixel where the center of ref_img is
+// NCC between an image patch and a reference image placed with its geometric center at (cx, cy).
+// - Geometric center of ref: ((col_ref-1)/2, (row_ref-1)/2)
+// - Nearest-neighbor sampling in ref via llround
+// - Window in img is chosen so that mapped (dy,dx) are always in-bounds for ref_img
+double imgCrossCorrAtPt(const Image& img, const Image& ref_img, double cx, double cy)
+{
+    const int row_img = img.getDimRow();
+    const int col_img = img.getDimCol();
+    const int row_ref = ref_img.getDimRow();
+    const int col_ref = ref_img.getDimCol();
+
+    // Geometric center of the reference
+    const double col_ref_center = (col_ref - 1) * 0.5;
+    const double row_ref_center = (row_ref - 1) * 0.5;
+
+    // Build intersection window in IMG so that after rounding:
+    //   dx = round(col_ref_center + (col - col_c)) ∈ [0, col_ref-1]
+    //   dy = round(row_ref_center + (row - row_c)) ∈ [0, row_ref-1]
+    // Since round(u) ∈ [0..N-1]  <=>  u ∈ [-0.5, N-0.5)
+    const int col_min = std::max(0,       static_cast<int>(std::ceil (cx - (col_ref_center + 0.5))));
+    const int col_max = std::min(col_img, static_cast<int>(std::floor(cx + (col_ref - 0.5 - col_ref_center)) + 1));
+    const int row_min = std::max(0,       static_cast<int>(std::ceil (cy - (row_ref_center + 0.5))));
+    const int row_max = std::min(row_img, static_cast<int>(std::floor(cy + (row_ref - 0.5 - row_ref_center)) + 1));
+
+    if (col_min >= col_max || row_min >= row_max) return 0.0;  // no overlap
+
+    // 1) Means
+    double sum_img = 0.0, sum_ref = 0.0;
+    long   n_sum   = 0;
+    for (int r = row_min; r < row_max; ++r) {
+        for (int c = col_min; c < col_max; ++c) {
+            const int dx = static_cast<int>(std::llround(col_ref_center + (c - cx)));
+            const int dy = static_cast<int>(std::llround(row_ref_center + (r - cy)));
+            sum_img += img(r, c);
+            sum_ref += ref_img(dy, dx);
+            ++n_sum;
+        }
+    }
+    if (n_sum == 0) return 0.0;
+
+    const double mu_img = sum_img / static_cast<double>(n_sum);
+    const double mu_ref = sum_ref / static_cast<double>(n_sum);
+
+    // 2) Zero-mean NCC
+    double num = 0.0, den_img = 0.0, den_ref = 0.0;
+    for (int r = row_min; r < row_max; ++r) {
+        for (int c = col_min; c < col_max; ++c) {
+            const int dx = static_cast<int>(std::llround(col_ref_center + (c - cx)));
+            const int dy = static_cast<int>(std::llround(row_ref_center + (r - cy)));
+            const double ai = img(r, c)       - mu_img;
+            const double bi = ref_img(dy, dx) - mu_ref;
+            num     += ai * bi;
+            den_img += ai * ai;
+            den_ref += bi * bi;
+        }
+    }
+
+    // 3) Normalize with guards
+    constexpr double eps = 1e-12;
+    double corr = 0.0;
+    if (den_img > eps && den_ref > eps) {
+        corr = num / std::sqrt(den_img * den_ref);
+        if (corr >  1.0) corr =  1.0;
+        if (corr < -1.0) corr = -1.0;
+    } else if (den_img <= eps && den_ref <= eps) {
+        corr = 1.0;  // both patches nearly constant
+    } else {
+        corr = 0.0;  // one constant, one not
+    }
+    return corr;
+}
+
 
 // Calculate image cross correlation
 double imgCrossCorr(Image const& img, Image const& img_ref)

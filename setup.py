@@ -69,8 +69,8 @@ class CMakeBuild(build_ext):
 
 setup(
     name='pyOpenLPT',
-    version='0.1.0',
-    author='Shijie Zhong',
+    version='0.2.0',
+    author='Shijie Zhong, Shiyong Tan',
     author_email='szhong12@jhu.edu',
     description='A Python interface for OpenLPT',
     long_description='',

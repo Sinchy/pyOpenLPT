@@ -1,30 +1,29 @@
-//
-//	ObjectInfo.h 
-//
-//	Base class for various image formats
-//	All image format types should inherit from Image 
-//
-//	Created by Shijie Zhong 07/11/2022 
-//
-
 #ifndef OBJECTINFO_H
 #define OBJECTINFO_H 
 
 #include <vector>
+#include <memory>  // for std::unique_ptr
+#include <sstream>
 #include "Matrix.h"
 #include "Camera.h"
 #include "STBCommons.h"
 
-// 2D object classes
+// ============================== 2D object classes ==============================
 class Object2D
-{
+{ 
 public:
     Pt2D _pt_center; 
 
-    Object2D () {};
-    Object2D (Object2D const& object) : _pt_center(object._pt_center) {};
-    Object2D (Pt2D const& pt_center) : _pt_center(pt_center) {};
-    virtual ~Object2D () {};
+    Object2D() = default;
+    // Copy constructor
+    Object2D(const Object2D& object) : _pt_center(object._pt_center) {}
+    // Constructor with center point
+    Object2D(const Pt2D& pt_center) : _pt_center(pt_center) {}
+
+    virtual ~Object2D() = default;
+
+    // clone method for polymorphic behavior
+    virtual std::unique_ptr<Object2D> clone() const = 0;
 };
 
 class Tracer2D : public Object2D
@@ -32,10 +31,13 @@ class Tracer2D : public Object2D
 public:
     double _r_px = 2; // [px], for shaking
 
-    Tracer2D () {};
-    Tracer2D (Tracer2D const& tracer) : Object2D(tracer), _r_px(tracer._r_px) {};
-    Tracer2D (Pt2D const& pt_center) : Object2D(pt_center) {};
-    ~Tracer2D () {};
+    Tracer2D() = default;
+    Tracer2D(const Tracer2D& tracer) : Object2D(tracer), _r_px(tracer._r_px) {}
+    Tracer2D(const Pt2D& pt_center) : Object2D(pt_center) {}
+
+    ~Tracer2D() override = default;
+
+    ENABLE_CLONE(Tracer2D, Object2D);
 };
 
 class Bubble2D : public Object2D 
@@ -43,131 +45,183 @@ class Bubble2D : public Object2D
 public:
     double _r_px = 2; // [px], for shaking
 
-    Bubble2D () {};
-    Bubble2D (Bubble2D const& bubble) : Object2D(bubble), _r_px(bubble._r_px) {};
-    Bubble2D (Pt2D const& pt_center, double r_px) : Object2D(pt_center), _r_px(r_px) {};
-    ~Bubble2D () {};
+    Bubble2D() = default;
+    Bubble2D(const Bubble2D& bubble) : Object2D(bubble), _r_px(bubble._r_px) {}
+    Bubble2D(const Pt2D& pt_center, double r_px) : Object2D(pt_center), _r_px(r_px) {}
+
+    ~Bubble2D() override = default;
+
+    ENABLE_CLONE(Bubble2D, Object2D);
 };
 
-// 3D object classes
+
+// ============================== 3D object classes ==============================
 class Object3D
 {
 public:
-    Pt3D _pt_center; 
+    Pt3D _pt_center; // center of the object in world coordinate [mm]
+    std::vector<std::unique_ptr<Object2D>> _obj2d_list; // 2D projections of the object in different cameras, this can be specialized to different types of 2D objects
     bool _is_tracked = false;
 
-    Object3D () {};
-    Object3D (Object3D const& object) : _pt_center(object._pt_center) {};
-    Object3D (Pt3D const& pt_center) : _pt_center(pt_center) {};
-    void saveObject3D (std::ofstream& output, int n_cam_all) const {};
-    void projectObject2D (std::vector<int> const& camid_list, std::vector<Camera> const& cam_list_all) {};
-    ~Object3D () {};
+    Object3D() = default;
+
+    // forbid copy constructor to prevent slicing since _pt2d_list is a vector of unique_ptr
+    // enable move semantics
+    NONCOPYABLE_MOVABLE(Object3D);
+
+    // Constructor with center point
+    Object3D(const Pt3D& pt_center) : _pt_center(pt_center) {}
+
+    // Copy only lightweight/common fields; do NOT deep-copy ownership fields.
+    void copyCommonFrom(const Object3D& src) {
+        _pt_center  = src._pt_center;
+        _is_tracked = src._is_tracked;
+    }
+    
+    // calculate the 2D information (_obj2d_list)
+    void projectObject2D(const std::vector<Camera>& cam_list);
+
+    // to check whether the object is seen by more than 2 cameras;
+    bool isReconstructable(const std::vector<Camera>& cam_list);
+
+    // function to output the 3D object information
+    // output: output stream to save the bubble information
+    virtual void saveObject3D(std::ostream& out) const = 0; // pure virtual function, must be implemented in derived classes
+
+    // function to read the 3D object from input stream
+    // Tracer: reads 3 fields (X,Y,Z). Bubble: reads 4 fields (X,Y,Z,R3D).
+    // 2D projections are intentionally ignored; they will be projected later.
+    virtual void loadObject3D(std::istream& in) = 0;
+
+    virtual ~Object3D() = default;
+
+protected:
+    // subclasses must initialize the type of _pt2d_list
+    // this function is used in projectObject2D to create a 2D object of the specific type
+    virtual std::unique_ptr<Object2D> create2DObject() const = 0; // = 0 means pure virtual function, must be implemented in derived classes
+
+    // additional 2D projection, for example, bubbles need to project the radius
+    virtual void additional2DProjection(const std::vector<Camera>& cam_list) = 0;
 };
 
 class Tracer3D : public Object3D
 {
 public:
-    int _n_2d = 0;
-    double _error = 0; // [mm]
     double _r2d_px = 2; // [px], for shaking
-    std::vector<int> _camid_list; // min id = 0
-    std::vector<Tracer2D> _tr2d_list;
 
-    Tracer3D () {};
-    Tracer3D (Tracer3D const& tracer3d) : Object3D(tracer3d), _n_2d(tracer3d._n_2d), _error(tracer3d._error), _r2d_px(tracer3d._r2d_px), _camid_list(tracer3d._camid_list), _tr2d_list(tracer3d._tr2d_list) {};
-    Tracer3D (Pt3D const& pt_center) : Object3D(pt_center) {};
-    ~Tracer3D () {};
-
-    // user has to make sure the cam_id is unique
-    void addTracer2D (Tracer2D const& tracer2d, int cam_id);
-    void addTracer2D (std::vector<Tracer2D> const& tracer2d_list, std::vector<int> const& camid_list);
-
-    void removeTracer2D (int cam_id);
-    void removeTracer2D (std::vector<int> const& camid_list);
-    void clearTracer2D ();
-    
-    void updateTracer2D (Tracer2D const& tracer2d, int cam_id);
-
-    // _tr2d_list and _camid_list will be updated to tracer2d_list and camid_list
-    void updateTracer2D (std::vector<Tracer2D> const& tracer2d_list, std::vector<int> const& camid_list);
-
-    // project 3D tracer to 2D
-    // It will project the 3D tracer to 2D for each camera in camid_list
-    //  and store the 2D tracers in _tr2d_list.
-    // input:
-    //  camid_list: camera id list (set _camid_list = camid_list)
-    //  cam_list_all: all camera parameters, camid = 0, 1, 2, ...
-    void projectObject2D (std::vector<int> const& camid_list, std::vector<Camera> const& cam_list_all);
-
-    void getTracer2D (Tracer2D& tracer2d, int cam_id);
+    Tracer3D() = default;
+    NONCOPYABLE_MOVABLE(Tracer3D);
+    Tracer3D(const Pt3D& pt_center) : Object3D(pt_center) {}
+    Tracer3D(const Pt3D& pt_center, const double r2d_px) : Object3D(pt_center), _r2d_px(r2d_px) {}
 
     // save the 3D tracer to a file
-    void saveObject3D (std::ofstream& output, int n_cam_all) const;
+    void saveObject3D(std::ostream& out) const override;
+
+    void loadObject3D(std::istream& in) override;
+
+    ~Tracer3D() override = default;
+
+protected:
+    // Create a 2D object of type Tracer2D
+    std::unique_ptr<Object2D> create2DObject() const override
+    {
+        return std::make_unique<Tracer2D>();
+    }
+
+    void additional2DProjection(const std::vector<Camera>& cam_list) override;
+    
 };
 
-// Bubble3D class
 class Bubble3D : public Object3D
 {
 public:
-    int _n_2d = 0;
-    double _error = 0; // [mm]
-    double _r3d = -1; // [mm]
-    std::vector<int> _camid_list; // min id = 0
-    std::vector<Bubble2D> _bb2d_list;
+    double _r3d = -1; // [mm], bubble radius in 3D
 
-    Bubble3D () {};
-    Bubble3D (Bubble3D const& bubble3d) : Object3D(bubble3d), _n_2d(bubble3d._n_2d), _error(bubble3d._error), _r3d(bubble3d._r3d), _camid_list(bubble3d._camid_list), _bb2d_list(bubble3d._bb2d_list) {};
-    Bubble3D (Pt3D const& pt_center) : Object3D(pt_center) {};
-    ~Bubble3D () {};
-
-    // user has to make sure the cam_id is unique
-    void addBubble2D (Bubble2D const& bb2d, int cam_id);
-    void addBubble2D (std::vector<Bubble2D> const& bb2d_list, std::vector<int> const& camid_list);
-
-    void removeBubble2D (int cam_id);
-    void removeBubble2D (std::vector<int> const& camid_list);
-    void clearBubble2D ();
-
-    void updateBubble2D (Bubble2D const& bb2d, int cam_id);
-
-    // _bb2d_list and _camid_list will be updated to bubble2d_list and camid_list
-    void updateBubble2D (std::vector<Bubble2D> const& bb2d_list, std::vector<int> const& camid_list);
-
-    // project 3D bubble to 2D
-    // It will project the 3D bubble to 2D for each camera in camid_list
-    //  and store the 2D bubbles in _bb2d_list.
-    // input:
-    //  camid_list: camera id list (set _camid_list = camid_list)
-    //  cam_list_all: all camera parameters, camid = 0, 1, 2, ...
-    void projectObject2D (std::vector<int> const& camid_list, std::vector<Camera> const& cam_list_all);
-    void setRadius2D (std::vector<double> r_px_list);
-
-    void getBubble2D (Bubble2D& bubble2d, int cam_id);
-
-    // update 3D bubble radius
-    bool updateR3D (std::vector<Camera> const& cam_list_all, double ratio_thres = 0.05, double tol3d = 100);
-
-    // update 2D bubble radius
-    void updateR2D (int cam_id, std::vector<Camera> const& cam_list_all);
-    void updateR2D (std::vector<Camera> const& cam_list_all);
+    Bubble3D() = default;
+    NONCOPYABLE_MOVABLE(Bubble3D);
+    Bubble3D(const Pt3D& pt_center, double r3d) : Object3D(pt_center),  _r3d(r3d) {}
 
     // save the 3D bubble to a file
-    void saveObject3D (std::ofstream& output, int n_cam_all) const;
+    void saveObject3D(std::ostream& output) const override;
+
+    void loadObject3D(std::istream& in) override;
+
+    ~Bubble3D() override = default;
+
+protected:
+    // Create a 2D object of type Bubble2D
+    std::unique_ptr<Object2D> create2DObject() const override
+    {
+        return std::make_unique<Bubble2D>();
+    }
+
+    void additional2DProjection(const std::vector<Camera>& cam_list) override;
+
 };
 
+// useful functions for spherical bubbles
+namespace Bubble {
+
+  // Single-view radius estimate (used by consistency checks, diagnostics)
+  // Dispatch:
+  //   - PINHOLE    : exact inversion with fx (pixels) and d = ||X - cam_center||.
+  //   - POLYNOMIAL : Jacobian linearization at X: R ≈ r_px / sigma_max(J(X)).
+  // Return NaN if unsupported or inputs invalid.
+  double calRadiusFromOneCam(const Camera& cam,
+                             const Pt3D&   X,
+                             double        r_px);
+
+  // Forward projection (predict image radius from a 3D radius)
+  // Same dispatch as above. Return NaN if unsupported/invalid.
+  double cal2DRadius(const Camera& cam,
+                     const Pt3D&   X,
+                     double        R);
+
+  // Multi-view radius estimate for a final accepted match
+  // Combines per-view estimates into one robust 3D radius (e.g., median).
+  // Requires cams.size() == r_px.size(); returns NaN if invalid/unsupported.
+  double calRadiusFromCams(const std::vector<Camera>&                     cams,
+                           const Pt3D&                                    X,
+                           const std::vector<std::unique_ptr<Object2D>>&  obj2d_list);
+
+  // Cross-view consistency gate (early check)
+  // Uses calRadiusFromOneCam() per view, then gates by max(R_i)/min(R_i) ≤ max_spread.
+  // Policy: if inputs insufficient (e.g., <2 views / size mismatch), return true (permissive).
+  bool checkRadiusConsistency(const Pt3D&                          X,
+                            const std::vector<const Camera*>&    cams,
+                            const std::vector<const Object2D*>&  obj2d_by_cam,
+                            double                               tol_2d_px,
+                            double                               tol_3d);
+
+} // namespace bubble
+
+
+
+// ============================== Obj3dCloud for KD-tree ==============================
 // Define Obj3dCloud class for KD-tree
-template <class T3D>
+// NOTE: Stores a const reference to the owning container of unique_ptr<Object3D>.
+//       Objects must outlive this adapter. Mixed derived types (Tracer3D/Bubble3D) are fine.
 struct Obj3dCloud
 {
-    std::vector<T3D> const& _obj3d_list;  // 3D points
-    Obj3dCloud(std::vector<T3D> const& obj3d_list) : _obj3d_list(obj3d_list) {}
+    const std::vector<std::unique_ptr<Object3D>>& _obj3d_list;  // 3D points, view only (no ownership)
+
+    explicit Obj3dCloud(const std::vector<std::unique_ptr<Object3D>>& obj3d_list)
+        : _obj3d_list(obj3d_list) {}
 
     // Must define the interface required by nanoflann
     inline size_t kdtree_get_point_count() const { return _obj3d_list.size(); }
-    inline float kdtree_get_pt(const size_t idx, int dim) const { return _obj3d_list[idx]._pt_center[dim]; }
+
+    // Return coordinate 'dim' (0/1/2) of point 'idx'
+    inline float kdtree_get_pt(const size_t idx, int dim) const
+    {
+        // _pt_center is assumed indexable like _pt_center[dim]
+        return static_cast<float>(_obj3d_list[idx]->_pt_center[dim]);
+    }
 
     // Bounding box (not needed for standard KD-tree queries)
-    template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX&) const { return false; }
 };
+
 
 #endif

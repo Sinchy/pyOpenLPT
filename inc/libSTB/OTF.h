@@ -10,6 +10,8 @@
 #include "STBCommons.h"
 #include "myMATH.h"
 
+class TracerConfig;
+
 struct OTFParam
 {
     double dx, dy, dz;
@@ -44,21 +46,27 @@ private:
 
 public:
     OTFParam _param;
+    std::string _output_path; // output path for OTF parameter
 
     OTF () {};
     OTF(const OTF& otf) : _param(otf._param) {};
 
     // nx,ny,nz >= 2
     // set as default a,b,c,alpha values
-    OTF(int n_cam, int nx, int ny, int nz, AxisLimit const& boundary); 
+    OTF(int n_cam, int nx, int ny, int nz, AxisLimit const& boundary, std::vector<Camera> const& cam_list); 
 
     // nx,ny,nz >= 2
     // use file to load a,b,c,alpha
     OTF(std::string otf_file); 
 
+    // get a rough OTF using images, the parameters are uniform across the 3D space, but just adjusted to the 2D real image
+    void estimateUniformOTFFromImage(int cam_id,
+                                 TracerConfig& tracer_config,
+                                 const std::vector<Image>& img_list);
+
     ~OTF() {};
 
-    void loadParam (int n_cam, int nx, int ny, int nz, AxisLimit const& boundary);
+    void loadParam (int n_cam, int nx, int ny, int nz, AxisLimit const& boundary, std::vector<Camera> const& cam_list);
     void loadParam (std::string otf_file);
 
     void saveParam (std::string otf_file);

@@ -110,6 +110,8 @@ void isOutlier (std::vector<int>& judge, std::vector<T> const& nums)
 // n >= 2, including min and max, n_gap = n-1
 std::vector<double> linspace (double min, double max, int n);
 
+// Generate all size-K combinations from the set {0, 1, ..., N-1}.
+static void generateCombinations(size_t N, size_t K, std::vector<std::vector<int>>& out);
 
 // Bilinear interpolation
 double bilinearInterp(AxisLimit const& grid_limit, std::vector<double> const& value, std::vector<double> const& pt_vec);
@@ -510,6 +512,8 @@ void polyfit (std::vector<double>& coeff, std::vector<double> const& x, std::vec
 // Create 1D Gaussian kernel
 std::vector<double> createGaussianKernel(int radius, double sigma);
 
+// calculate crosscorelation at point (cx, cy)
+double imgCrossCorrAtPt(const Image& img, const Image& ref_img, double cx, double cy);
 
 // Calculate image cross correlation
 double imgCrossCorr(Image const& img, Image const& img_ref);

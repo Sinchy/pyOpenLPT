@@ -3,95 +3,64 @@
 
 #include <deque>
 #include <vector>
+#include <memory>    // unique_ptr in public API
 #include <iostream>
-#include <fstream>
+#include <sstream>
+#include <fstream>   // std::ifstream in public API
 #include <algorithm>
 #include <typeinfo>
 
+#include "Config.h"
 #include "STBCommons.h"
 #include "Matrix.h"
 #include "ObjectInfo.h"
 #include "KalmanFilter.h"
 
 // Predictor param
-struct TrackPredParam
-{
-    TrackPredID type = WIENER;
-    std::vector<double> param;    
 
-    // Wiener filter: no param
-    // Kalman filter: 
-    //  _param = {
-    //      sigma_q, # process noise
-    //      sigma_rx, sigma_ry, sigma_rz, # measurement noise
-    //      sigma_p0_x, sigma_p0_y, sigma_p0_z, 
-    //      sigma_p0_vx, sigma_p0_vy, sigma_p0_vz # initial state covariance
-    //  }
-};
-
-template<class T3D>
 class Track
 {
 public:
-    std::vector<T3D> _obj3d_list;
+    std::vector<std::unique_ptr<const Object3D>> _obj3d_list; // 3D objects, content of objects shouldn't be altered
     std::vector<int> _t_list; // frame ID list
-    int _n_obj3d = 0;
+
     bool _active = true;
-    TrackPredParam _track_pred_param;
 
     // Functions //
     Track() {};
-    Track(TrackPredParam const& track_pred_param);
-    Track(T3D const& obj3d, int t);
-    Track(T3D const& obj3d, int t, TrackPredParam const& track_pred_param);
-    Track(Track const& track);
+    Track(std::unique_ptr<Object3D> obj3d, int t);
+    NONCOPYABLE_MOVABLE(Track); //Track cannot be copied, but can be moved
     ~Track() {};
 
     // Add a new point to the Track
     // only non-fake points should be added to the track
-    void addNext(T3D const& obj, int t);
-
-    // Add another Track onto the end of this one
-    void addNext(Track const& t);
-    
-    // Predict the next position of the track
-    // but not update the obj2d list
-    void predictNext(T3D& obj3d);
-
-    // Update the track with the new observation
-    void update();
+    void addNext(std::unique_ptr<Object3D> obj3d, int t);
 
     // write the track to a file
-    void saveTrack(std::ofstream& output, int track_id, float fps = 1, int n_cam_all = 0);
-    
-    // member operators
-    Track<T3D>& operator=(Track<T3D> const& t);
+    void saveTrack(std::ostream& output, int track_id);
 
-private:
-    void predLMSWiener (T3D& obj3d);
+    // Read from the current file position: consume all consecutive rows
+    // that belong to the same TrackID. Stop (and rewind one line) when the ID changes.
+    void loadTrack(std::ifstream& fin, const ObjectConfig& cfg, const std::vector<Camera>& cams);
 
-    // Kalman filter
-    KalmanFilter _kf;
-    bool _is_kf_init = false;
-    void predKalman (T3D& obj3d);
 };
 
 
 // Define TrackCloud class for KD-tree
-template<class T3D>
+
 struct TrackCloud 
 {
-    std::deque<Track<T3D>> const& _track_list;  // 3D points
-    TrackCloud(std::deque<Track<T3D>> const& track_list) : _track_list(track_list) {}
+    std::deque<Track> const& _track_list;  // 3D points
+    TrackCloud(std::deque<Track> const& track_list) : _track_list(track_list) {}
 
     // Must define the interface required by nanoflann
     inline size_t kdtree_get_point_count() const { return _track_list.size(); }
-    inline float kdtree_get_pt(const size_t idx, int dim) const { return _track_list[idx]._obj3d_list[_track_list[idx]._n_obj3d-2]._pt_center[dim]; }
+    inline float kdtree_get_pt(const size_t idx, int dim) const 
+    { return _track_list[idx]._obj3d_list[_track_list[idx]._t_list.size() - 2]->_pt_center[dim]; } 
+    // note: use the point before the last point, this is for linking short tracks in STB
 
     // Bounding box (not needed for standard KD-tree queries)
     template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
 };
-
-#include "Track.hpp"
 
 #endif

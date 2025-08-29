@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15...3.27)  # CMake version check
 
 project(OpenLPT)  
-set(CMAKE_CXX_STANDARD 17)  
+set(CMAKE_CXX_STANDARD 20)  
 
 
 # set(CMAKE_C_COMPILER   "D:/msys2/mingw64/bin/gcc.exe")

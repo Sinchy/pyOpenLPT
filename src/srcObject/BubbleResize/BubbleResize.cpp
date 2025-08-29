@@ -24,7 +24,7 @@ BubbleResize::~BubbleResize()
 
 // b_img: the reference bubble image, b_d: the diameter of the reference
 // img: output resized image, d_b: the size of the output
-void BubbleResize::ResizeBubble(Image& o_img, Image const& b_img, int d_b, double b_img_max)
+Image& BubbleResize::ResizeBubble(Image const& b_img, int d_b, double b_img_max)
 {
   coder::array<double, 2U> weights;
   coder::array<int, 2U> indices;
@@ -84,11 +84,14 @@ void BubbleResize::ResizeBubble(Image& o_img, Image const& b_img, int d_b, doubl
                             static_cast<double>(weights.size(1)), img);
   }
   // load img into o_img. 
+  Image o_img(img.size(0), img.size(1), 0.0);
   for (int idx0{ 0 }; idx0 < img.size(0); idx0++) {
       for (int idx1{ 0 }; idx1 < img.size(1); idx1++) {
           o_img(idx0,idx1) = img[idx0 + img.size(0) * idx1] / 255.0 * b_img_max;
       }
   }
+
+  return o_img;
 }
 
 // End of code generation (BubbleResize.cpp)

@@ -1,193 +1,240 @@
 #include "BubbleRefImg.h"
 
-bool BubbleRefImg::GetBubbleRefImg(std::vector<Bubble3D> const& bb3d_list, std::vector<std::vector<Bubble2D>> const& bb2d_list_all, std::vector<Image> const& img_input, double r_thres, int n_bb_thres) {
-    img_Ref_list.clear();
-    intRef_list.clear();
+// Build bubble reference images (one per active camera) from the current 3D reconstruction
+// and all raw 2D detections. Succeeds only if *every* active camera builds a template.
+//
+// Contract
+//  - Returns true IFF every active camera produced a valid reference image.
+//  - _img_Ref_list / _intRef_list are resized to cams.size(), aligned by camera index.
+//  - No ownership is taken; all inputs are read-only.
+//  - Pixel windows use half-open ranges [min, max).
+//
+// Inputs
+//  - objs_out      : reconstructed 3D objects (polymorphic). Only Bubble3D are used.
+//  - bb2d_list_all : all 2D detections per camera (polymorphic). Only Bubble2D are used.
+//  - cams          : camera array; only cameras with _is_active == true are required to succeed.
+//  - img_input     : current working images per camera (aligned to cams).
+//  - r_thres       : candidate filter — a 3D bubble is selected only if every active camera
+//                    sees its 2D radius > r_thres.
+//  - n_bb_thres    : minimum number of selected 3D bubbles required to proceed.
+//
+bool BubbleRefImg::calBubbleRefImg(
+    const std::vector<std::unique_ptr<Object3D>>& objs_out,
+    const std::vector<std::vector<std::unique_ptr<Object2D>>>& bb2d_list_all,
+    const std::vector<Camera>& cams,
+    const std::vector<Image>& img_input,
+    double r_thres, int n_bb_thres)
+{
+    _img_Ref_list.clear();
+    _intRef_list.clear();
 
-    bool is_valid = true;
-    int n_bb3d = bb3d_list.size();
-    int n_cam_used = _cam_list.useid_list.size();
+    const int n_cam = static_cast<int>(cams.size());
+    if (n_cam == 0) return false;
+    if (static_cast<int>(img_input.size()) != n_cam) return false;
+    if (static_cast<int>(bb2d_list_all.size()) != n_cam) return false;
 
-    std::vector<int> is_select(n_bb3d, 1);
+    // NEW: all cameras must be active
+    for (int cam = 0; cam < n_cam; ++cam) {
+        if (!cams[cam]._is_active) return false;
+    }
+
+    // ---- Build non-owning pointer views: Bubble3D* and Bubble2D* ----
+    std::vector<const Bubble3D*> bb3d_ptrs;
+    bb3d_ptrs.reserve(objs_out.size());
+    for (const auto& up : objs_out) {
+        if (!up) continue;
+        // no dynamic_cast: you guaranteed they are Bubble3D
+        bb3d_ptrs.push_back(static_cast<const Bubble3D*>(up.get()));
+    }
+    if (bb3d_ptrs.empty()) return false;
+
+    std::vector<std::vector<const Bubble2D*>> bb2d_ptrs(n_cam);
+    for (int cam = 0; cam < n_cam; ++cam) {
+        const auto& vec = bb2d_list_all[cam];
+        auto& out = bb2d_ptrs[cam];
+        out.reserve(vec.size());
+        for (const auto& u : vec) {
+            if (!u) continue;
+            // no dynamic_cast: you guaranteed they are Bubble2D
+            out.push_back(static_cast<const Bubble2D*>(u.get()));
+        }
+    }
+
+    // ---- 1) Select 3D bubbles: every camera must see a large enough 2D radius ----
     std::vector<int> id_select;
-    for (int i = 0; i < n_bb3d; i++) {
-        for (int j = 0; j < n_cam_used; j++) {
-            if (bb3d_list[i]._bb2d_list[j]._r_px <= r_thres) {
-                is_select[i] = 0;
-                break;
-            }
+    id_select.reserve(bb3d_ptrs.size());
+    for (int i = 0; i < static_cast<int>(bb3d_ptrs.size()); ++i) {
+        bool ok = true;
+        for (int cam = 0; cam < n_cam; ++cam) {
+            const Object2D* obj2d = bb3d_ptrs[i]->_obj2d_list[cam].get();
+            if (!obj2d) { ok = false; break; }
+            const auto* b2 = static_cast<const Bubble2D*>(obj2d);
+            if (b2->_r_px <= r_thres) { ok = false; break; }
         }
-        if (is_select[i]) {
-            id_select.push_back(i);
-        }
+        if (ok) id_select.push_back(i);
     }
-    int n_select = id_select.size();
+    const int n_select = static_cast<int>(id_select.size());
+    if (n_select <= n_bb_thres) return false;
 
-    if (n_select > n_bb_thres) {
-        // obtain the maximum bubble diameter 
-        std::vector<double> dia_ref(n_cam_used, 0);
-        for (int i = 0; i < n_cam_used; i++) {
-            double dia_max = 0;
-            // #pragma omp parallel for reduction(max:dia_max)
-            for (int j = 0; j < n_select; j++) {
-                int id = id_select[j];
-                dia_max = std::max(dia_max, 2 * bb3d_list[id]._bb2d_list[i]._r_px);
-            }
-            dia_ref[i] = dia_max;
+    // ---- 2) Determine per-camera template size (max diameter among selected) ----
+    std::vector<double> dia_ref(n_cam, 0.0);
+    for (int cam = 0; cam < n_cam; ++cam) {
+        double dmax = 0.0;
+        for (int j = 0; j < n_select; ++j) {
+            const int id = id_select[j];
+            const Object2D* obj2d = bb3d_ptrs[id]->_obj2d_list[cam].get();
+            if (!obj2d) continue;
+            const auto* b2 = static_cast<const Bubble2D*>(obj2d);
+            dmax = std::max(dmax, 2.0 * b2->_r_px);
         }
-
-        // initialize the bubble reference image
-        for (int i = 0; i < n_cam_used; i++) {
-            int npix = std::round(dia_ref[i]);
-            // img_out.push_back(Image(npix, npix, 0.0)); 
-            img_Ref_list.push_back(Image(npix, npix, 0.0));
-            intRef_list.push_back(0.0);
-        }
-
-        // generate bubble reference images
-        for (int i = 0; i < n_cam_used; i++) {
-            int npix = std::round(dia_ref[i]);
-            std::vector<Image> bb_img_i(n_select, Image(npix, npix, 0.0));
-            std::vector<double> max_intensity(n_select, 0.0);
-            std::vector<int> is_satisfy(n_select, 0);      
-            
-            int cam_id_real = _cam_list.useid_list[i];
-            int nrow = img_input[cam_id_real].getDimRow();
-            int ncol = img_input[cam_id_real].getDimCol();
-            // TODO: not sure what is the best way to normalize the intensity
-            double intensity_max = _cam_list.intensity_max[cam_id_real];
-            // double intensity_max = 0;
-            // for (int row_id = 0; row_id < nrow; row_id++) {
-            //     for (int col_id = 0; col_id < ncol; col_id++) {
-            //         intensity_max = std::max(intensity_max, img_input[cam_id_real](row_id, col_id));
-            //     }
-            // }
-
-            #pragma omp parallel for 
-            for (int j = 0; j < n_select; j++) {
-                int id = id_select[j];
-                double r = bb3d_list[id]._bb2d_list[i]._r_px;
-                bool is_overlap = false;
-                bool is_itself = false;
-
-                for (int k = 0; k < bb2d_list_all[i].size(); k ++) {
-                    double dist = myMATH::dist(bb2d_list_all[i][k]._pt_center, bb3d_list[id]._bb2d_list[i]._pt_center);
-
-                    if (dist < 1 && !is_itself) {
-                        is_itself = true;
-                        continue;
-                    } else if (dist < bb2d_list_all[i][k]._r_px + r - bb2d_list_all[i][k]._r_px * 0.1) {
-                        is_overlap = true;
-                        break;
-                    }
-                }
-                if (is_overlap) continue;
-
-                double xc = bb3d_list[id]._bb2d_list[i]._pt_center[0];
-                double yc = bb3d_list[id]._bb2d_list[i]._pt_center[1];
-
-                // int x_min = std::ceil(xc - r);
-                // int x_max = std::floor(xc + r) + 1;
-                // int y_min = std::ceil(yc - r);
-                // int y_max = std::floor(yc + r) + 1;
-                int x_min = std::round(xc - r);
-                int x_max = std::round(xc + r) + 1;
-                int y_min = std::round(yc - r);
-                int y_max = std::round(yc + r) + 1;
-
-                // check if out of the image range
-                if (x_min < 0 || x_max > ncol || 
-                    y_min < 0 || y_max > nrow) {
-                    continue;
-                }
-
-                int dx = x_max - x_min;
-                int dy = y_max - y_min;
-                int img_size = std::min(dx, dy);
-                Image bb_img_ij(img_size, img_size, 0.0);
-                double max_int = 0;
-                for (int x_id = 0; x_id < img_size; x_id++) {
-                    for (int y_id = 0; y_id < img_size; y_id++) {
-                        double dx_real = x_min + x_id - xc;
-                        double dy_real = y_min + y_id - yc;
-                        bool is_outside = dx_real * dx_real + dy_real * dy_real > (r+1) * (r+1);
-
-                        if (is_outside) {
-                            bb_img_ij(y_id, x_id) = 0;
-                        } else {
-                            double val = img_input[cam_id_real](y_id + y_min, x_id + x_min);
-                            bb_img_ij(y_id, x_id) = val;
-                            max_int = std::max(max_int, val);
-                        }
-                    }
-                }
-                max_intensity[j] = max_int;
-                is_satisfy[j] = 1;
-
-                // resize image to given size
-                BubbleResize bb_resizer;
-                bb_resizer.ResizeBubble(bb_img_i[j], bb_img_ij, npix, intensity_max);
-
-                // // for debug
-                // std::string file = "D:\\My Code\\Tracking Code\\OpenLPT 0.3\\OpenLPT\\test\\inputs\\test_BubbleRefImg\\debug\\cam" + std::to_string(cam_id_real) + "_bb_" + std::to_string(j) + ".csv";
-                // bb_img_ij.write(file);
-            }
-            
-            double mean_int = 0;
-            int n_mean_int = 0;
-            for (int j = 0; j < n_select; j ++) {
-                if (is_satisfy[j]) {
-                    mean_int += max_intensity[j];
-                    n_mean_int ++;
-                }
-            }   
-            if (n_mean_int > 0) {
-                mean_int /= n_mean_int;
-            } else {
-                is_valid = false;
-                return is_valid;
-            }
-
-            // calculate average resize image 
-            for (int x_id = 0; x_id < npix; x_id ++) {
-                for (int y_id = 0; y_id < npix; y_id ++) {
-                    int n_avg = 0;
-                    for (int k = 0; k < n_select; k++) {
-                        if (max_intensity[k] > mean_int * 0.8) {
-                            // img_out[i](y_id, x_id) += bb_img_i[k](y_id, x_id);
-                            img_Ref_list[i](y_id, x_id) += bb_img_i[k](y_id, x_id);
-                            n_avg++; 
-                        }
-                    }
-                    // img_out[i](y_id, x_id) /= n_avg;
-                    img_Ref_list[i](y_id, x_id) /= n_avg;  
-                }
-            }
-
-            int n_row_ref = img_Ref_list[i].getDimRow();
-            int n_col_ref = img_Ref_list[i].getDimCol();
-            int n_sum = 0;
-            double xc = (n_col_ref - 1) / 2.0;
-            double yc = (n_row_ref - 1) / 2.0;
-            double r = n_col_ref / 2.0;
-            for (int row = 0; row < n_row_ref; row++)
-            {
-                for (int col = 0; col < n_col_ref; col++)
-                {
-                    double dist = std::sqrt(std::pow(row - yc, 2) + std::pow(col - xc, 2));
-                    if (dist < r) {
-                        intRef_list[i] += img_Ref_list[i](row, col);
-                        n_sum++;
-                    }
-                }
-            }
-            if (n_sum > 0) {
-                intRef_list[i] /= n_sum;
-            }
-        }
-    } else {
-        is_valid = false;
+        if (dmax <= 0.0) return false; // every camera must have usable 2D projections
+        dia_ref[cam] = dmax;
     }
 
-    return is_valid;
+    // ---- 3) Allocate outputs aligned with cameras ----
+    _img_Ref_list.assign(n_cam, Image{});
+    _intRef_list.assign(n_cam, 0.0);
+
+    // ---- 4) Build reference image for EVERY camera; any failure -> false ----
+    for (int cam = 0; cam < n_cam; ++cam) {
+        const int npix = static_cast<int>(std::round(dia_ref[cam]));
+        if (npix <= 0) { _img_Ref_list.clear(); _intRef_list.clear(); return false; }
+
+        _img_Ref_list[cam] = Image(npix, npix, 0.0);
+
+        const int nrow = img_input[cam].getDimRow();
+        const int ncol = img_input[cam].getDimCol();
+        const double intensity_max = cams[cam]._max_intensity;
+
+        std::vector<Image>  bb_img_i(n_select);
+        std::vector<double> max_peak(n_select, 0.0);
+        std::vector<int>    ok_crop(n_select, 0);
+
+        // Collect non-overlapping crops and resize to npix × npix
+        for (int j = 0; j < n_select; ++j) {
+            const int id = id_select[j];
+            const Object2D* obj2d = bb3d_ptrs[id]->_obj2d_list[cam].get();
+            if (!obj2d) continue;
+            const auto* b2 = static_cast<const Bubble2D*>(obj2d);
+
+            const double r  = b2->_r_px;
+            const double xc = b2->_pt_center[0];
+            const double yc = b2->_pt_center[1];
+
+            // Strict overlap rejection against all 2D detections on this camera.
+            bool overlap = false;
+            for (const Bubble2D* q : bb2d_ptrs[cam]) {
+                if (!q) continue;
+                if (q == b2) continue; // same pointer (shared storage)
+                const double dist = myMATH::dist(q->_pt_center, b2->_pt_center);
+                if (dist < 0.25) continue;                   // nearly same location → self-like
+                if (dist < 1.2 * (r + q->_r_px)) { overlap = true; break; } // stricter than touching
+            }
+            if (overlap) continue;
+
+            // Half-open crop window [min, max)
+            const int x_min = static_cast<int>(std::round(xc - r));
+            const int x_max = static_cast<int>(std::round(xc + r)) + 1;
+            const int y_min = static_cast<int>(std::round(yc - r));
+            const int y_max = static_cast<int>(std::round(yc + r)) + 1;
+
+            // Bounds check against image dimensions
+            if (x_min < 0 || y_min < 0 || x_max > ncol || y_max > nrow) continue;
+
+            const int dx = x_max - x_min;
+            const int dy = y_max - y_min;
+            const int sz = std::min(dx, dy);
+            if (sz <= 0) continue;
+
+            Image crop(sz, sz, 0.0);
+            double peak = 0.0;
+
+            for (int yy = 0; yy < sz; ++yy) {
+                for (int xx = 0; xx < sz; ++xx) {
+                    const double dxr = (x_min + xx) - xc;
+                    const double dyr = (y_min + yy) - yc;
+                    if (dxr * dxr + dyr * dyr > (r + 1) * (r + 1)) {
+                        crop(yy, xx) = 0.0;
+                    } else {
+                        const double val = img_input[cam](y_min + yy, x_min + xx);
+                        crop(yy, xx) = val;
+                        if (val > peak) peak = val;
+                    }
+                }
+            }
+
+            BubbleResize resizer;
+            bb_img_i[j] = resizer.ResizeBubble(crop, npix, intensity_max);
+
+            max_peak[j] = peak;
+            ok_crop[j]  = 1;
+        }
+
+        // Mean-peak check (must have at least one usable crop)
+        double mean_peak = 0.0; int cnt = 0;
+        for (int j = 0; j < n_select; ++j) if (ok_crop[j]) { mean_peak += max_peak[j]; ++cnt; }
+        if (cnt == 0) { _img_Ref_list.clear(); _intRef_list.clear(); return false; }
+        mean_peak /= cnt;
+
+        // Global precheck: how many resized crops pass the peak filter?
+        int n_eff = 0;
+        for (int j = 0; j < n_select; ++j) {
+            if (ok_crop[j] && max_peak[j] > 0.8 * mean_peak) ++n_eff;
+        }
+        if (n_eff < n_bb_thres) {
+            _img_Ref_list.clear(); _intRef_list.clear();
+            return false; // not enough qualified samples overall
+        }
+
+        // Average resized crops whose peak > 0.8 × mean_peak.
+        // Enforce per-pixel coverage: navg >= n_bb_thres inside the inscribed circle.
+        const double core_margin = 1.0;             // shrink radius by 1px to avoid boundary artifacts
+        const double cx = (npix - 1) / 2.0;
+        const double cy = (npix - 1) / 2.0;
+        const double rr = npix / 2.0 - core_margin; // effective radius for per-pixel coverage
+
+        for (int yy = 0; yy < npix; ++yy) {
+            for (int xx = 0; xx < npix; ++xx) {
+                const double d = std::hypot(yy - cy, xx - cx);
+                if (d >= rr) {
+                    _img_Ref_list[cam](yy, xx) = 0.0;
+                    continue; // outside the effective disk
+                }
+
+                double acc = 0.0;
+                int    navg = 0;
+                for (int j = 0; j < n_select; ++j) {
+                    if (ok_crop[j] && max_peak[j] > 0.8 * mean_peak) {
+                        acc += bb_img_i[j](yy, xx);
+                        ++navg;
+                    }
+                }
+
+                if (navg < n_bb_thres) {
+                    _img_Ref_list.clear(); _intRef_list.clear();
+                    return false; // not enough contributing samples at this pixel
+                }
+
+                _img_Ref_list[cam](yy, xx) = acc / navg;
+            }
+        }
+
+        // Template mean intensity within the FULL inscribed circle (rename vars to avoid redecl)
+        double sum = 0.0; int nsum = 0;
+        const double cx2 = (npix - 1) / 2.0;
+        const double cy2 = (npix - 1) / 2.0;
+        const double rr2 = npix / 2.0;
+        for (int row = 0; row < npix; ++row) {
+            for (int col = 0; col < npix; ++col) {
+                const double d = std::hypot(row - cy2, col - cx2);
+                if (d < rr2) { sum += _img_Ref_list[cam](row, col); ++nsum; }
+            }
+        }
+        _intRef_list[cam] = (nsum > 0) ? (sum / nsum) : 0.0;
+    }
+
+    _is_valid = true;
+
+    return true; // every camera succeeded
 }
+

@@ -24,7 +24,7 @@ struct PinholeParam
 {
     int n_row; // number of rows of the image
     int n_col; // number of columns of the image
-    Matrix<double> cam_mtx; // camera matrix (intrinsic parameters)
+    Matrix<double> cam_mtx; // camera matrix (intrinsic parameters) 
     bool is_distorted; // whether the image is distorted
     int n_dist_coeff; // number of distortion coefficients (4,5,8,12)
     std::vector<double> dist_coeff; // distortion coefficients
@@ -82,6 +82,8 @@ public:
     PinholeParam _pinhole_param;
     PolyParam    _poly_param; 
     PinPlateParam _pinplate_param;
+    double _max_intensity = 255;
+    bool _is_active = true; // whether the camera is active
 
     Camera ();
     Camera (const Camera& c); // Camera deep copy
@@ -171,11 +173,5 @@ public:
 
 };
 
-struct CamList
-{
-    std::vector<Camera> cam_list; // cam_id: 0,1,2,3,..
-    std::vector<int> intensity_max; // default: 8 digit (255), save size as cam_list
-    std::vector<int> useid_list; // cam_id to be used
-};
 
 #endif

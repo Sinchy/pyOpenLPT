@@ -51,7 +51,7 @@ set_property(TARGET bindPredField PROPERTY LINKER_LANGUAGE CXX)
 add_library(bindTrack INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/Track.hpp)
 set_property(TARGET bindTrack PROPERTY LINKER_LANGUAGE CXX)
 
-add_library(bindSTB INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/STB.hpp)
+add_library(bindSTB INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/STB.cpp)
 set_property(TARGET bindSTB PROPERTY LINKER_LANGUAGE CXX)
 
 include_directories(${CMAKE_SOURCE_DIR}/src/)

@@ -1,9 +1,10 @@
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
-#include <fstream>
+#include <memory>
 #include <variant>
-#include <time.h>
+#include <ctime>    // clock_t, clock, CLOCKS_PER_SEC
+#include <cstdlib>  // EXIT_SUCCESS/EXIT_FAILURE
 
 #include "STBCommons.h"
 #include "ImageIO.h"
@@ -12,261 +13,95 @@
 #include "ObjectInfo.h"
 #include "STB.h"
 
-void run (std::string file)
-{
-    std::cout << "**************" << std::endl;
-    std::cout << "OpenLPT start!" << std::endl;
-    std::cout << "**************" << std::endl;
-    std::cout << std::endl;
 
-    // Load config
-    int frame_start, frame_end, fps, n_thread;
-    CamList cam_list;
-    int n_cam_all;
-    AxisLimit axis_limit;
-    double vx_to_mm;
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: OpenLPT <config_file_path>" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    std::cout << "Load config file: " << file << std::endl;
-    std::ifstream stb_config(file, std::ios::in);
-    std::vector<std::string> lines;
-    std::string line;
-    while (std::getline(stb_config, line))
-    {
-        // Trim leading and trailing whitespace (optional)
-        line.erase(0, line.find_first_not_of(" \t\r\n")); // Trim leading whitespace
-        line.erase(line.find_last_not_of(" \t\r\n") + 1); // Trim trailing whitespace
-        if (line.empty())
-        {
-            continue;
+    std::string config_path = argv[1];
+
+    // Read basic configuration from file
+    BasicSetting basic_settings;
+    if (!basic_settings.readConfig(config_path)) {
+        std::cerr << "Error: Failed to read basic configuration from file: " << config_path << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    try {
+        // Create STB objects based on object types found in config
+        std::vector<STB> stb_objects;
+
+        for (size_t i = 0; i < basic_settings._object_types.size(); ++i) {
+            const std::string& type = basic_settings._object_types[i];
+            const std::string& obj_config_path = basic_settings._object_config_paths[i];
+            stb_objects.emplace_back(STB(basic_settings, type, obj_config_path));
         }
 
-        size_t commentpos = line.find('#');
-        if (commentpos > 0)
-        {
-            if (commentpos < std::string::npos)
-            {
-                line.erase(commentpos);
+        // load previous tracks if needed
+        if (basic_settings._load_track) {
+            for (size_t i = 0; i < basic_settings._object_types.size(); ++i) { 
+                stb_objects[i].loadTracksAll(basic_settings._load_track_path, basic_settings._load_track_frame);
             }
         }
-        else
-        {
-            continue;
+
+        // --- Prepare image IO ---
+        // 运行前做一致性检查：相机数量 vs 图像路径数量
+        if (basic_settings._cam_list.size() != basic_settings._image_file_paths.size()) {
+            std::cerr << "Error: #cams (" << basic_settings._cam_list.size()
+                      << ") != #image paths (" << basic_settings._image_file_paths.size() << ")\n";
+            return EXIT_FAILURE;
         }
 
-        lines.push_back(line);
-    }
-    stb_config.close();
-
-    std::stringstream parsed;
-
-    // Load frame range
-    int line_id = 0;
-    parsed.str(lines[line_id]);
-    std::getline(parsed, line, ',');
-    frame_start = std::stoi(line);
-    std::getline(parsed, line, ',');
-    frame_end = std::stoi(line);
-    parsed.clear();
-    if (frame_start > frame_end-1)
-    {
-        std::cerr << "Error: Invalid frame range!" << std::endl;
-        return;
-    }
-    
-    // Load frame rate
-    line_id ++;
-    fps = std::stoi(lines[line_id]);
-
-    // Load thread number
-    line_id ++;
-    n_thread = std::stoi(lines[line_id]);
-
-    // Load cam files
-    line_id ++;
-    n_cam_all = std::stoi(lines[line_id]);
-    for (int i = 0; i < n_cam_all; i++)
-    {
-        line_id ++;
-        parsed.str(lines[line_id]);
-        
-        std::getline(parsed, line, ',');
-        cam_list.cam_list.push_back(Camera(line));
-
-        std::getline(parsed, line, ',');
-        cam_list.intensity_max.push_back(std::stoi(line));
-
-        cam_list.useid_list.push_back(i);
-
-        parsed.clear();
-    }
-
-    // Load image io
-    std::vector<ImageIO> imgio_list;
-    for (int i = 0; i < n_cam_all; i++)
-    {
-        line_id ++;
-        imgio_list.push_back(ImageIO());
-        imgio_list[i].loadImgPath("", lines[line_id]);
-    }
-
-    // Load axis limit
-    line_id ++;
-    parsed.str(lines[line_id]);
-    std::getline(parsed, line, ',');
-    axis_limit.x_min = std::stod(line);
-    std::getline(parsed, line, ',');
-    axis_limit.x_max = std::stod(line);
-    std::getline(parsed, line, ',');
-    axis_limit.y_min = std::stod(line);
-    std::getline(parsed, line, ',');
-    axis_limit.y_max = std::stod(line);
-    std::getline(parsed, line, ',');
-    axis_limit.z_min = std::stod(line);
-    std::getline(parsed, line, ',');
-    axis_limit.z_max = std::stod(line);
-    parsed.clear();
-
-    // Load vx_to_mm
-    line_id ++;
-    vx_to_mm = std::stod(lines[line_id]);
-
-    // Load output folder path
-    line_id ++;
-    std::string output_folder = lines[line_id];
-
-    // Load STB
-    line_id ++;    
-    parsed.str(lines[line_id]);
-    std::vector<std::variant<STB<Tracer3D>>> stb_list;
-    int n_obj_class = 0;
-    while (std::getline(parsed, line, ','))
-    {
-        line_id ++;
-        if (line == "Tracer")
-        {
-            stb_list.push_back(STB<Tracer3D>(frame_start, frame_end, fps, vx_to_mm, n_thread, output_folder+"Tracer_"+std::to_string(n_obj_class)+'/', cam_list, axis_limit, lines[line_id]));
-
-            // Calibrate OTF // 
-            std::cout << "Start Calibrating OTF!" << std::endl;
-            int n_otf_calib = 5;
-            int n_obj2d_max = 1000;
-            std::vector<Image> img_list(n_otf_calib);
-
-            std::visit(
-                [&](auto& stb) 
-                { 
-                    double r_otf_calib = stb.getObjParam()[2];
-                    for (int i = 0; i < n_cam_all; i ++)
-                    {
-                        for (int j = 0; j < n_otf_calib; j ++)
-                        {
-                            img_list[j] = imgio_list[i].loadImg(frame_start + j);
-                        }
-                        stb.calibrateOTF(i, n_obj2d_max, r_otf_calib, img_list); 
-                    }
-                }, 
-                stb_list[n_obj_class]
-            );
-
-            std::cout << "Finish Calibrating OTF!\n" << std::endl;
-
-            n_obj_class ++;
+        std::vector<ImageIO> imgio_list;
+        imgio_list.reserve(basic_settings._image_file_paths.size());
+        for (const auto& path : basic_settings._image_file_paths) {
+            ImageIO io;
+            io.loadImgPath("", path);
+            imgio_list.push_back(io);
         }
-        else
-        {
-            std::cerr << "Error: Unknown object type: " << line << std::endl;
-            return;
-        }
-    }
-    parsed.clear();
 
-    // Load previous tracks
-    line_id ++;
-    int frame_id_prev = frame_start-1;
+        // image_list 与 imgio_list 保持相同尺寸，避免越界
+        std::vector<Image> image_list(imgio_list.size());
 
-    if (line_id < lines.size())
-    {
-        // std::cout << lines[line_id] << std::endl;
-        bool is_load_tracks = false;
+        std::cout << "**************" << std::endl;
+        std::cout << "OpenLPT start!" << std::endl;
+        std::cout << "**************\n" << std::endl;
 
-        parsed.str(lines[line_id]);
-        std::getline(parsed, line, ',');
-        is_load_tracks = std::stoi(line);
-        std::getline(parsed, line, ',');
-        frame_id_prev = std::stoi(line);
-        parsed.clear();
+        // Process frames
+        int frame_start = basic_settings._frame_start;
+        int frame_end = basic_settings._frame_end;
+        int num_cams = static_cast<int>(imgio_list.size());
 
-        if (is_load_tracks)
-        {
-            if (frame_id_prev < frame_start-1 || frame_id_prev > frame_end-1)
-            {
-                std::cerr << "Error: Invalid previous frame ID!" << std::endl;
-                return;
+        clock_t start = clock();
+        for (int frame_id = frame_start; frame_id <= frame_end; ++frame_id) {
+            for (int i = 0; i < num_cams; ++i) {
+                image_list[i] = imgio_list[i].loadImg(frame_id);
             }
 
-            for (int i = 0; i < n_obj_class; i ++)
-            {
-                line_id ++;
-                std::visit(
-                    [&](auto& stb) 
-                    { 
-                        stb.loadTracks(lines[line_id], LONG_ACTIVE); 
-                        stb.loadTracks(lines[line_id + n_obj_class], SHORT_ACTIVE);
-                    }, 
-                    stb_list[i]
-                );
+            for (auto& stb : stb_objects) {            
+                stb.processFrame(frame_id, image_list);
             }
         }
-        else 
-        {
-            frame_id_prev = frame_start-1;
-        }
+        clock_t end = clock();
+        std::cout << "\nTotal time for STB: " << double(end - start) / CLOCKS_PER_SEC << "s\n" << std::endl;
+        std::cout << "***************" << std::endl;
+        std::cout << "OpenLPT finish!" << std::endl;
+        std::cout << "***************" << std::endl;
+    }
+    catch (const FatalError& e) {   // error defined in error.hpp
+        std::cerr << "Program aborted due to error: " << e.what() << std::endl;
+        return EXIT_FAILURE;   
+    }
+    catch (const std::exception& e) { // error from C++
+        std::cerr << "Unhandled std exception: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (...) {
+        std::cerr << "Unknown error occurred!" << std::endl;
+        return EXIT_FAILURE;
     }
 
-    // Start processing
-    clock_t start = clock();
-    std::vector<Image> img_list(n_cam_all);
-    for (int frame_id = frame_id_prev+1; frame_id < frame_end+1; frame_id ++)
-    {
-        // load image
-        for (int i = 0; i < n_cam_all; i ++)
-        {
-            img_list[i] = imgio_list[i].loadImg(frame_id);
-        }
-
-        for (int i = 0; i < stb_list.size(); i ++)
-        {
-            std::visit(
-                [&](auto& stb) 
-                { 
-                    stb.processFrame(frame_id, img_list); 
-                }, 
-                stb_list[i]
-            );
-        }
-    }
-
-    std::cout << std::endl;
-    clock_t end = clock();
-    double duration = double(end - start) / CLOCKS_PER_SEC;
-    std::cout << "Total time for STB: " << duration << "s" << std::endl;
-
-    std::cout << std::endl;
-    std::cout << "***************" << std::endl;
-    std::cout << "OpenLPT finish!" << std::endl;
-    std::cout << "***************" << std::endl;
-}
-
-int main (int argc, char *argv[])
-{
-    if (argc != 2)
-    {
-        std::cerr << "Main Error: Invalid number of arguments!" << std::endl;
-        return 0;
-    }
-
-    std::string file = argv[1];
-    run(file);
-
-    return 0;
+    return EXIT_SUCCESS;
 }

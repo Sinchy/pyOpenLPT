@@ -1,14 +1,173 @@
-#include "OTF.h"
+#include <random>
+#include <algorithm>
+#include <cmath>
 
-OTF::OTF(int n_cam, int nx, int ny, int nz, AxisLimit const& boundary)
+#include "OTF.h"
+#include "ObjectInfo.h"
+#include "ObjectFinder.h"
+#include "Config.h"
+
+OTF::OTF(int n_cam, int nx, int ny, int nz, AxisLimit const& boundary, std::vector<Camera> const& cam_list)
 {
-    loadParam(n_cam, nx, ny, nz, boundary);
+    loadParam(n_cam, nx, ny, nz, boundary, cam_list);
 };
 
 OTF::OTF(std::string otf_file)
 {
     loadParam(otf_file);
 };
+
+void OTF::estimateUniformOTFFromImage(int cam_id,
+                                 TracerConfig& tracer_config,
+                                 const std::vector<Image>& img_list)
+{
+// estimate OTF parameters
+// Gaussian intensity: 
+//  projection center: (xc,yc), x=col, y=row
+//  dx =  (x-xc)*cos(alpha) + (y-yc)*sin(alpha)
+//  dy = -(x-xc)*sin(alpha) + (y-yc)*sin(alpha)
+//  I(x,y) = a * exp( - b*dx^2 - c*dx^2 )
+//  - ln(I) + ln(a) = b*dx^2 + c*dy^2
+//  a = mean(I_c) + 2*std(I_c)
+// Assume a,b,c,alpha are the same in the view volume, alpha=0
+//  nx,ny,nz = 2,2,2
+// otf_param: need to be initialized before calling this function
+
+    // this can only be applied to Tracer3D
+    std::vector<std::vector<std::unique_ptr<Object2D>>> tr2d_list_all;
+    ObjectFinder2D objfinder;
+    int n_obj2d_max = 1000; // maximum number of tracers in each camera
+
+    // find objects in each image
+    std::cout << "Camera " << cam_id << std::endl;
+    std::cout << "\tNumber of found tracers in each image: ";
+    for (int j = 0; j < img_list.size(); j ++)
+    {
+        std::vector<std::unique_ptr<Object2D>> obj2d_list = objfinder.findObject2D(img_list[j], tracer_config); //TODO:
+        
+        std::cout << obj2d_list.size();
+        // if tr2d_list is too large, randomly select some tracers
+        int seed = 123;
+        if (obj2d_list.size() > n_obj2d_max)
+        {
+            std::shuffle(obj2d_list.begin(), obj2d_list.end(), std::default_random_engine(seed));
+            obj2d_list.erase(obj2d_list.begin() + n_obj2d_max, obj2d_list.end());
+            std::cout << "(" << n_obj2d_max << ")";
+        }
+        else if (obj2d_list.size() == 0)
+        {
+            Status st = STATUS_ERR_CTX(ErrorCode::NoEnoughData,
+                               "OTF calibration skipped: no tracer found",
+                               "cam_id=" + std::to_string(cam_id));
+            std::cerr << "[WARN] " << st.err.message
+              << " | ctx: " << st.err.context
+              << " | at "  << SRC_FILE(st.err.where)
+              << ":"       << SRC_LINE(st.err.where) << std::endl;
+              return;
+        }
+        std::cout << ",";
+        tr2d_list_all.push_back(std::move(obj2d_list));
+    }
+    std::cout << std::endl;
+
+    // estimate OTF parameters
+    std::vector<double> I_list;
+    std::vector<double> a_list;
+    std::vector<std::vector<double>> coeff_list;
+    std::vector<double> coeff(2,0);
+    double xc, yc;
+    int n_row, n_col;
+    int row_min, row_max, col_min, col_max;
+    double r_pt = tracer_config._radius_obj;
+    for (int i = 0; i < img_list.size(); i ++)
+    {
+        n_row = img_list[i].getDimRow();
+        n_col = img_list[i].getDimCol();
+
+        for (int j = 0; j < tr2d_list_all[i].size(); j ++)
+        {
+            xc = tr2d_list_all[i][j]->_pt_center[0];
+            yc = tr2d_list_all[i][j]->_pt_center[1];
+
+            int yc0 = std::clamp<int>(int(std::round(yc)), 0, n_row - 1);
+            int xc0 = std::clamp<int>(int(std::round(xc)), 0, n_col - 1);
+            a_list.push_back(img_list[i](yc0, xc0));
+
+
+            row_min = std::max(0, int(std::floor(yc - r_pt)));
+            row_max = std::min(n_row, int(std::ceil(yc + r_pt + 1)));
+            col_min = std::max(0, int(std::floor(xc - r_pt)));
+            col_max = std::min(n_col, int(std::ceil(xc + r_pt + 1)));
+
+            for (int row = row_min; row < row_max; row ++)
+            {
+                for (int col = col_min; col < col_max; col ++)
+                {
+                    I_list.push_back(img_list[i](row, col));
+                    coeff[0] = (std::pow(col-xc, 2));
+                    coeff[1] = (std::pow(row-yc, 2));
+                    coeff_list.push_back(coeff);
+                }
+            }
+        }
+    }
+
+    // a = mean(I_c) + 2.*std(I_c)
+    double a;
+    double a_mean = 0;
+    double a_std = 0;
+    double a_max = *std::max_element(a_list.begin(), a_list.end());
+    int n_a = a_list.size();
+    for (int i = 0; i < n_a; i ++)
+    {
+        a_mean += a_list[i];
+    }
+    a_mean /= n_a;
+    for (int i = 0; i < n_a; i ++)
+    {
+        a_std += std::pow(a_list[i] - a_mean, 2);
+    }
+    a_std = std::sqrt(a_std / n_a);
+    a = std::min(a_mean + 2 * a_std, a_max);  
+    std::cout << "\ta_mean = " << a_mean << "; a_std = " << a_std << "; a_max = " << a_max << "; a = " << a << std::endl;
+
+    // estimate the coefficients
+    int n_coeff = coeff_list.size();
+    double logI;
+    Matrix<double> coeff_mat(n_coeff, 2, 0);
+    Matrix<double> logI_mat(n_coeff, 1, 0);
+    for (int i = 0; i < n_coeff; i ++)
+    {
+        for (int j = 0; j < 2; j ++)
+        {
+            coeff_mat(i, j) = coeff_list[i][j];
+        }
+
+        logI = I_list[i] < LOGSMALLNUMBER ? std::log(LOGSMALLNUMBER) : std::log(I_list[i]);
+        logI_mat(i, 0) = - logI + std::log(a);
+    }
+    Matrix<double> coeff_est = myMATH::inverse(coeff_mat.transpose() * coeff_mat) * coeff_mat.transpose() * logI_mat;
+
+    for (int i = 0; i < 8; i ++)
+    {
+        _param.a(cam_id, i) = a;
+        _param.b(cam_id, i) = coeff_est(0, 0);
+        _param.c(cam_id, i) = coeff_est(1, 0);
+        _param.alpha(cam_id, i) = 0;
+    }
+    
+    std::cout << "\t(a,b,c,alpha) = " << _param.a(cam_id,0) << "," << _param.b(cam_id,0) << ","  << _param.c(cam_id,0) << "," << _param.alpha(cam_id,0) << std::endl;
+
+    if (_output_path.empty()) {
+        Status st = STATUS_ERR(ErrorCode::IOfailure,
+                            "OTF output path is empty; saving to working directory");
+        std::cerr << "[WARN] " << st.err.message
+                << " | at "  << SRC_FILE(st.err.where)
+                << ":"       << SRC_LINE(st.err.where) << std::endl;
+    }
+    // Save OTF parameters
+    saveParam(_output_path + "OTF.txt");
+}
 
 void OTF::setGrid ()
 {
@@ -21,14 +180,18 @@ void OTF::setGrid ()
     _param.dz = (_param.boundary.z_max - _param.boundary.z_min) / (_param.nz - 1);
 }
 
-void OTF::loadParam (int n_cam, int nx, int ny, int nz, AxisLimit const& boundary)
+void OTF::loadParam (int n_cam, int nx, int ny, int nz, AxisLimit const& boundary, std::vector<Camera> const& cam_list)
 {
     if (nx < 2 || ny < 2 || nz < 2)
     {
-        std::cerr << "OTF::loadParam error at line" << __LINE__ << ":\n"
-                  << "nx, ny, nz should be larger than 1." << std::endl;
-        std::cerr << "nx = " << nx << ", ny = " << ny << ", nz = " << nz << std::endl;
-        throw error_range;
+        Status st = STATUS_ERR(ErrorCode::InvalidArgument,
+                               "Grid number should be larger than 1");
+        std::cerr << "[WARN] " << st.err.message
+              << " | at "  << SRC_FILE(st.err.where)
+              << ":"       << SRC_LINE(st.err.where) << std::endl;
+        nx = nx < 2? 2 : nx;
+        ny = ny < 2? 2 : ny;
+        nz = nz < 2? 2 : nz;
     }
 
     _param.n_cam = n_cam;
@@ -39,7 +202,13 @@ void OTF::loadParam (int n_cam, int nx, int ny, int nz, AxisLimit const& boundar
 
     _param.boundary = boundary;
 
-    _param.a = Matrix<double> (n_cam, _param.n_grid, 125);
+    // a depends on each camera's max_intensity / 2
+    _param.a = Matrix<double>(n_cam, _param.n_grid, 125);
+    for (int cam = 0; cam < n_cam; ++cam) {
+        double init_val = cam_list[cam]._max_intensity / 2.0;
+        for (int g = 0; g < _param.n_grid; ++g)
+            _param.a(cam, g) = init_val;
+    }
     _param.b = Matrix<double> (n_cam, _param.n_grid, 1.5);
     _param.c = Matrix<double> (n_cam, _param.n_grid, 1.5);
     _param.alpha = Matrix<double> (n_cam, _param.n_grid, 0);
@@ -51,12 +220,7 @@ void OTF::loadParam (std::string otf_file)
 {
     std::ifstream infile(otf_file);
 
-    if (!infile.is_open())
-    {
-        std::cerr << "OTF::loadParam error at line" << __LINE__ << ":\n"
-                  << "Cannot open file " << otf_file << std::endl;
-        throw error_io;
-    }
+    REQUIRE_CTX(infile.is_open(), ErrorCode::IOfailure, "Cannot load OTF from file ", otf_file);
 
     std::string line;
     std::stringstream file_content;
@@ -110,12 +274,7 @@ void OTF::saveParam (std::string otf_file)
 {
     std::ofstream outfile(otf_file);
 
-    if (!outfile.is_open())
-    {
-        std::cerr << "OTF::saveParam error at line" << __LINE__ << ":\n"
-                  << "Cannot open file " << otf_file << std::endl;
-        throw error_io;
-    }
+    REQUIRE_CTX(outfile.is_open(), ErrorCode::IOfailure, "Cannot save OTF to file ", otf_file);
 
     outfile << "# Size: (n_cam,nx,ny,nz,n_grid)" << std::endl;
     outfile << _param.n_cam << ',' << _param.nx << ',' << _param.ny << ',' << _param.nz << ',' << _param.n_grid << std::endl;

@@ -1,156 +1,155 @@
 #ifndef SHAKE_H
 #define SHAKE_H
 
-#include <algorithm>
+
 #include <vector>
 #include <string>
-#include <omp.h>
-#include <time.h>
-#include <random>
+#include <type_traits>  // ★ for std::underlying_type_t
 
-#include "Matrix.h"
 #include "ObjectInfo.h"
-#include "CircleIdentifier.h"
-#include "BubbleResize.h"
-#include "BubbleRefImg.h"
+#include "Config.h"
 #include "Camera.h"
-#include "OTF.h"
-#include "nanoflann.hpp"
 
-struct ImgAugList
-{
-    std::vector<Image> img_list;
-    std::vector<PixelRange> region_list;
-};
 
-class Shake
-{
+class ShakeStrategy;
+class TracerShakeStrategy;
+class BubbleShakeStrategy;
+class ROIInfo; // a pack to the region of interest (ROI) for an object, which contains: ROI image, correlation map
+enum class ObjFlag : uint8_t { None = 0, Ghost = 1 << 0, Repeated = 1 << 1 };
+inline ObjFlag operator|(ObjFlag a, ObjFlag b) {
+    using U = std::underlying_type_t<ObjFlag>;
+    return static_cast<ObjFlag>(static_cast<U>(a) | static_cast<U>(b));
+}
+inline ObjFlag& operator|=(ObjFlag& a, ObjFlag b) { a = (a | b); return a; }
+
+class Shake {
 public:
-    // OUTPUTS //
-    std::vector<Image> _imgRes_list; // residue image, size=_cam_list.n_cam_use: Original image - Particle projection image
-    std::vector<double> _score_list; // score of each object: for tracer score=intensity; for bubble score=cross-correlation
-    std::vector<int> _is_ghost; // 0: not ghost, 1: ghost, include repeated objects
-    std::vector<int> _is_repeated; // 0: not repeated, 1: repeated
-    int _n_ghost = 0; // include repeated objects
-    int _n_repeated = 0;
+    Shake(const std::vector<Camera>& cams, const ObjectConfig& obj_cfg);
+    ~Shake() = default;
 
-    Shake(
-        CamList const& cam_list, // all img list
-        double shake_width, // unit: mm
-        double tol_3d, // unit:mm 3D tolerance to check repeated objects (IPR: 3*tol_3d, STB: 2*tol_3d)
-        double score_min = 0.1, // Ghost threshold
-        int n_loop = 4, // Number of shake times
-        int n_thread = 0 // Number of threads
-    ) : _cam_list(cam_list), _n_cam(cam_list.cam_list.size()), _n_cam_use(cam_list.useid_list.size()), _shake_width(shake_width), _tol_3d(tol_3d), _score_min(score_min), _n_loop(n_loop), _n_thread(n_thread) {};
+    //shake objects, objs will be updated, return a vector denoting ghost objects or repeated objects 
+    std::vector<ObjFlag> runShake(std::vector<std::unique_ptr<Object3D>>& objs,
+                  const std::vector<Image>& img_orig);
 
-    ~Shake() {};
-
-    // Run shake
-    // if tri_only=true, only calculate residue images
-    void runShake(std::vector<Tracer3D>& tr3d_list, OTF const& otf, std::vector<Image> const& imgOrig_list, bool tri_only=false);
-    void runShake(std::vector<Bubble3D>& bb3d_list, std::vector<Image> const& imgOrig_list, BubbleRefImg const& imgRef_list, bool tri_only=false);
+    // get updated residual image, this is for next loop of IPR on residual image
+    std::vector<Image> calResidualImage(const std::vector<std::unique_ptr<Object3D>>& objs, const std::vector<Image>& img_orig, const std::vector<ObjFlag>* flags = nullptr) 
+    {
+        calResidueImage(objs, img_orig, true, flags); // non_negative = true: all negative value should be set to 0
+        return _img_res_list; 
+    };
 
 private:
-    // INPUTS //
-    CamList const& _cam_list; 
-    int _n_cam; // number of all cameras
-    int _n_cam_use; // number of used cameras
-    double _shake_width; // unit: mm
-    double _tol_3d;    // unit:mm, 3D tolerance to check repeated objects (IPR: 3*tol_3d, STB: 2*tol_3d) 
-    double _score_min; // Ghost threshold
-    int _n_loop;       // Number of shake times
-    int _n_thread = 0; // Number of threads
-    double _SCORE_MISMATCH = -10;
+    const std::vector<Camera>& _cams;
+    const ObjectConfig& _obj_cfg;
+    std::vector<Image> _img_res_list; // residual image
+    std::vector<double> _score_list; // shaking score for objects, which is updated for every loop of shake
+    std::unique_ptr<ShakeStrategy> _strategy;
 
+    // calculate residual image list: original image - project image
+    // if non_negative = true, then replace negative value as 0, 
+    // flags is the flag marking ghost and repeated objects, which are not consider when calculating residual image
+    void calResidueImage(const std::vector<std::unique_ptr<Object3D>>& objs, const std::vector<Image>& img_orig, 
+                         bool non_negative = false, const std::vector<ObjFlag>* flags = nullptr);
 
-    //                //
-    // MAIN FUNCTIONS //
-    //                //
-    // Remove negative pxiel and set them as zeros, this function is used to prepare residual image for the next run of IPR.
-    void absResImg ();
+    // prepare the information for the shaked object
+    // calculate the boundary of ROI
+    PixelRange calROIBound(int id_cam, double x_center, double y_center, double dx, double dy) const;
+    std::vector<ROIInfo> buildROIInfo(const Object3D& obj, const std::vector<Image>& img_orig) const;
 
-    // Tracers //
+    // shake one object, input delta is the shake width, return the score for updating, obj is also updated
+    double shakeOneObject(Object3D& obj, std::vector<ROIInfo>& ROI_info, double delta, const std::vector<bool>& shake_cam) const;
 
-    void shakeTracers(std::vector<Tracer3D>& tr3d_list, OTF const& otf, std::vector<Image> const& imgOrig_list, bool tri_only=false);
+    // calculate the score of object based on intensity
+    double calObjectScore(Object3D& obj, const std::vector<ROIInfo>& ROI_info) const;
 
-    // Procedure for each shake
-    double shakeOneTracer(Tracer3D& tr3d, OTF const& otf, double delta, double score_old);
-    double shakeOneTracerGrad(Tracer3D& tr3d, OTF const& otf, double delta, double score_old, double lr=1e-4);
+    // mark repeated objects
+    std::vector<bool> markRepeatedObj(const std::vector<std::unique_ptr<Object3D>>& objs);
 
-    // Remove all tracked particles from image to get residual image.
-    void calResImg(std::vector<Tracer3D> const& tr3d_list, OTF const& otf, std::vector<Image> const& imgOrig_list);
+};
 
-    // calculate augmented images for a tracer
-    ImgAugList calAugimg(Tracer3D& tr3d, OTF const& otf);
+class ROIInfo {
+// each camera has one ROIInfo
+public:
+    PixelRange _ROI_range;
 
-    // Remove ghost particles.
-    void findGhost(std::vector<Tracer3D>& tr3d_list);
-    // void removeGhostResidue(std::vector<Tracer3D>& tr3d_list);
+    ROIInfo() = default; // Initialize augimg, corr_map, range
+    ~ROIInfo() = default;
+
+    // allocate augmented image
+    void allocAugImg();
+    // allocate correlation map
+    void allocCorrMap();
+
+    // get the whole augmented image
+    const Image& getAugImg() const{return _ROI_augimg;};
+
+    // for indexing ROI:
+    bool inRange(int row, int col) const;
+    bool mapToLocal(int row, int col, int& i, int& j) const;
+    double&       aug_img(int row, int col);
+    const double& aug_img(int row, int col) const;
+    double&       corr_map(int row, int col);
+    const double& corr_map(int row, int col) const;
+
+private:
+    Image _ROI_augimg;  // image of ROI
+    Image _ROI_corrmap; // correlation map of ROI
+};
+
+// class for ShakeStrategy, which is inherited by different object strategy
+class ShakeStrategy {
+protected:
+    const std::vector<Camera>& _cams;
+    const ObjectConfig& _obj_cfg;
+
+public:
+    explicit ShakeStrategy(const std::vector<Camera>& cams,
+                           const ObjectConfig& obj_cfg)
+      : _cams(cams), _obj_cfg(obj_cfg) {}
+    virtual ~ShakeStrategy() = default;
+
+    // 2D projection for an object
+    virtual double project2DInt(const Object3D& obj, int id_cam, int row, int col) const = 0;
+
+    // calculate the size of ROI, return (dx, dy)
+    struct ROISize { double dx; double dy; }; // dx, dy are half size of the object in x and y direction
+    virtual ROISize calROISize(const Object3D& obj, int id_cam) const = 0; 
+
+    //calculate the shaking residue
+    virtual double calShakeResidue(const Object3D& obj_candidate, std::vector<ROIInfo>& roi_info, const std::vector<bool>& shake_cam) const = 0;
+
+    // obtain cameras that can be used for shaking(true for use, false for not to use), remove those in which objects are out of range or blocked
+    virtual std::vector<bool> selectShakeCam(const Object3D& obj, const std::vector<ROIInfo>& roi_info, const std::vector<Image>& imgOrig) const 
+    {return std::vector<bool>(_cams.size(), true);};
+
+};
+
+class TracerShakeStrategy : public ShakeStrategy {
+public:
+    // Gaussian projection model
+    double gaussIntensity(int x, int y, Pt2D const& pt2d, std::vector<double> const& otf_param) const;
+
+    double project2DInt(const Object3D& obj, int id_cam, int row, int col) const override;
     
-    void checkRepeatedObj(std::vector<Tracer3D> const& tr3d_list, double tol_3d);
+    ROISize calROISize(const Object3D& obj, int id_cam) const override;
 
-    // Bubbles //
+    double calShakeResidue(const Object3D& obj_candidate, std::vector<ROIInfo>& roi_info, const std::vector<bool>& shake_cam) const override;
 
-    void shakeBubbles(std::vector<Bubble3D>& bb3d_list, std::vector<Image> const& imgOrig_list, BubbleRefImg const& imgRef_list, bool tri_only=false);
+};
 
-    // Procedure for each shake
-    double shakeOneBubble(Bubble3D& bb3d, BubbleRefImg const& imgRef_list, std::vector<Image> const& imgOrig_list, double delta, double score_old);
-
-    // Remove all tracked particles from image to get residual image.
-    void calResImg(std::vector<Bubble3D> const& bb3d_list, BubbleRefImg const& imgRef_list, std::vector<Image> const& imgOrig_list);
-
-    // calculate augmented images for a bubble
-    ImgAugList calAugimg(Bubble3D& bb3d, BubbleRefImg const& imgRef_list, std::vector<Image> const& imgOrig_list, std::vector<Image>& corr_map_list, std::vector<int>& cam_useid_mismatch);
-
-    // Remove ghost particles.
-    void findGhost(std::vector<Bubble3D>& bb3d_list);
-
-    void checkRepeatedObj(std::vector<Bubble3D> const& bb3d_list, double tol_3d);
-
-
-    //                     //
-    // AUXILIARY FUNCTIONS //
-    //                     //
-
-    // Calculate the windows size for shaking
-    // id: cam used id, not real cam id
-    PixelRange findRegion (int id, double y, double x, double half_width_px); // a square region
+class BubbleShakeStrategy : public ShakeStrategy {
+public:
+    double project2DInt(const Object3D& obj, int id_cam, int row, int col) const override;
     
-    // Tracers // 
+    ROISize calROISize(const Object3D& obj, int id_cam) const override;
 
-    // Gaussian intensity for particles
-    double gaussIntensity (int x, int y, Pt2D const& pt2d, std::vector<double> const& otf_param); // (x,y)=(col,row)
+    std::vector<bool> selectShakeCam(const Object3D& obj, const std::vector<ROIInfo>& roi_info, const std::vector<Image>& imgOrig) const override;
 
-    // Calculate residue for shaking
-    double calPointResidue (Tracer3D const& tr3d, ImgAugList const& imgAug_list, OTF const& otf);
+    // calcualte the image crosscorrelation at location (x,y)
+    double getImgCorr(ROIInfo& roi_info, const int x, const int y, const Image& ref_img) const;
 
-    // Shaking and refine 3D position and search range
-    // return final residue
-    double updateTracer (Tracer3D& tr3d, ImgAugList& imgAug_list, OTF const& otf, double delta);
-    double updateTracerGrad (Tracer3D& tr3d, ImgAugList& imgAug_list, OTF const& otf, double delta, double lr);
+    double calShakeResidue(const Object3D& obj_candidate, std::vector<ROIInfo>& roi_info, const std::vector<bool>& shake_cam) const override;
 
-    // Update imgAug_list and region_list
-    void updateImgAugList (ImgAugList& imgAug_list, Tracer3D const& tr3d);
-
-    // Calculate intensity for shaken particles
-    double calTracerScore (Tracer3D const& tr3d, ImgAugList const& imgAug_list, OTF const& otf, double score);
-
-    // Bubbles // 
-
-    bool isCamValidForShaking (int cam_id, PixelRange const& region, BubbleRefImg const& imgRef_list, Image const& imgOrig, Bubble2D const& bb2d);
-
-    double updateBubble (Bubble3D& bb3d, std::vector<int>& cam_useid_mismatch, BubbleRefImg const& imgRef_list, ImgAugList& imgAug_list, std::vector<Image>& corr_map_list, double delta);
-
-    std::pair<double, std::vector<double>> calBubbleResidue (std::vector<Image>& corr_map_list, Bubble3D const& bb3d, std::vector<int> const& cam_useid_mismatch, ImgAugList const& imgAug_list, BubbleRefImg const& imgRef_list);
-
-    double imgCrossCorr (Image const& imgAug, PixelRange const& region, Image const& imgRef, double intMax, double center_x, double center_y, double r);
-
-    double getCorrInterp(Image& corr_map, int x, int y, double r_px, Image const& imgAug, PixelRange const& region, Image const& imgRef, double intMax);
-
-    double calBubbleScore (Bubble3D const& bb3d, ImgAugList const& imgAug_list, std::vector<int> const& cam_useid_mismatch, double score);
-
-    friend class ShakeDebug;
 };
 
 #endif // !SHAKE_H
-

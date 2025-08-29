@@ -6,62 +6,36 @@
 #include <algorithm>
 #include <omp.h>
 
+#include "Config.h"
 #include "Matrix.h"
 #include "myMATH.h"
 #include "STBCommons.h"
 #include "ObjectInfo.h"
 
-
-struct PFParam
-{
-    // X,Y,Z limits of view area
-    AxisLimit limit;
-    // # of grids in X,Y,Z >=2
-    int nx, ny, nz;
-    
-    // radius of search sphere
-    //  usually set: r <= 0.5*min(dx,dy,dz)
-    //  it is better to make sure displacement < 0.5 * r
-    double r;
-    
-    // number of bins for displacement statistics
-    int nBin_x = 5; // >=2, if <2, set to 2
-    int nBin_y = 5; // >=2, if <2, set to 2
-    int nBin_z = 5; // >=2, if <2, set to 2
-
-    // smoothing param
-    bool is_smooth = true;
-    double sigma_x = 1.0;
-    double sigma_y = 1.0;
-    double sigma_z = 1.0;
-};
-
-
-
 class PredField
 {
 public:
-    PFParam _param;
-    Matrix<double> _disp_field; // _nGrid_tot*3
-
     // Constructor
-    PredField (PredField const& pf);
-
-    template<class T3D>
-    PredField (PFParam const& param, std::vector<T3D> const& obj3d_list_prev, std::vector<T3D> const& obj3d_list_curr);
-    PredField (PFParam const& param, std::vector<Pt3D> const& pt3d_list_prev, std::vector<Pt3D> const& pt3d_list_curr);
+    PredField (ObjectConfig& obj_cfg) : _obj_cfg(obj_cfg) {};
 
     // Directly set displacement field
-    PredField (PFParam const& param, Matrix<double> const& disp_field);
+    PredField (ObjectConfig& obj_cfg, Matrix<double> const& disp_field);
 
-    ~PredField() {};
+    ~PredField() = default;
+
+    // calculate predictive field
+    void calPredField (const std::vector<std::unique_ptr<Object3D>>& obj3d_list_prev, 
+                       const std::vector<std::unique_ptr<Object3D>>& obj3d_list_curr);
 
     // interpolate displacement at (x,y,z)
-    void getDisp (Pt3D& disp, Pt3D const& pt3d);
+    Pt3D getDisp (const Pt3D& pt3d) const;
 
     void saveDispField (std::string const& file);
 
 private:
+    ObjectConfig& _obj_cfg;  // object configuration, including predictive field configuration
+    Matrix<double> _disp_field; // velocity information for each grid
+
     int _nGrid_tot; // total number of grid points
     double _dx, _dy, _dz; // grid spacing in X,Y,Z
     std::vector<double> _grid_x;
@@ -83,19 +57,9 @@ private:
     // set grid points
     void setGrid();
 
-    // create displacement field
-    template<class T3D>
-    void calDispField (std::vector<T3D> const& obj3d_list_prev, std::vector<T3D> const& obj3d_list_curr);
-    template<class T3D>
-    void calDispGrid (std::vector<int> const& xyz_id, std::vector<T3D> const& obj3d_list_prev, std::vector<T3D> const& obj3d_list_curr);
-
-    void calDispField (std::vector<Pt3D> const& pt3d_list_prev, std::vector<Pt3D> const& pt3d_list_curr);
-    void calDispGrid (std::vector<int> const& xyz_id, std::vector<Pt3D> const& pt3d_list_prev, std::vector<Pt3D> const& pt3d_list_curr);
-
     // find pt id within a sphere of radius r
-    template<class T3D>
-    void findNeighbor (std::vector<int>& pt_list_id, std::vector<int> const& xyz_id, std::vector<T3D> const& obj3d_list);
-    void findNeighbor (std::vector<int>& pt_list_id, std::vector<int> const& xyz_id, std::vector<Pt3D> const& pt3d_list);
+    // xyz_id is the id of grid, which is the search window
+    void findNeighbor (std::vector<int>& pt_list_id, std::vector<int> const& xyz_id, const std::vector<std::unique_ptr<Object3D>>& obj3d_list);
 
     // map from x_id,y_id,z_id to grid_id 
     // i in 0 ~ n_grid: i = index_x*_ny*_nz + index_y*_nz + index_z
@@ -103,7 +67,7 @@ private:
     //     for index_y in 0:_ny-1 
     //         for index_z in 0:_nz-1  
     //             i ++
-    int mapGridID (int x_id, int y_id, int z_id);
+    int mapGridID (int x_id, int y_id, int z_id) const;
 
     // map from xBin_id, yBin_id, zBin_id to bin_id
     // bin_id in 0 ~ nBin_tot: 
@@ -112,17 +76,17 @@ private:
     //     for yBin_id in 0:nBin_y-1 
     //         for zBin_id in 0:nBin_z-1  
     //             bin_id ++    
-    int mapBinID (int xBin_id, int yBin_id, int zBin_id);
+    int mapBinID (int xBin_id, int yBin_id, int zBin_id) const;
 
     // update the "pdf" of each bin by using gaussian kernel
     // dist_pdf: used to find the most probable displacement, no need to be normalized
     void updateDispPDF (std::vector<double>& disp_pdf, std::vector<std::vector<double>> const& disp_list);
 
-    // find the peak location of displacement pdf
-    void findPDFPeakLoc (std::vector<double>& dist_opt, std::vector<double> const& disp_pdf);
+    // find the peak location of displacement pdf, use Guassian to estimate the location
+    std::vector<double> findPDFPeakLoc (std::vector<double> const& disp_pdf);
 
     // find the peak bin id of displacement pdf
-    void findPDFPeakID (std::vector<int>& peak_id, std::vector<double> const& disp_pdf);
+    std::vector<int> findPDFPeakID(std::vector<double> const& disp_pdf);
 
     // fit the peak location based on guassian distribution
     double fitPeakBinLocGauss (double y1, double v1, double y2, double v2, double y3, double v3);
@@ -132,7 +96,5 @@ private:
     void smoothDispField (double sigma_x, double sigma_y, double sigma_z); // radius = round(3*sigma)
 
 };
-
-#include "PredField.hpp"
 
 #endif

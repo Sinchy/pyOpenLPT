@@ -3,12 +3,14 @@
 
 #include <iostream>
 #include <string>
+#include "error.hpp"
 
 #define SAVEPRECISION 8
 
 #define SMALLNUMBER 1e-8
 #define SQRTSMALLNUMBER 1e-6
 #define MAGSMALLNUMBER 1e-8
+#define M_PI 3.14159265358979323846
 
 // log small
 #define LOGSMALLNUMBER 1e-4
@@ -29,6 +31,27 @@
 #define MAX_ERR_LINEARFIT 5e-2
 #define LEN_LONG_TRACK 7
 
+// for multimorphic objects
+// for cloning derived classes
+#define ENABLE_CLONE(Derived, Base) \
+    std::unique_ptr<Base> clone() const override { \
+        return std::make_unique<Derived>(*this);   \
+    }
+
+// delete copy constructor and assignment operator
+#define DISABLE_COPY(Class)                   \
+    Class(const Class&) = delete;             \
+    Class& operator=(const Class&) = delete;
+
+// enable move constructor and assignment operator
+#define ENABLE_MOVE_NOEXCEPT(Class)           \
+    Class(Class&&) noexcept = default;        \
+    Class& operator=(Class&&) noexcept = default;
+
+// combine disable copy and enable move
+#define NONCOPYABLE_MOVABLE(Class)            \
+    DISABLE_COPY(Class)                       \
+    ENABLE_MOVE_NOEXCEPT(Class)
 struct PixelRange 
 {
     // left is closed, right is open 
@@ -118,6 +141,14 @@ struct AxisLimit
 
         return true;
     }
+};
+
+// Minimal CSV helper: read a comma-delimited field (no quotes handling).
+// Strips trailing '\r' if present (Windows line endings).
+static inline bool read_csv_field(std::istream& in, std::string& out, char delim = ',') {
+    if (!std::getline(in, out, delim)) return false;
+    if (!out.empty() && out.back() == '\r') out.pop_back();
+    return true;
 };
 
 enum ErrorTypeID

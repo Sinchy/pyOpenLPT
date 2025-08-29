@@ -8,18 +8,17 @@
 #include <fstream>
 
 #include "STBCommons.h"
+#include "Config.h"
 #include "ImageIO.h"
 #include "Matrix.h"
 #include "Camera.h"
 #include "myMATH.h"
-#include "KalmanFilter.h"
 #include "ObjectInfo.h"
 #include "ObjectFinder.h"
 #include "BubbleRefImg.h"
 #include "StereoMatch.h"
 #include "OTF.h"
 #include "Shake.h"
-#include "ShakeDebug.cpp"
 #include "IPR.h"
 #include "PredField.h"
 #include "Track.h"
@@ -36,7 +35,6 @@ using namespace pybind11::literals;
 #include "pyImageIO.cpp"
 #include "pyCamera.cpp"
 #include "pymyMath.cpp"
-#include "pyKalmanFilter.cpp"
 
 #include "pyObjectInfo.cpp"
 #include "pyObjectFinder.cpp"

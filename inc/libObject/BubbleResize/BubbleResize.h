@@ -35,7 +35,7 @@ class BubbleResize {
 public:
   BubbleResize();
   ~BubbleResize();
-  void ResizeBubble(Image& o_img, Image const& b_img, int d_b, double b_img_max = 255);
+  Image& ResizeBubble(Image const& b_img, int d_b, double b_img_max = 255);
 };
 
 #endif
