@@ -1,5 +1,14 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
-void init_OTF(py::module& m)
+#include "OTF.h"
+#include "Config.h"   // TracerConfig
+#include "Camera.h"
+#include "STBCommons.h"
+
+namespace py = pybind11;
+
+void bind_OTF(py::module_& m)
 {
     py::class_<OTFParam>(m, "OTFParam")
         .def(py::init<>())
@@ -11,38 +20,37 @@ void init_OTF(py::module& m)
         .def_readwrite("ny", &OTFParam::ny)
         .def_readwrite("nz", &OTFParam::nz)
         .def_readwrite("n_grid", &OTFParam::n_grid)
-        .def_readwrite("a", &OTFParam::a)
-        .def_readwrite("b", &OTFParam::b)
-        .def_readwrite("c", &OTFParam::c)
-        .def_readwrite("alpha", &OTFParam::alpha)
         .def_readwrite("boundary", &OTFParam::boundary)
         .def_readwrite("grid_x", &OTFParam::grid_x)
         .def_readwrite("grid_y", &OTFParam::grid_y)
         .def_readwrite("grid_z", &OTFParam::grid_z)
-        .def("to_dict", [](OTFParam const& self){
-            return py::dict(
-                "dx"_a=self.dx, "dy"_a=self.dy, "dz"_a=self.dz, 
-                "n_cam"_a=self.n_cam, "nx"_a=self.nx, "ny"_a=self.ny, "nz"_a=self.nz, "n_grid"_a=self.n_grid, 
-                "a"_a=self.a, "b"_a=self.b, "c"_a=self.c, "alpha"_a=self.alpha, 
-                "boundary"_a=self.boundary, "grid_x"_a=self.grid_x, "grid_y"_a=self.grid_y, "grid_z"_a=self.grid_z
-            );
-        })
-        .doc() = "OTFParam struct";
+        // 注意：a,b,c,alpha 是 Matrix<double>，如果你之后把 Matrix<double> 映射成 Python 类型，再把下面四个也开放：
+        // .def_readwrite("a", &OTFParam::a) ...
+        ;
 
     py::class_<OTF>(m, "OTF")
         .def(py::init<>())
-        .def(py::init<const OTF&>())
-        .def(py::init<int, int, int, int, AxisLimit const&>(), py::arg("n_cam"), py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("boundary"))
-        .def(py::init<std::string>())
-        .def("loadParam", (void (OTF::*)(int, int, int, int, AxisLimit const&)) &OTF::loadParam, py::arg("n_cam"), py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("boundary"))
-        .def("loadParam", (void (OTF::*)(std::string)) &OTF::loadParam)
-        .def("saveParam", &OTF::saveParam)
-        .def("getOTFParam", &OTF::getOTFParam)
+        .def(py::init<int,int,int,int, const AxisLimit&, const std::vector<Camera>&>(),
+             py::arg("n_cam"), py::arg("nx"), py::arg("ny"), py::arg("nz"),
+             py::arg("boundary"), py::arg("cam_list"))
+        .def(py::init<const std::string&>(), py::arg("otf_file"))
+        .def("loadParam",
+             py::overload_cast<int,int,int,int, const AxisLimit&, const std::vector<Camera>&>(&OTF::loadParam),
+             py::arg("n_cam"), py::arg("nx"), py::arg("ny"), py::arg("nz"),
+             py::arg("boundary"), py::arg("cam_list"))
+        .def("loadParam",
+             py::overload_cast<std::string>(&OTF::loadParam),
+             py::arg("otf_file"))
+        .def("saveParam", &OTF::saveParam, py::arg("otf_file"))
+        .def("estimateUniformOTFFromImage",
+             [](OTF& self, int cam_id, TracerConfig& cfg, const std::vector<Image>& imgs){
+                 self.estimateUniformOTFFromImage(cam_id, cfg, imgs);
+             }, py::arg("cam_id"), py::arg("tracer_config"), py::arg("img_list"))
+        .def("getOTFParam",
+             [](const OTF& self, int cam_id, const Pt3D& pt_world){
+                 auto v = self.getOTFParam(cam_id, pt_world);
+                 return py::make_tuple(v[0], v[1], v[2], v[3]); // a,b,c,alpha
+             }, py::arg("cam_id"), py::arg("pt_world"))
         .def_readwrite("_param", &OTF::_param)
-        .def("to_dict", [](OTF const& self){
-            return py::dict(
-                "_param"_a=self._param
-            );
-        })
-        .doc() = "OTF class";
+        .def_readwrite("_output_path", &OTF::_output_path);
 }

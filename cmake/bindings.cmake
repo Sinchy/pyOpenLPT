@@ -1,82 +1,81 @@
-# Compile static lib to be used in the pybind11 module
-# Math module
-add_library(bindMatrix INTERFACE ${CMAKE_SOURCE_DIR}/src/srcMath/Matrix.hpp)
-set_property(TARGET bindMatrix PROPERTY LINKER_LANGUAGE CXX)
+# ===========================
+#  OpenLPT Python Bindings
+# ===========================
+cmake_minimum_required(VERSION 3.15)
 
-add_library(bindImageIO STATIC ${CMAKE_SOURCE_DIR}/src/srcMath/ImageIO.cpp)
-add_subdirectory("${CMAKE_HOME_DIRECTORY}/inc/libtiff")
-target_link_libraries(bindImageIO PUBLIC tiff)
-# target_link_libraries(bindImageIO PUBLIC bindMatrix tiff)
+# OpenMP may be needed by linked libs; keep this quiet if not present
+find_package(OpenMP QUIET)
 
-add_library(bindmyMath STATIC ${CMAKE_SOURCE_DIR}/src/srcMath/myMATH.cpp)
-# target_link_libraries(bindmyMath PUBLIC bindMatrix)
+# Directory containing binding translation units
+set(OPENLPT_PY_DIR "${PROJECT_SOURCE_DIR}/src/pybind_OpenLPT")
 
-add_library(bindCamera STATIC ${CMAKE_SOURCE_DIR}/src/srcMath/Camera.cpp)
-# target_link_libraries(bindCamera PUBLIC bindMatrix bindmyMath)
-
-# Object module
-add_library(bindObjectInfo STATIC ${CMAKE_SOURCE_DIR}/src/srcObject/ObjectInfo.cpp)
-# target_link_libraries(bindObjectInfo PUBLIC bindMatrix)
-
-file(GLOB CIRCLE_SRCS "${CMAKE_HOME_DIRECTORY}/src/srcObject/BubbleCenterAndSizeByCircle/*.cpp")
-add_library(bindCircleIdentifier STATIC ${CMAKE_SOURCE_DIR}/src/srcObject/CircleIdentifier.cpp ${CIRCLE_SRCS})
-
-add_library(bindObjectFinder INTERFACE ${CMAKE_SOURCE_DIR}/src/srcObject/ObjectFinder.cpp)
-set_property(TARGET bindObjectFinder PROPERTY LINKER_LANGUAGE CXX)
-# target_link_libraries(bindObjectFinder PUBLIC bindMatrix bindObjectInfo bindmyMath)
-
-file(GLOB BBRESIZE_SRCS "${CMAKE_HOME_DIRECTORY}/src/srcObject/BubbleResize/*.cpp")
-add_library(bindBubbleResize STATIC ${BBRESIZE_SRCS})
-
-add_library(bindBubbleRefImg STATIC ${CMAKE_SOURCE_DIR}/src/srcObject/BubbleRefImg.cpp)
-
-# STB module 
-# Find openmp package
-add_library(bindStereoMatch INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/StereoMatch.cpp)
-set_property(TARGET bindStereoMatch PROPERTY LINKER_LANGUAGE CXX)
-
-add_library(bindOTF STATIC ${CMAKE_SOURCE_DIR}/src/srcSTB/OTF.cpp)
-
-add_library(bindShake STATIC ${CMAKE_SOURCE_DIR}/src/srcSTB/Shake.cpp)
-
-add_library(bindIPR INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/IPR.cpp)
-set_property(TARGET bindIPR PROPERTY LINKER_LANGUAGE CXX)
-
-add_library(bindPredField INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/PredField.cpp)
-set_property(TARGET bindPredField PROPERTY LINKER_LANGUAGE CXX)
-
-add_library(bindTrack INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/Track.cpp)
-set_property(TARGET bindTrack PROPERTY LINKER_LANGUAGE CXX)
-
-add_library(bindSTB INTERFACE ${CMAKE_SOURCE_DIR}/src/srcSTB/STB.cpp)
-set_property(TARGET bindSTB PROPERTY LINKER_LANGUAGE CXX)
-
-include_directories(${CMAKE_SOURCE_DIR}/src/)
-include_directories(${CMAKE_SOURCE_DIR}/src/pybind_OpenLPT/)
-
-# Create pybind11 module
-set(BINDINGS_SRC
-    ${CMAKE_SOURCE_DIR}/src/bindings.cpp
-    ${CMAKE_SOURCE_DIR}/src/pybind_OpenLPT/pyInterface.cpp
+# Add or remove binding files here as your module grows
+set(PY_SOURCES
+  "${OPENLPT_PY_DIR}/pyConfig.cpp"
+  "${OPENLPT_PY_DIR}/pyOpenLPT.cpp"
+  "${OPENLPT_PY_DIR}/pyCamera.cpp"
+  "${OPENLPT_PY_DIR}/pyImageIO.cpp"
+  "${OPENLPT_PY_DIR}/pyObjectInfo.cpp"
+  "${OPENLPT_PY_DIR}/pyObjectFinder.cpp"
+  "${OPENLPT_PY_DIR}/pyPredField.cpp"
+  "${OPENLPT_PY_DIR}/pyStereoMatch.cpp"
+  "${OPENLPT_PY_DIR}/pyShake.cpp"
+  "${OPENLPT_PY_DIR}/pyIPR.cpp"
+  "${OPENLPT_PY_DIR}/pyOTF.cpp"
+  "${OPENLPT_PY_DIR}/pyBubbleRefImg.cpp"
+  "${OPENLPT_PY_DIR}/pyTrack.cpp"
+  "${OPENLPT_PY_DIR}/pyMatrix.cpp"
+  "${OPENLPT_PY_DIR}/pymyMath.cpp"
+  "${OPENLPT_PY_DIR}/pySTB.cpp"
+  "${OPENLPT_PY_DIR}/pySTBCommons.cpp"
 )
-set(BINDINGS_LIB
-    bindMatrix
-    bindImageIO
-    bindmyMath
-    bindCamera
-    bindObjectInfo
-    bindCircleIdentifier
-    bindObjectFinder
-    bindBubbleResize
-    bindBubbleRefImg
-    bindStereoMatch
-    bindOTF
-    bindShake
-    bindIPR
-    bindPredField
-    bindTrack
-    bindSTB
-)
-pybind11_add_module(pyOpenLPT ${BINDINGS_SRC})
-target_link_libraries(pyOpenLPT PRIVATE ${BINDINGS_LIB})
 
+# Python module name (import name)
+set(OPENLPT_PYMODULE_NAME "openlpt")
+
+# Build the Python extension (.pyd/.so)
+pybind11_add_module(${OPENLPT_PYMODULE_NAME} MODULE ${PY_SOURCES})
+
+if (MSVC)
+  target_compile_options(${OPENLPT_PYMODULE_NAME} PRIVATE /std:c++latest)
+endif()
+
+# Make headers available to the bindings
+target_include_directories(${OPENLPT_PYMODULE_NAME} PRIVATE
+  "${PROJECT_SOURCE_DIR}/inc"
+)
+
+# Link against your existing C++ targets (adjust to your actual libs)
+target_link_libraries(${OPENLPT_PYMODULE_NAME} PRIVATE
+  Config
+  myMath
+  ImageIO
+  Camera
+  ObjectInfo
+  ObjectFinder
+  PredField
+  StereoMatch
+  BubbleRefImg
+  BubbleResize
+  CircleIdentifier
+  OTF
+  IPR
+  Shake
+  Track
+  STB
+  $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
+)
+
+# Compile options
+target_compile_features(${OPENLPT_PYMODULE_NAME} PRIVATE cxx_std_20)
+target_compile_definitions(${OPENLPT_PYMODULE_NAME} PRIVATE NOMINMAX)
+
+# Match Python's /MD runtime on MSVC
+if (MSVC)
+  set_property(TARGET ${OPENLPT_PYMODULE_NAME} PROPERTY
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
+# Optional diagnostics (remove after first success)
+get_target_property(_inc ${OPENLPT_PYMODULE_NAME} INCLUDE_DIRECTORIES)
+message(STATUS "[PY] ${OPENLPT_PYMODULE_NAME} include dirs = ${_inc}")

@@ -1,65 +1,106 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
-void init_StereoMatch(py::module& m)
+#include "StereoMatch.h"
+#include "ObjectInfo.h"   // Tracer2D / Bubble2D / Object2D / Object3D / Pt2D, Pt3D
+#include "Camera.h"
+#include "Config.h"       // ObjectConfig, ObjectKind
+
+namespace py = pybind11;
+
+/**
+ * A small holder that owns inputs so StereoMatch can safely keep const-pointers.
+ *  - cams_     : copy of cameras
+ *  - owned_    : vector<vector<unique_ptr<Object2D>>> built from Python inputs
+ *  - cfg_      : non-owning pointer to a concrete ObjectConfig passed from Python
+ *  - core_     : the real StereoMatch engine constructed from the three above
+ */
+class PyStereoMatch {
+public:
+    // ctor #1: Friendly — pass 2D centers per camera; kind is deduced from cfg.kind()
+    PyStereoMatch(const std::vector<Camera>& cams,
+                  const std::vector<std::vector<Pt2D>>& bb2d_per_cam,
+                  const ObjectConfig& cfg)
+        : cams_(cams), cfg_(&cfg)
+    {
+        const bool as_tracer = (cfg.kind() == ObjectKind::Tracer);
+        owned_.resize(bb2d_per_cam.size());
+        for (size_t c = 0; c < bb2d_per_cam.size(); ++c) {
+            owned_[c].reserve(bb2d_per_cam[c].size());
+            for (const auto& p : bb2d_per_cam[c]) {
+                if (as_tracer) {
+                    owned_[c].emplace_back(std::make_unique<Tracer2D>(p));
+                } else {
+                    // Minimal radius placeholder for Bubble2D; tune if needed
+                    owned_[c].emplace_back(std::make_unique<Bubble2D>(p, /*r_px=*/2.0));
+                }
+            }
+        }
+        core_ = std::make_unique<StereoMatch>(cams_, owned_, *cfg_);
+    }
+
+    // ctor #2: Advanced — pass existing Object2D objects (Python-owned pointers). We clone them.
+    PyStereoMatch(const std::vector<Camera>& cams,
+                  const std::vector<std::vector<Object2D*>>& obj2d_per_cam,
+                  const ObjectConfig& cfg)
+        : cams_(cams), cfg_(&cfg)
+    {
+        owned_.resize(obj2d_per_cam.size());
+        for (size_t c = 0; c < obj2d_per_cam.size(); ++c) {
+            owned_[c].reserve(obj2d_per_cam[c].size());
+            for (auto* p : obj2d_per_cam[c]) {
+                if (!p) continue;
+                owned_[c].emplace_back(p->clone()); // virtual clone()
+            }
+        }
+        core_ = std::make_unique<StereoMatch>(cams_, owned_, *cfg_);
+    }
+
+    // Run and return only 3D centers (simple Python-friendly output).
+    std::vector<Pt3D> match_centers() const {
+        auto objs = core_->match();  // vector<unique_ptr<Object3D>>
+        std::vector<Pt3D> out;
+        out.reserve(objs.size());
+        for (auto& up : objs) out.push_back(up->_pt_center);
+        return out;
+    }
+
+private:
+    std::vector<Camera> cams_;   // keep a copy so references in StereoMatch stay valid
+    const ObjectConfig* cfg_;    // non-owning; lifetime managed by Python object
+    std::vector<std::vector<std::unique_ptr<Object2D>>> owned_;
+    std::unique_ptr<StereoMatch> core_;
+};
+
+void bind_StereoMatch(py::module_& m)
 {
-    py::class_<ObjIDMap>(m, "ObjIDMap")
-        .def(py::init<>())
-        .def("config", &ObjIDMap::config)
-        .def("mapImgID", &ObjIDMap::mapImgID)
-        .doc() = "ObjIDMap class";
-
-    py::class_<SMParam>(m, "SMParam")
-        .def(py::init<>())
-        .def_readwrite("tor_2d", &SMParam::tor_2d)
-        .def_readwrite("tor_3d", &SMParam::tor_3d)
-        .def_readwrite("n_thread", &SMParam::n_thread)
-        .def_readwrite("check_id", &SMParam::check_id)
-        .def_readwrite("check_radius", &SMParam::check_radius)
-        .def_readwrite("is_delete_ghost", &SMParam::is_delete_ghost)
-        .def_readwrite("is_update_inner_var", &SMParam::is_update_inner_var)
-        .def("to_dict", [](SMParam const& self){
-            return py::dict(
-                "tor_2d"_a=self.tor_2d, 
-                "tor_3d"_a=self.tor_3d, 
-                "n_thread"_a=self.n_thread, 
-                "check_id"_a=self.check_id, "check_radius"_a=self.check_radius, 
-                "is_delete_ghost"_a=self.is_delete_ghost, "is_update_inner_var"_a=self.is_update_inner_var
-            );
-        })
-        .doc() = "SMParam struct";
-
-    py::class_<StereoMatch>(m, "StereoMatch")
-        .def(py::init<SMParam const&, CamList const&>())
-        .def("clearAll", &StereoMatch::clearAll)
-        .def("match", [](StereoMatch& self, std::vector<std::vector<Tracer2D>> const& obj2d_list){
-            std::vector<Tracer3D> obj3d_list;
-            self.match(obj3d_list, obj2d_list);
-            return obj3d_list;
-        })
-        .def("match", [](StereoMatch& self, std::vector<std::vector<Bubble2D>> const& obj2d_list){
-            std::vector<Bubble3D> obj3d_list;
-            self.match(obj3d_list, obj2d_list);
-            return obj3d_list;
-        })
-        .def("saveObjInfo", [](StereoMatch& self, std::string path, std::vector<Tracer3D> const& obj3d_list){
-            self.saveObjInfo(path, obj3d_list);
-        })
-        .def("saveObjInfo", [](StereoMatch& self, std::string path, std::vector<Bubble3D> const& obj3d_list){
-            self.saveObjInfo(path, obj3d_list);
-        })
-        .def("saveObjIDMatchList", &StereoMatch::saveObjIDMatchList)
-        .def_readwrite("_param", &StereoMatch::_param)
-        .def_readwrite("_n_cam_use", &StereoMatch::_n_cam_use)
-        .def_readwrite("_objID_match_list", &StereoMatch::_objID_match_list)
-        .def_readwrite("_error_list", &StereoMatch::_error_list)
-        .def("to_dict", [](StereoMatch const& self){
-            CamList cam_list(self._cam_list);
-            return py::dict(
-                "_param"_a=self._param,
-                "cam_list (no_access)"_a=cam_list, 
-                "_n_cam_use"_a=self._n_cam_use, 
-                "_objID_match_list"_a=self._objID_match_list, 
-                "_error_list"_a=self._error_list
-            );
-        })
-        .doc() = "StereoMatch class";    
+    py::class_<PyStereoMatch>(m, "StereoMatch")
+        // Friendly ctor: cams + [[(x,y),...], ...] + cfg  (kind auto-detected)
+        .def(py::init<
+                 const std::vector<Camera>&,
+                 const std::vector<std::vector<Pt2D>>&,
+                 const ObjectConfig&
+             >(),
+             py::arg("cams"),
+             py::arg("bb2d_per_cam"),
+             py::arg("config"),
+             // keep_alive<1,4>: keep 'config' alive as long as self lives
+             py::keep_alive<1, 4>(),
+             "Construct from 2D centers per camera. Kind is deduced from config.kind()."
+        )
+        // Advanced ctor: cams + [[Object2D*, ...], ...] + cfg  (clone into owned_)
+        .def(py::init<
+                 const std::vector<Camera>&,
+                 const std::vector<std::vector<Object2D*>>&,
+                 const ObjectConfig&
+             >(),
+             py::arg("cams"),
+             py::arg("obj2d_per_cam"),
+             py::arg("config"),
+             py::keep_alive<1, 4>(),
+             "Construct from existing Object2D instances; they are cloned internally."
+        )
+        // Run
+        .def("match", &PyStereoMatch::match_centers,
+             "Run stereo matching and return a list of 3D centers [(X,Y,Z), ...].");
 }

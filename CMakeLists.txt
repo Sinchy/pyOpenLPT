@@ -25,58 +25,51 @@ if (OpenMP_CXX_FOUND)
   message(STATUS "OpenMP CXX FOUND")
 endif()
 
-# -------- Build switch --------
-if (PYOPENLPT)
-  # Windows convenience for exporting symbols from a DLL (optional)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-
-  find_package(pybind11 REQUIRED)
-  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-
-  if (EXISTS "${PROJECT_SOURCE_DIR}/cmake/bindings.cmake")
-    include("${PROJECT_SOURCE_DIR}/cmake/bindings.cmake")
-  else()
-    message(FATAL_ERROR "bindings.cmake not found under ${PROJECT_SOURCE_DIR}/cmake")
-  endif()
-
+# --- Core C++ targets (always needed so the py module can link them) ---
+if (EXISTS "${PROJECT_SOURCE_DIR}/cmake/openLPT.cmake")
+  include("${PROJECT_SOURCE_DIR}/cmake/openLPT.cmake")
 else()
-  if (EXISTS "${PROJECT_SOURCE_DIR}/cmake/openLPT.cmake")
-    include("${PROJECT_SOURCE_DIR}/cmake/openLPT.cmake")
-  else()
-    message(FATAL_ERROR "openLPT.cmake not found under ${PROJECT_SOURCE_DIR}/cmake")
-  endif()
-
-option(OPENLPT_BUILD_TESTS "Build OpenLPT tests" OFF)
-
-if (OPENLPT_BUILD_TESTS AND EXISTS "${PROJECT_SOURCE_DIR}/cmake/ctest.cmake")
-  include("${PROJECT_SOURCE_DIR}/cmake/ctest.cmake")
+  message(FATAL_ERROR "openLPT.cmake not found under ${PROJECT_SOURCE_DIR}/cmake")
 endif()
 
+# -------- Build switch --------
+if (PYOPENLPT)
+  # (keep your Python + pybind setup)
+  find_package(pybind11 REQUIRED)
+  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+  include("${PROJECT_SOURCE_DIR}/cmake/bindings.cmake")
+else()
+  include(GNUInstallDirs)
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/inc/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  if (TARGET openlpt_includes)
+    install(TARGETS openlpt_includes EXPORT OpenLPTTargets)
+  endif()
 
-  # ---- Package config & export (for find_package(OpenLPT)) ----
+  option(OPENLPT_BUILD_TESTS "Build OpenLPT tests" OFF)
+  if (OPENLPT_BUILD_TESTS AND EXISTS "${PROJECT_SOURCE_DIR}/cmake/ctest.cmake")
+    include("${PROJECT_SOURCE_DIR}/cmake/ctest.cmake")
+  endif()
+
   include(CMakePackageConfigHelpers)
-
   write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/OpenLPTConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
   )
-
   configure_package_config_file(
     "${PROJECT_SOURCE_DIR}/cmake/OpenLPTConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/OpenLPTConfig.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OpenLPT
   )
-
   install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/OpenLPTConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/OpenLPTConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OpenLPT
   )
-
-  # Export *our* targets for downstream usage
   install(EXPORT OpenLPTTargets
     NAMESPACE OpenLPT::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OpenLPT
   )
 endif()
+
+
