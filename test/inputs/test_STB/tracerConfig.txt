@@ -2,30 +2,15 @@
 ######### Tracking #########
 ############################
 ######### Initial Phase ############## 
-1 # Flag for using ipr in initialphase (or use .csv files) 
 10 # Search radius for connecting tracks to objects
-#20 # Search radius for connecting tracks to objects
 4 # Number of frames for initial phase
 ######### Convergence Phase ############# 
 30 # Avg Interparticle spacing. (vox) to identify neighbour tracks 
-4 # Radius to find predicted particle (pixel)
-
-######### Tracking Predictor ############
-# Unit: vox
-# Wiener filter: Wiener (or not indicating)
-# Kalman filter: 
-#   Kalman,
-#   sigma_q, # process noise
-#   sigma_rx, sigma_ry, sigma_rz, # measurement noise
-#   sigma_p0_x, sigma_p0_y, sigma_p0_z, 
-#   sigma_p0_vx, sigma_p0_vy, sigma_p0_vz # initial state covariance
-# Wiener 
-# Kalman,0.05,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25 
 
 #########################
 ######### Shake #########
 #########################
-0.25 # shake width
+.25 # shake width 0.25
 
 #################################
 ######### Predict Field #########
@@ -33,19 +18,16 @@
 51 # xgrid 
 51 # ygrid
 51 # zgrid
-#10 # searchRadius [voxel]
 25 # searchRadius [voxel]
 
 #######################
 ######### IPR #########
 #######################
-0 # Triangulation/IPR Only (No IPR/tracking)? 1 for only tri (no ipr or tracking), 2 for only tri+ipr (no tracking), otherwise with tri and ipr
 2   # No. of IPR loop
 4   # No. of Shake loop
 0.1 # ghost threshold
-100000 # maximum number of tracers in each camera
 0.8   # 2D tolerance [px]
-.6  # 3D tolerance [mm]
+1.0  # 3D tolerance [voxel]
 
 1 # number of reduced camera
 2 # no. of ipr loops for each reduced camera combination
@@ -54,6 +36,5 @@
 ###############################
 ######### Object Info #########
 ###############################
-255 # max intensity for each pixel
 30 # 2D particle finder threshold
 2 # Particle radius [px], for calculating residue image and shaking

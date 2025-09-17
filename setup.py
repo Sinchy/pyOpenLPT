@@ -1,87 +1,71 @@
-#%%
-import os
-import subprocess
-import sys
-import platform
-import pybind11
-from setuptools import setup, Extension, find_packages
+# setup.py — build the CMake-based extension "openlpt" using pip-installed pybind11
+import os, sys, platform, subprocess
+from pathlib import Path
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
-class CMakeExtension(Extension):
-    def __init__(self, name, sourcedir=''):
-        Extension.__init__(self, name, sources=[])
-        self.sourcedir = os.path.abspath(sourcedir)
+# 关键：作为“构建时依赖”，确保 pip 会在构建前装好 pybind11
+# 更推荐在 pyproject.toml 里声明（见文末备忘）；这里只是运行时兜底 import。
+try:
+    import pybind11
+    PYBIND11_DIR = pybind11.get_cmake_dir()
+except Exception as e:
+    print("ERROR: pybind11 is required. Install with: python -m pip install pybind11")
+    raise
 
+class CMakeExtension(Extension):
+    def __init__(self, name, sourcedir=""):
+        super().__init__(name, sources=[])
+        self.sourcedir = str(Path(sourcedir).resolve())
 
 class CMakeBuild(build_ext):
     def run(self):
-        try:
-            subprocess.check_output(['cmake', '--version'])
-        except OSError:
-            raise RuntimeError("CMake must be installed to build the following extensions: " +
-                               ", ".join(e.name for e in self.extensions))
-
+        subprocess.check_call(["cmake", "--version"])
         for ext in self.extensions:
             self.build_extension(ext)
 
     def build_extension(self, ext):
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-                      '-DPYTHON_EXECUTABLE=' + sys.executable, 
-                      '-Dpybind11_DIR=' + pybind11.get_cmake_dir()]
+        extdir = Path(self.get_ext_fullpath(ext.name)).parent.resolve()
+        cfg = "Debug" if self.debug else "Release"
 
-        cfg = 'Debug' if self.debug else 'Release'
-        build_args = ['--config', cfg]
+        cmake_args = [
+            f"-DPYOPENLPT=ON",
+            f"-DPython_EXECUTABLE={sys.executable}",
+            f"-Dpybind11_DIR={PYBIND11_DIR}",
+            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
+            "-DOPENLPT_PYBIND11_PROVIDER=pip",
+        ]
+        build_args = ["--config", cfg]
 
         if platform.system() == "Windows":
-            cmake_args += ['-DPYOPENLPT=True']
-            cmake_args += ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), extdir)]
-            if sys.maxsize > 2**32:
-                cmake_args += ['-A', 'x64']
-            build_args += ['--', '/m']
+            cmake_args += [f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
+            if "CMAKE_GENERATOR" not in os.environ:
+                cmake_args += ["-G", "Visual Studio 17 2022", "-A", "x64"]
+            build_args += ["--", "/m"]
         else:
-            cmake_args += ['-DPYOPENLPT=True']
-            cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
-            cmake_args += ['-DCMAKE_POSITION_INDEPENDENT_CODE=ON']
-            build_args += ['--', '-j2']
+            cmake_args += [f"-DCMAKE_BUILD_TYPE={cfg}", "-DCMAKE_POSITION_INDEPENDENT_CODE=ON"]
+            build_args += ["--", "-j"]
 
-        env = os.environ.copy()
-        env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
-                                                              self.distribution.get_version())
-        if not os.path.exists(self.build_temp):
-            os.makedirs(self.build_temp)
-            
-        out = subprocess.run(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env, text=True, capture_output=True)
-        if out.returncode != 0:
-            print(out.args)
-            print(out.stdout)
-            print(out.stderr)
-            exit(1)
-            
-        out = subprocess.run(['cmake', '--build', '.'] + build_args, cwd=self.build_temp, text=True, capture_output=True)
-        if out.returncode != 0:
-            print(out.args)
-            print(out.stdout)
-            print(out.stderr)
-            exit(1)
-        
-            
+        build_temp = Path(self.build_temp).resolve()
+        build_temp.mkdir(parents=True, exist_ok=True)
+
+        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_temp)
+        subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_temp)
 
 setup(
-    name='pyOpenLPT',
-    version='0.2.0',
-    author='Shijie Zhong, Shiyong Tan',
-    author_email='szhong12@jhu.edu',
-    description='A Python interface for OpenLPT',
-    long_description='',
-    ext_modules=[CMakeExtension('pyOpenLPT')],
-    cmdclass=dict(build_ext=CMakeBuild),
+    name="openlpt",
+    version="0.2.0",
+    description="OpenLPT Python bindings",
+    author="Shijie Zhong, Shiyong Tan",
+    author_email="szhong12@jhu.edu",
+    ext_modules=[CMakeExtension("pyopenlpt", sourcedir=".")],
+    cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     install_requires=[
-        'pybind11>=2.6.0',
-        'numpy>=1.16.0',
-        'pandas>=1.0.0'
+        "numpy>=1.16.0",
+        "pandas>=1.0.0",
+        "pybind11>=2.10"  # 运行时/编译时都需要
     ],
-    packages=find_packages(),
+    packages=[],
     include_package_data=True,
 )

@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+openlpt.egg-info/PKG-INFO
+openlpt.egg-info/SOURCES.txt
+openlpt.egg-info/dependency_links.txt
+openlpt.egg-info/not-zip-safe
+openlpt.egg-info/requires.txt
+openlpt.egg-info/top_level.txt

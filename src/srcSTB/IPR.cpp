@@ -87,7 +87,7 @@ runSingleIPRIteration(const std::vector<Camera>& cams,
     std::vector<std::vector<std::unique_ptr<Object2D>>> o2d_list_all; // smart pointer: automatic memory management, allow different subclass object
     o2d_list_all.resize(n_cam);
 
-    std::cout << "\t2D detections per active camera: ";
+    std::cout << "\t\t2D detections per active camera: ";
     for (std::size_t cam_id = 0; cam_id < n_cam; ++cam_id) {
         if (!cams[cam_id]._is_active) continue;
 
@@ -110,14 +110,19 @@ runSingleIPRIteration(const std::vector<Camera>& cams,
     // note: the 2D information of objs_out won't be updated since it may be used to calculate bubble reference image
     //       or calibrate camera or OTF parameter
     //       2D information will be updated in shaking
+
     objs_out = stereo_match.match();
 
     const clock_t t_match_end = clock();
+    const double  t_sec = double(t_match_end - t_match_start) / CLOCKS_PER_SEC;
+    
+    std::cout << "\t\tMatched " << objs_out.size() << " objects. (" << t_sec << " s)";
 
     // Objs_out and o2d_list_all are used for obtaining bubble reference image, or camera calibration, or OTF parameter
     switch (cfg.kind()) {
     case ObjectKind::Tracer:
-        //TODO: calibrate OTF can be put here.
+        //TODO: calibrate OTF and camera can be put here.
+        //Note: only match_cam_count cameras have 2D information.
         break;
 
     case ObjectKind::Bubble: {
@@ -144,32 +149,27 @@ runSingleIPRIteration(const std::vector<Camera>& cams,
         break;
     }
 
-
-
-#ifdef DEBUG
-    std::cout << "\tMatching time = "
-              << double(t_match_end - t_match_start) / CLOCKS_PER_SEC
-              << " [s]\n";
-#endif
-
-    if (objs_out.empty()) return objs_out;
+    if (objs_out.empty()) {
+        std::cout<<"\n";
+        return objs_out;
+    }
+    
 
     // 3) Shake refinement (updates `images` in-place for active cameras)
     Shake shaker(cams, cfg);
-
     const clock_t t_shake_start = clock();
-    std::vector<ObjFlag> flags = shaker.runShake(objs_out, images); // must honor cams[cam_id]._is_active
-    const clock_t t_shake_end = clock();
-#ifdef DEBUG
-    std::cout << "\tShake time = "
-              << double(t_shake_end - t_shake_start) / CLOCKS_PER_SEC
-              << " [s]\n";
-#endif
 
+    std::vector<ObjFlag> flags = shaker.runShake(objs_out, images); // must honor cams[cam_id]._is_active
+    
     images = shaker.calResidualImage(objs_out, images);   // get updated images with contructed objects removed.
 
     // 4) remove ghost and repeated objects
     filterOutInvalid(objs_out, flags);
+
+    const clock_t t_shake_end = clock();
+    std::cout << "\tAfter shaking: " << objs_out.size() << " objects remain. ("
+              << double(t_shake_end - t_shake_start) / CLOCKS_PER_SEC
+              << " s)\n";
 
     return objs_out;
 }
@@ -178,6 +178,7 @@ runSingleIPRIteration(const std::vector<Camera>& cams,
 std::vector<std::unique_ptr<Object3D>>
 IPR::runIPR(ObjectConfig& cfg, std::vector<Image> images)
 {
+    std::cout << "START IPR...\n";
     std::vector<std::unique_ptr<Object3D>> all_objs;
 
     const size_t n_cam = _cam_list.size();
@@ -199,36 +200,39 @@ IPR::runIPR(ObjectConfig& cfg, std::vector<Image> images)
     {
         const size_t K = n_cam - static_cast<size_t>(drop); // subset size (>=2)
         std::vector<std::vector<int>> subsets;
+        // std::cout<< "Generating subsets of size " << K << " from " << n_cam << " cameras.\n";
         myMATH::generateCombinations(n_cam, K, subsets);            // when K==n_cam -> single subset [0..n_cam-1]
 
         // Choose loop count: full set vs reduced set
         const int loops = (drop == 0) ? ipr_param.n_loop_ipr : ipr_param.n_loop_ipr_reduced;
 
-        std::cout << ((drop == 0) ? "Full pass" : "Reduced pass")
-                  << ": drop=" << drop
-                  << " -> subset size K=" << K
-                  << " (subsets=" << subsets.size()
-                  << ", loops=" << loops << ")\n";
+        std::cout << ((drop == 0) ? "Full cameras" : "Reduced cameras") << "\n";
 
-        for (const auto& ids : subsets)
+        for (size_t si = 0; si < subsets.size(); ++si)
         {
+            const auto& ids = subsets[si];
+
             // Activate exactly this subset (others inactive)
             CameraUtil::setActiveSubset(_cam_list, ids);
+
+            std::cout << "Combination " << si << " cams=[";
+            for (size_t k = 0; k < ids.size(); ++k) {
+                if (k) std::cout << ", ";
+                std::cout << ids[k];
+            }
+            std::cout << "]\n";
 
             for (int loop = 0; loop < loops; ++loop)
             {
                 auto objs = runSingleIPRIteration(_cam_list, images, cfg); // images will be updated for every loop.
-                std::cout << "IPR iteration " << loop
-                            << ": appended " << objs.size() << " objects\n";
+
                 if (!objs.empty()) {
                     all_objs.insert(all_objs.end(),
                                     std::make_move_iterator(objs.begin()),
                                     std::make_move_iterator(objs.end()));
                 }
-                std::cout << ((drop == 0) ? "Full" : "Reduced")
-                          << " pass (drop=" << drop
-                          << ", loop=" << loop
-                          << "): total objects = " << all_objs.size() << "\n";
+                std::cout << "\tLOOP=" << loop
+                          << ": TOTAL OBJECTS = " << all_objs.size() << "\n";
             }
         }
     }
@@ -236,7 +240,7 @@ IPR::runIPR(ObjectConfig& cfg, std::vector<Image> images)
     // Leave system in a well-defined state: all cameras active on exit
     CameraUtil::setActiveAll(_cam_list);
 
-    std::cout << "IPR Finish! Found " << all_objs.size() << " objects.\n";
+    std::cout << "IPR FINISH! FOUND " << all_objs.size() << " OBJECTS.\n";
     return all_objs;
 }
 

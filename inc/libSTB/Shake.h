@@ -9,6 +9,7 @@
 #include "ObjectInfo.h"
 #include "Config.h"
 #include "Camera.h"
+#include "STBCommons.h"
 
 
 class ShakeStrategy;
@@ -65,6 +66,8 @@ private:
 
     // mark repeated objects
     std::vector<bool> markRepeatedObj(const std::vector<std::unique_ptr<Object3D>>& objs);
+
+    FRIEND_DEBUG(Shake) // for debugging private members
 
 };
 

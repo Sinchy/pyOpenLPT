@@ -52,6 +52,15 @@
 #define NONCOPYABLE_MOVABLE(Class)            \
     DISABLE_COPY(Class)                       \
     ENABLE_MOVE_NOEXCEPT(Class)
+
+// for debugging private members
+#ifdef OPENLPT_EXPOSE_PRIVATE
+  #define FRIEND_DEBUG(classname) friend struct DebugAccess_##classname;
+#else
+  #define FRIEND_DEBUG(classname)
+#endif
+
+
 struct PixelRange 
 {
     // left is closed, right is open 

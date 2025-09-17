@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <typeinfo>
 #include <string>
+#include <numeric>
+#include <limits>
 
 #include "STBCommons.h"
 #include "Matrix.h"
@@ -521,6 +523,11 @@ double imgCrossCorr(Image const& img, Image const& img_ref);
 
 // Check whether an int belongs to a vector
 bool ismember (int id, std::vector<int> const& vec);
+
+double computeLowCutKDE(const std::vector<double>& x_raw,
+                               double p = 0.95,           // modal HDR mass (candidate region width)
+                               double ratio_thresh = 0.06,// density ratio threshold f(L)/f(mode) (smaller = more conservative)
+                               double valley_thresh = 0.01);
 
 }
 

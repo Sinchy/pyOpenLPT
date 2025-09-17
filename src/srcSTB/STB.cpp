@@ -78,7 +78,7 @@ void STB::processFrame(int frame_id, std::vector<Image>& img_list)
 
 void STB::runInitPhase (int frame, std::vector<Image>& img_list)
 {
-    // Initialize IPR TODO: _ipr_param
+    
     std::vector<Camera>& cam_list = _basic_setting._cam_list;
     IPR ipr(cam_list);
     // IPR
@@ -93,10 +93,10 @@ void STB::runInitPhase (int frame, std::vector<Image>& img_list)
 
         for (int i = 0; i < _obj_config->_stb_param._n_initial_frames; i ++)
         {   
-            std::cout << "STB initial phase tracking b/w frames: "
-                      << frame << " & " << frame + 1 << "; ";
-
             int frame_id = i + _basic_setting._frame_start;
+            std::cout << "STB initial phase tracking b/w frames: "
+                      << frame_id << " & " << frame_id + 1 << "; \n";
+
             if (i == 0)
             {
                 buildTrackFromPredField(frame_id, nullptr); // no predicted field for the first frame, use nullptr
@@ -104,11 +104,17 @@ void STB::runInitPhase (int frame, std::vector<Image>& img_list)
             else
             {
                 PredField pf(*_obj_config);
+
+                const clock_t t_start = clock();
                 pf.calPredField(_ipr_candidate[i - 1], _ipr_candidate[i]);
+                const clock_t t_end = clock();
+                std::cout << "\tCalculated predictive field (" << (double) (t_end - t_start)/CLOCKS_PER_SEC << " s), ";
+
                 pf.saveDispField(_basic_setting._output_path + "PredField_" + std::to_string(frame_id) + "_" + std::to_string(frame_id + 1) + ".csv");
                 // Build tracks from predicted field
                 buildTrackFromPredField(frame_id, &pf);
             }
+            
             
         }
         
@@ -126,9 +132,9 @@ void STB::runInitPhase (int frame, std::vector<Image>& img_list)
 
 
         std::cout << "Done with initial phase!" << std::endl;
-        std::cout << "\tNo. of active short tracks: " << _short_track_active.size() 
-                << "; No. of active long tracks: " << _long_track_active.size()
-                << "; No. of exited tracks: " << _exit_track.size()
+        std::cout << "ACTIVE SHORT TRACKS: " << _short_track_active.size() 
+                << "; ACTIVE LONG TRACKS: " << _long_track_active.size()
+                << "; EXIT TRACKS: " << _exit_track.size()
                 << std::endl;
 
 
@@ -172,7 +178,12 @@ void STB::buildTrackFromPredField (int frame_id, const PredField* pf) {
             if (link_id[j] != UNLINKED)
             {
                 _ipr_candidate[id_ipr][link_id[j]]->_is_tracked = true;
-                _short_track_active[j].addNext(std::move(_ipr_candidate[id_ipr][link_id[j]]), frame_id); // unique_ptr of object3D can only be moved
+                // we cannot directly move _ipr_candidate because it is still needed for predictive field calculation in the next frame
+                CreateArgs a;
+                a._proto = _ipr_candidate[id_ipr][link_id[j]].get();
+                std::unique_ptr<Object3D> obj3d = _obj_config->creatObject3D(std::move(a));
+                obj3d->projectObject2D(_basic_setting._cam_list); // get 2D projection for the new object
+                _short_track_active[j].addNext(std::move(obj3d), frame_id); // unique_ptr of object3D can only be moved
             }
             else
             {
@@ -188,16 +199,21 @@ void STB::buildTrackFromPredField (int frame_id, const PredField* pf) {
             && !_ipr_candidate[id_ipr][i]->_is_tracked)
         {
             _ipr_candidate[id_ipr][i]->_is_tracked = true;
+            // we cannot directly move _ipr_candidate because it is still needed for predictive field calculation in the next frame
+            CreateArgs a;
+            a._proto = _ipr_candidate[id_ipr][i].get();
+            std::unique_ptr<Object3D> obj3d = _obj_config->creatObject3D(std::move(a));
+            obj3d->projectObject2D(_basic_setting._cam_list); // get 2D projection for the new object
             // Start a track for the untracked particle      
-            Track init_tr(std::move(_ipr_candidate[id_ipr][i]), frame_id);
+            Track init_tr(std::move(obj3d), frame_id);
             _short_track_active.emplace_back(std::move(init_tr)); // Track can only be moved since it has a unique_ptr member
         }
     }
 
     t_end = clock();
-    std::cout << "; total link particles time: " 
+    std::cout << "Linked tracks (" 
             << (double) (t_end - t_start)/CLOCKS_PER_SEC
-            << std::endl;
+            << " s)\n";
 }
 
 std::unique_ptr<Object3D> STB::predictNext(const Track& tr) const
@@ -306,12 +322,13 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
     int n_sa = _short_track_active.size();
     int n_la = _long_track_active.size();
     int n_li = _long_track_inactive.size();
+    int n_ex = _exit_track.size();
     int add_sa = 0, add_la = 0, rm_sa = 0, rm_la = 0, add_li = 0; //s: short, l: long, a: active, i: inactive
     int n_thread = _basic_setting._n_thread;
 
 
     // -------------------- 1. Prediction for active long tracks ----------------------//
-    std::cout << "\tPrediction: ";
+    std::cout << " Prediction: ";
     clock_t t_start, t_end;
     t_start = clock();
 
@@ -344,10 +361,16 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
 
     // Remove out-of-range tracks
     size_t w = 0;
+    int n_exit = 0;
+    int n_exit_del = 0;
     for (size_t i = 0, n = _long_track_active.size(); i < n; ++i) {
         if (!is_inRange[i]) {
-            if (_long_track_active[i]._t_list.size() >= LEN_LONG_TRACK)
-                _exit_track.emplace_back(std::move(_long_track_active[i]));
+            if (_long_track_active[i]._t_list.size() >= LEN_LONG_TRACK) {
+                _exit_track.emplace_back(std::move(_long_track_active[i])); 
+                ++n_exit;
+            } else {
+                ++n_exit_del;
+            }
             ++rm_la;
         } else {
             if (w != i) {
@@ -375,7 +398,7 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
         std::vector<ObjFlag> flags = s.runShake(obj3d_list_pred, img_list);
 
         t_end = clock();
-        std::cout << " Shake prediction: " << (double) (t_end - t_start)/CLOCKS_PER_SEC << " s. ";
+        std::cout << " Shake prediction: " << (double) (t_end - t_start)/CLOCKS_PER_SEC << " s.\n ";
 
         // get the residue image for IPR, not including ghost and repeated objects.
         img_list = s.calResidualImage(obj3d_list_pred, img_list, &flags);
@@ -465,6 +488,22 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
             link_id[i] = linkShortTrack(_short_track_active[i], 5, tree_obj3d, tree_track);
         }
 
+        // Resolve conflicts: if multiple short tracks link to the same obj, only keep one link (first-come-first-served) TODO: optimize this part
+        const int n_cand = n_obj3d;
+        std::vector<int> owner(n_cand, -1);
+
+        for (int j = 0; j < n_sa; ++j) {
+            const int lid = link_id[j];
+            if (lid == UNLINKED || lid < 0 || lid >= n_cand) continue;
+
+            if (owner[lid] == -1) {
+                owner[lid] = j;                 
+            } else {
+                link_id[j] = UNLINKED;          
+            }
+        }
+
+
         // In-place compaction pointer for the short-track deque
         size_t write = 0;
 
@@ -472,14 +511,12 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
         {
             const int lid = link_id[i];
 
-            if (lid != UNLINKED && lid >= 0 && lid < n_obj3d)
+            if (lid != UNLINKED && lid >= 0 && lid < n_obj3d && obj3d_list[lid])
             {
                 // Mark the candidate as taken BEFORE moving it
                 obj3d_list[lid]->_is_tracked = true;
-
                 // Append the linked candidate to this short track (move-only)
                 _short_track_active[i].addNext(std::move(obj3d_list[lid]), frame);
-
                 // Promote to long track if it has become long enough; otherwise keep it (in place-compacted region)
                 if (_short_track_active[i]._t_list.size() >= _obj_config->_stb_param._n_initial_frames)
                 {
@@ -506,19 +543,17 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
 
         // Shrink deque to the kept short-active tracks
         _short_track_active.resize(write);
-
         // Create new short tracks for all candidates that were not used this round.
         // NOTE: We must move the candidate object into the new track.
         for (int i = 0; i < n_obj3d; ++i)
         {
-            if (!obj3d_list[i]->_is_tracked)
+            if (obj3d_list[i] && !obj3d_list[i]->_is_tracked) // obj3d_list[i] is needed because some are moved and become nullptr
             {
                 Track tr(std::move(obj3d_list[i]), frame);
                 _short_track_active.emplace_back(std::move(tr));
                 ++add_sa;  // accounting: added to short-active
             }
         }
-
 
         t_end = clock();
         std::cout << (double) (t_end - t_start)/CLOCKS_PER_SEC << " s. Done!" << std::endl;
@@ -581,9 +616,10 @@ void STB::runConvPhase (int frame, std::vector<Image>& img_list)
     // Print outputs
     std::cout << "\tNo. of active short tracks: " << n_sa << " + " << add_sa << " - " << rm_sa << " = " << _short_track_active.size() << std::endl;
     std::cout << "\tNo. of active long tracks: " << n_la << " + " << add_la << " - " << rm_la << " = " << _long_track_active.size() << std::endl;  
-    std::cout << "\tNo. of exited tracks: " << _exit_track.size() << std::endl;
+    std::cout << "\tNo. of exited long tracks: " << n_ex << " + " << n_exit << " = "<< _exit_track.size() << std::endl;
+    std::cout << "\tNo. of exited short tracks(deleted): " << n_exit_del << std::endl;
     std::cout << "\tNo. of inactive Long tracks: " << n_li << " + " << add_li << " = " << _long_track_inactive.size() << std::endl;
-    std::cout << "\tNo. of fail shaking intensity: " << n_fail_shaking << std::endl;
+    std::cout << "\tNo. of fail shaking intensity/repeated: " << n_fail_shaking << std::endl;
     std::cout << "\tNo. of fail linear fit: " << n_fail_lf << std::endl;
 
     // save all data every 500 frames
@@ -852,6 +888,7 @@ void STB::saveTracksAll(const std::string& folder, int frame)
     // Save Exit and Inactive tracks; keep historical snapshots for each frame
     saveTracks((dir / ("ExitTrack_"          + s + ".csv")).string(), _exit_track);
     saveTracks((dir / ("LongTrackInactive_"  + s + ".csv")).string(), _long_track_inactive);
+    std::cout << "  Saved all tracks to folder: " << folder << std::endl;
 }
 
 void STB::saveTracks (std::string const& file, std::deque<Track>& tracks)

@@ -288,134 +288,106 @@ Image ImageIO::loadImg (int img_id)
 }
 
 
+static inline uint8_t  clamp_u8 (double v)  { if (v<0) v=0; if (v>255) v=255; return (uint8_t)(v + 0.5); }
+static inline uint16_t clamp_u16(double v)  { if (v<0) v=0; if (v>65535) v=65535; return (uint16_t)(v + 0.5); }
+static inline uint32_t clamp_u32(double v)  { if (v<0) v=0; if (v>4294967295.0) v=4294967295.0; return (uint32_t)(v + 0.5); }
+static inline uint64_t clamp_u64(long double v){ if (v<0) v=0; if (v>static_cast<long double>(UINT64_MAX)) v=static_cast<long double>(UINT64_MAX); return (uint64_t)(v + 0.5L); }
+
 void ImageIO::saveImg (std::string save_path, Image const& image)
 {
-    // check image size
+    // 与 setImgParam 一致的基本检查
     IMAGEIO_CHECK_CALL((_n_row>0 && _n_col>0 && _n_row==image.getDimRow() && _n_col==image.getDimCol()));
 
     TIFF* tif = TIFFOpen(save_path.c_str(), "w");
+    REQUIRE(tif, ErrorCode::IOfailure, "ImageIO::saveImg: cannot open tiff for write: " + save_path);
+
+    // 常用标签
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH,        _n_col);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH,       _n_row);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL,   _n_channel);        // 一般灰度=1
+    TIFFSetField(tif, TIFFTAG_ORIENTATION,       _img_orientation);  // e.g. ORIENTATION_TOPLEFT
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC,       PHOTOMETRIC_MINISBLACK);
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG,      PLANARCONFIG_CONTIG);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION,       COMPRESSION_NONE);
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE,     _bits_per_sample);
+
+    const int bytes_per_sample = std::max(1, _bits_per_sample / 8);
+    const int bytes_per_row    = _n_col * bytes_per_sample * std::max(1, _n_channel);
+    const int rows_per_strip   = std::max(1, (1<<16) / std::max(1, bytes_per_row));
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
 
     switch (_bits_per_sample)
     {
     case 8:
-        {
-            uint8* buffer_8 = (uint8*) _TIFFmalloc(_n_row*_n_col * sizeof (uint8));
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                for (int iter_y = 0; iter_y < _n_col; iter_y ++)
-                {
-                    buffer_8[_n_col*iter_x + iter_y] = static_cast<uint8> (image(iter_x, iter_y));
-                }
-            }
+    {
+        uint8_t* buf = (uint8_t*) _TIFFmalloc(_n_row * _n_col * sizeof(uint8_t));
+        if (!buf) { TIFFClose(tif); return; }
+        for (int r = 0; r < _n_row; ++r)
+            for (int c = 0; c < _n_col; ++c)
+                buf[_n_col * r + c] = clamp_u8(image(r, c));
 
-            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, _bits_per_sample);
-            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, _n_row);
-            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, _n_col);
-            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, _n_channel);
-            TIFFSetField(tif, TIFFTAG_ORIENTATION, _img_orientation);
-            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+        for (int r = 0; r < _n_row; ++r)
+            TIFFWriteScanline(tif, &buf[_n_col * r], r, 0); // 注意步长用 _n_col
 
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                TIFFWriteScanline(tif, &buffer_8[_n_row*iter_x], iter_x, 0);
-            }
+        _TIFFfree(buf);
+        break;
+    }
 
-            _TIFFfree(buffer_8);
-            break;
-        }
-    
     case 16:
-        {
-            uint16* buffer_16 = (uint16*) _TIFFmalloc(_n_row*_n_col * sizeof (uint16));
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                for (int iter_y = 0; iter_y < _n_col; iter_y ++)
-                {
-                    buffer_16[_n_col*iter_x + iter_y] = static_cast<uint16> (image(iter_x, iter_y));
-                }
-            }
+    {
+        uint16_t* buf = (uint16_t*) _TIFFmalloc(_n_row * _n_col * sizeof(uint16_t));
+        if (!buf) { TIFFClose(tif); return; }
+        for (int r = 0; r < _n_row; ++r)
+            for (int c = 0; c < _n_col; ++c)
+                buf[_n_col * r + c] = clamp_u16(image(r, c));
 
-            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, _bits_per_sample);
-            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, _n_row);
-            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, _n_col);
-            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, _n_channel);
-            TIFFSetField(tif, TIFFTAG_ORIENTATION, _img_orientation);
-            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+        for (int r = 0; r < _n_row; ++r)
+            TIFFWriteScanline(tif, &buf[_n_col * r], r, 0);
 
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                TIFFWriteScanline(tif, &buffer_16[_n_row*iter_x], iter_x, 0);
-            }
-
-            _TIFFfree(buffer_16);
-            break;
-        }
+        _TIFFfree(buf);
+        break;
+    }
 
     case 32:
-        {
-            uint32* buffer_32 = (uint32*) _TIFFmalloc(_n_row*_n_col * sizeof (uint32));
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                for (int iter_y = 0; iter_y < _n_col; iter_y ++)
-                {
-                    buffer_32[_n_col*iter_x + iter_y] = static_cast<uint32> (image(iter_x, iter_y));
-                }
-            }
+    {
+        // 这是 32 位无符号整型灰度；如需 float32，请改为 float* 并设 SAMPLEFORMAT=IEEEFP
+        uint32_t* buf = (uint32_t*) _TIFFmalloc(_n_row * _n_col * sizeof(uint32_t));
+        if (!buf) { TIFFClose(tif); return; }
+        for (int r = 0; r < _n_row; ++r)
+            for (int c = 0; c < _n_col; ++c)
+                buf[_n_col * r + c] = clamp_u32(image(r, c));
 
-            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, _bits_per_sample);
-            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, _n_row);
-            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, _n_col);
-            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, _n_channel);
-            TIFFSetField(tif, TIFFTAG_ORIENTATION, _img_orientation);
-            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+        for (int r = 0; r < _n_row; ++r)
+            TIFFWriteScanline(tif, &buf[_n_col * r], r, 0);
 
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                TIFFWriteScanline(tif, &buffer_32[_n_row*iter_x], iter_x, 0);
-            }
-
-            _TIFFfree(buffer_32);
-            break;
-        }
+        _TIFFfree(buf);
+        break;
+    }
 
     case 64:
-        {
-            uint64* buffer_64 = (uint64*) _TIFFmalloc(_n_row*_n_col * sizeof (uint64));
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                for (int iter_y = 0; iter_y < _n_col; iter_y ++)
-                {
-                    buffer_64[_n_col*iter_x + iter_y] = static_cast<uint64> (image(iter_x, iter_y));
-                }
-            }
+    {
+        // 这是 64 位无符号整型灰度
+        uint64_t* buf = (uint64_t*) _TIFFmalloc(_n_row * _n_col * sizeof(uint64_t));
+        if (!buf) { TIFFClose(tif); return; }
+        for (int r = 0; r < _n_row; ++r)
+            for (int c = 0; c < _n_col; ++c)
+                buf[_n_col * r + c] = clamp_u64((long double)image(r, c));
 
-            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, _bits_per_sample);
-            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, _n_row);
-            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, _n_col);
-            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, _n_channel);
-            TIFFSetField(tif, TIFFTAG_ORIENTATION, _img_orientation);
-            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+        for (int r = 0; r < _n_row; ++r)
+            TIFFWriteScanline(tif, &buf[_n_col * r], r, 0);
 
-            for (int iter_x = 0; iter_x < _n_row; iter_x ++)
-            {
-                TIFFWriteScanline(tif, &buffer_64[_n_row*iter_x], iter_x, 0);
-            }
-
-            _TIFFfree(buffer_64);
-            break;
-        }
+        _TIFFfree(buf);
+        break;
+    }
 
     default:
-        std::cerr << "ImageIO::saveImg: Image bits per sample is out of range! " 
-                  << "_bits_per_sample: " << _bits_per_sample << " "
-                  << "Line: " << __LINE__
-                  << std::endl;
-        break;
+        std::cerr << "ImageIO::saveImg: unsupported bits_per_sample = " << _bits_per_sample << std::endl;
+        TIFFClose(tif);
+        return;
     }
 
     TIFFClose(tif);
 }
-
 
 void ImageIO::setImgParam (ImageParam const& img_param)
 {
@@ -423,6 +395,7 @@ void ImageIO::setImgParam (ImageParam const& img_param)
     _n_col = img_param.n_col;
     _bits_per_sample = img_param.bits_per_sample;
     _n_channel = img_param.n_channel;
+    _img_orientation = img_param.img_orientation;
 }
 
 
@@ -433,6 +406,24 @@ ImageParam ImageIO::getImgParam () const
     img_param.n_col = _n_col;
     img_param.bits_per_sample = _bits_per_sample;
     img_param.n_channel = _n_channel;
+    img_param.img_orientation = _img_orientation;
 
     return img_param;
+}
+
+void Image::save(const std::string& path,
+                 int bits_per_sample /*=8*/,
+                 int n_channel       /*=1*/,
+                 std::uint16_t orientation  /*=ORIENTATION_TOPLEFT*/) const
+{
+    ImageParam prm;
+    prm.n_row           = this->getDimRow();
+    prm.n_col           = this->getDimCol();
+    prm.bits_per_sample = bits_per_sample;
+    prm.n_channel       = n_channel;
+    prm.img_orientation = orientation;
+
+    ImageIO io;
+    io.setImgParam(prm);
+    io.saveImg(path, *this);
 }

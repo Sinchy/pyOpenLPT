@@ -71,7 +71,7 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>>& objs,
         const int n_thread = _obj_cfg._n_thread;
         #pragma omp parallel num_threads(n_thread)
         {
-            #pragma omp for schedule(dynamic, 8)
+            #pragma omp for
             for (std::ptrdiff_t i_obj = 0; i_obj < static_cast<std::ptrdiff_t>(n_obj); ++i_obj) {
                 size_t i = static_cast<size_t>(i_obj);
                 if (!objs[i]) continue;
@@ -98,7 +98,6 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>>& objs,
         delta *= 0.5;
         if (delta < dmin) delta = dmin;
     }
-
     // 5) Post-processing — mark repeated
     std::vector<bool> is_repeated = markRepeatedObj(objs);
     for (size_t i = 0; i < is_repeated.size(); ++i) {
@@ -113,7 +112,8 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>>& objs,
         if (is_repeated[i]) continue;
         sum += _score_list[i]; ++cnt;
     }
-    const double mean_score = (cnt ? sum / cnt : 0.0);
+    double mean_score = (cnt ? sum / cnt : 0.0);
+
     const double percent_ghost    = _obj_cfg._shake_param._thred_ghost; 
 
     for (size_t i = 0; i < n_obj; ++i) {
@@ -122,6 +122,29 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>>& objs,
             flags[i] |= ObjFlag::Ghost;
         }
     }
+
+    // // 1) collect valid scores (exclude repeated and non-finite)
+    // std::vector<double> valid_score; valid_score.reserve(_score_list.size());
+    // for (size_t i = 0; i < _score_list.size(); ++i) {
+    //     if (i < is_repeated.size() && is_repeated[i]) continue;
+    //     const double s = _score_list[i];
+    //     if (std::isfinite(s)) valid_score.push_back(s);
+    // }
+
+    // if (!valid_score.empty()) {
+    //     const double percent_ghost = _obj_cfg._shake_param._thred_ghost;
+    //     // 2) compute low_cut by KDE modal HDR + guards (grid size is chosen adaptively inside)
+    //     const double low_cut = myMATH::computeLowCutKDE(valid_score, 1 - percent_ghost);
+
+    //     // 3) apply: ONLY delete left side (score < low_cut)
+    //     for (size_t i = 0; i < _score_list.size(); ++i) {
+    //         const double s = _score_list[i];
+    //         if (!std::isfinite(s)) continue;
+    //         if (s < low_cut) {
+    //             flags[i] |= ObjFlag::Ghost; 
+    //         }
+    //     }
+    // }
 
     return flags;
 }
@@ -132,7 +155,10 @@ void Shake::calResidueImage(const std::vector<std::unique_ptr<Object3D>>& objs,
                             bool non_negative, const std::vector<ObjFlag>* flags)
 {
     const int n_cam = static_cast<int>(_cams.size());
-    assert(n_cam == static_cast<int>(img_orig.size()));
+    // std::cout << n_cam << std::endl;
+
+    REQUIRE(n_cam == static_cast<int>(img_orig.size()), ErrorCode::InvalidArgument, 
+            "Shake::calResidueImage: cams/img_orig size mismatch.");
     const bool use_mask = (flags != nullptr);
     if (use_mask) {
         REQUIRE(objs.size() == flags->size(), ErrorCode::InvalidArgument,
@@ -161,6 +187,7 @@ void Shake::calResidueImage(const std::vector<std::unique_ptr<Object3D>>& objs,
             const Object3D* obj = objs[id_obj].get();
 
             // --- Obtain ROI center from object's 2D projection; size from strategy ---
+            REQUIRE(obj->_obj2d_list[k] != nullptr, ErrorCode::InvalidArgument, "No 2D projection in object.");
             Pt2D pt_center = obj->_obj2d_list[k]->_pt_center;
             double cx = pt_center[0], cy = pt_center[1];
 
@@ -191,6 +218,9 @@ void Shake::calResidueImage(const std::vector<std::unique_ptr<Object3D>>& objs,
             }
         } // end for each object
     } // end per-camera loop
+    // _img_res_list[0].save(R"(D:\0.Code\OpenLPTGUI\OpenLPT\test\results\test_STB\residual0.tiff)", 8, 1, 1); // debug
+    // img_orig[0].save(R"(D:\0.Code\OpenLPTGUI\OpenLPT\test\results\test_STB\orig0.tiff)", 8, 1, 1); // debug
+    // std::exit(0); // debug
 }
 
 PixelRange Shake::calROIBound(int id_cam, double cx, double cy, double dx, double dy) const
@@ -202,16 +232,18 @@ PixelRange Shake::calROIBound(int id_cam, double cx, double cy, double dx, doubl
         return PixelRange{1, 0, 1, 0};  // empty range
     }
 
-    // compute in double, then cast once to int after floor/ceil
-    const double rmin_d = std::floor(cy - dy);
-    const double rmax_d = std::ceil (cy + dy + 1);
-    const double cmin_d = std::floor(cx - dx);
-    const double cmax_d = std::ceil (cx + dx + 1);
+    const int width  = static_cast<int>(std::round(2.0 * dx));
+    const int height = static_cast<int>(std::round(2.0 * dy));
 
-    int rmin = static_cast<int>(std::max(0.0,          rmin_d));
-    int cmin = static_cast<int>(std::max(0.0,          cmin_d));
-    int rmax = static_cast<int>(std::min<double>(H,    rmax_d));
-    int cmax = static_cast<int>(std::min<double>(W,    cmax_d));
+    int cmin = static_cast<int>(std::round(cx - (width - 1) / 2.0));  // this formula guaranttee cx is closest to the center of the range
+    int rmin = static_cast<int>(std::round(cy - (height - 1) / 2.0)); // height is int, 2 must be written 2.0 to let (H - 1)/2.0 becomes double
+    int cmax = cmin + width; // [cmin, cmax)
+    int rmax = rmin + height; //[rmin, rmax)
+
+    rmin = std::max(0, rmin);
+    cmin = std::max(0, cmin);
+    rmax = std::min(H, rmax);
+    cmax = std::min(W, cmax);
 
     if (rmax < rmin || cmax < cmin) {
         return PixelRange{1, 0, 1, 0};
@@ -271,78 +303,299 @@ std::vector<ROIInfo> Shake::buildROIInfo(const Object3D& obj,
 }
 
 // shake one object, input delta is the shake width, return the score for updating, obj is also updated
-double Shake::shakeOneObject(Object3D& obj, std::vector<ROIInfo>& ROI_info, double delta, const std::vector<bool>& shake_cam) const
-{
-    std::vector<double> delta_list = { -delta, 0.0, +delta };
-    std::vector<double> array_list(4, 0.0);          // x0,x1,x2,x*
-    std::vector<double> array_list_fit(3, 0.0);      // for polyfit (x0,x1,x2)
-    std::vector<double> coeff(3, 0.0);               // quad coeffs
-    std::vector<double> residue_list(4, 0.0);        // f0,f1,f2,f*
-    std::vector<double> residue_list_fit(3, 0.0);    // for polyfit
+// double Shake::shakeOneObject(Object3D& obj, std::vector<ROIInfo>& ROI_info, double delta, const std::vector<bool>& shake_cam) const
+// {
+//     std::vector<double> delta_list = { -delta, 0.0, +delta };
+//     std::vector<double> array_list(4, 0.0);          // x0,x1,x2,x*
+//     std::vector<double> array_list_fit(3, 0.0);      // for polyfit (x0,x1,x2)
+//     std::vector<double> coeff(3, 0.0);               // quad coeffs
+//     std::vector<double> residue_list(4, 0.0);        // f0,f1,f2,f*
+//     std::vector<double> residue_list_fit(3, 0.0);    // for polyfit
 
-    // shaking on x,y,z direction
-    double residue = 0.0;
+//     // shaking on x,y,z direction
+//     double residue = 0.0;
     
+//     CreateArgs args;
+//     args._proto = &obj;
+//     std::unique_ptr<Object3D> obj3d_temp = _obj_cfg.creatObject3D(std::move(args)); // create a temporary object for shaking
+
+//     for (int i = 0; i < 3; i ++)
+//     {
+//         for (int j = 0; j < 3; j ++)
+//         {
+//             array_list[j] = obj._pt_center[i] + delta_list[j];
+//             array_list_fit[j] = array_list[j];
+
+//             obj3d_temp->_pt_center[i] = array_list[j];
+            
+//             // update 2D information
+//             obj3d_temp->projectObject2D(_cams); 
+
+//             residue_list[j] = _strategy->calShakeResidue(*obj3d_temp, ROI_info, shake_cam);
+//             residue_list_fit[j] = residue_list[j];
+//         }
+        
+//         // residue = coeff[0] + coeff[1] * x + coeff[2] * x^2
+//         myMATH::polyfit(coeff, array_list_fit, residue_list_fit, 2);
+
+//         // 计算区间内的顶点 x*
+//         bool has_star = false;
+//         if (coeff[2] != 0.0) {
+//             array_list[3] = - coeff[1] / (2.0 * coeff[2]);
+//             if (array_list[3] > array_list[0] && array_list[3] < array_list[2]) {
+//                 obj3d_temp->_pt_center[i] = array_list[3];
+//                 obj3d_temp->projectObject2D(_cams);
+//                 residue_list[3] = _strategy->calShakeResidue(*obj3d_temp, ROI_info, shake_cam);
+//                 has_star = true;
+//             } else {
+//                 residue_list[3] = std::numeric_limits<double>::infinity(); // safer than "+1"
+//             }
+//         } else {
+//             residue_list[3] = std::numeric_limits<double>::infinity();
+//         }
+
+//         // 选最小残差的位置（含 x* 如有效）
+//         int min_id = 0;
+//         double min_val = residue_list[0];
+//         int t_max = (has_star ? 4 : 3);
+//         for (int t = 1; t < t_max; ++t) {
+//             if (residue_list[t] < min_val) { min_val = residue_list[t]; min_id = t; }
+//         }
+        
+//         // update obj
+//         obj3d_temp->_pt_center[i] = array_list[min_id];
+//         obj._pt_center[i] = array_list[min_id];
+//         residue = residue_list[min_id];
+//     }
+
+//     // TODO: remove camera with residue > thredshold, and redo shakeoneobject
+
+//     // update 2D information for next loop of shaking
+//     obj.projectObject2D(_cams);
+
+//     return residue;
+// }
+
+double Shake::shakeOneObject(Object3D& obj,
+                             std::vector<ROIInfo>& ROI_info,
+                             double delta,
+                             const std::vector<bool>& shake_cam) const
+{
+    // ---------- small helpers ----------
+    auto median = [](std::vector<double>& v) -> double {
+        if (v.empty()) return 0.0;
+        const size_t n = v.size();
+        const size_t mid = n / 2;
+        std::nth_element(v.begin(), v.begin() + mid, v.end());
+        double m = v[mid];
+        if ((n & 1) == 0) {
+            std::nth_element(v.begin(), v.begin() + mid - 1, v.end());
+            m = 0.5 * (m + v[mid - 1]);
+        }
+        return m;
+    };
+    auto inROI = [&](int k, double u, double v) -> bool {
+        const auto& rr = ROI_info[k]._ROI_range;
+        return (rr.col_min <= u && u < rr.col_max &&
+                rr.row_min <= v && v < rr.row_max);
+    };
+
+    // Reusable temp object for function evaluations
     CreateArgs args;
     args._proto = &obj;
-    std::unique_ptr<Object3D> obj3d_temp = _obj_cfg.creatObject3D(std::move(args)); // create a temporary object for shaking
+    std::unique_ptr<Object3D> obj_tmp = _obj_cfg.creatObject3D(std::move(args));
 
-    for (int i = 0; i < 3; i ++)
+    // Return the best residue on the last axis (keeps your original behavior)
+    double residue_axis = 0.0;
+
+    // ---------- process X, Y, Z axes ----------
+    for (int ax = 0; ax < 3; ++ax)
     {
-        for (int j = 0; j < 3; j ++)
-        {
-            array_list[j] = obj._pt_center[i] + delta_list[j];
-            array_list_fit[j] = array_list[j];
+        const double x0 = obj._pt_center[ax];     // absolute world coordinate on this axis
+        const double DL = -delta, D0 = 0.0, DR = +delta;
+        const double sample_rel[3] = { DL, D0, DR };
 
-            obj3d_temp->_pt_center[i] = array_list[j];
-            
-            // update 2D information
-            obj3d_temp->projectObject2D(_cams); 
+        // Cache: three samples' residues and per-camera 2D points (for Jx / margins)
+        double f[3] = {0,0,0};
 
-            residue_list[j] = _strategy->calShakeResidue(*obj3d_temp, ROI_info, shake_cam);
-            residue_list_fit[j] = residue_list[j];
-        }
-        
-        // residue = coeff[0] + coeff[1] * x + coeff[2] * x^2
-        myMATH::polyfit(coeff, array_list_fit, residue_list_fit, 2);
+        struct UV { double u=0, v=0; bool ok=false; };
+        std::vector<UV> uv[3]; // uv[0]=at -Δ, uv[1]=at 0, uv[2]=at +Δ
+        for (int j = 0; j < 3; ++j) uv[j].resize(_cams.size());
 
-        // 计算区间内的顶点 x*
-        bool has_star = false;
-        if (coeff[2] != 0.0) {
-            array_list[3] = - coeff[1] / (2.0 * coeff[2]);
-            if (array_list[3] > array_list[0] && array_list[3] < array_list[2]) {
-                obj3d_temp->_pt_center[i] = array_list[3];
-                obj3d_temp->projectObject2D(_cams);
-                residue_list[3] = _strategy->calShakeResidue(*obj3d_temp, ROI_info, shake_cam);
-                has_star = true;
-            } else {
-                residue_list[3] = std::numeric_limits<double>::infinity(); // safer than "+1"
+        // ---- evaluate (-Δ, 0, +Δ) in a tight loop (no repetition) ----
+        for (int j = 0; j < 3; ++j) {
+            const double x_abs = x0 + sample_rel[j];
+            obj_tmp->_pt_center[ax] = x_abs;
+            obj_tmp->projectObject2D(_cams);
+            f[j] = _strategy->calShakeResidue(*obj_tmp, ROI_info, shake_cam);
+
+            // record UV for each camera at this sample (used to estimate Jx and margins later)
+            for (size_t k = 0; k < _cams.size(); ++k) {
+                if (!shake_cam[k]) continue;
+                const auto& o2d = obj_tmp->_obj2d_list[k];
+                const double u = o2d->_pt_center[0];
+                const double v = o2d->_pt_center[1];
+                uv[j][k].u = u; uv[j][k].v = v; uv[j][k].ok = inROI((int)k, u, v);
             }
-        } else {
-            residue_list[3] = std::numeric_limits<double>::infinity();
         }
 
-        // 选最小残差的位置（含 x* 如有效）
-        int min_id = 0;
-        double min_val = residue_list[0];
-        int t_max = (has_star ? 4 : 3);
-        for (int t = 1; t < t_max; ++t) {
-            if (residue_list[t] < min_val) { min_val = residue_list[t]; min_id = t; }
+        // ==========================  adaptive shadth width adjustment ===========================//
+        // ---- basic stats from the 3 samples ----
+        const double fL = f[0], f0 = f[1], fR = f[2];
+        const double tol = 1e-3 * std::max(1.0, f0);
+
+        const bool mono_dec = (fL > f0 + tol) && (f0 > fR + tol); // monotone decreasing along +x
+        const bool mono_inc = (fR > f0 + tol) && (f0 > fL + tol); // monotone increasing along +x
+        const bool mono     = mono_dec || mono_inc;
+        int s = mono_dec ? +1 : (mono_inc ? -1 : 0);
+
+        // second difference and central slope (relative-x form)
+        const double kappa = (fL - 2.0*f0 + fR);                         // = a * Δ^2
+        const double g     = (fR - fL) / std::max(2.0*delta, 1e-12);     // ≈ f'(0)
+
+        // candidate pool (relative-x) and absolute positions
+        std::vector<double> cand_x  = { DL, 0.0, DR };
+        std::vector<double> cand_f  = { fL, f0,  fR };
+        std::vector<double> cand_abs{ x0+DL, x0, x0+DR };
+
+        // ---------- Gate: if minimum is clearly inside [-Δ,Δ], DO NOT EXPAND ----------
+        bool skip_expand = false;
+        bool allow_eval_xhat = true; // see if it is needed to calculate mimimum point at final step
+
+        if (kappa > 0.0) { // convex only
+            const double x3 = delta * (fL - fR) / (2.0 * kappa); // relative
+            const double beta_in = 0.95;                         // clearly inside [-Δ,Δ]
+            if (std::abs(x3) <= beta_in * delta) { // minimum lies within [-Δ,Δ] skip_expand = true;
+                // predict the relative improvment   rho_pred = g^2 / (2 a max(f0,1)), a = kappa/Δ^2
+                const double a = kappa / (delta*delta + 1e-12);
+                const double rho_pred = (g*g) / (2.0 * a * std::max(f0, 1.0));
+                const double eta_small = 8e-4;
+
+                skip_expand = true;
+
+                // improvment is trivial, and calculation for minimum point is not need
+                if (rho_pred < eta_small) {
+                    allow_eval_xhat = false;
+                }
+            }
         }
-        
-        // update obj
-        obj3d_temp->_pt_center[i] = array_list[min_id];
-        obj._pt_center[i] = array_list[min_id];
-        residue = residue_list[min_id];
+
+        // ---------- Single expansion (only if not gated AND monotonic) ----------
+        if (!skip_expand && mono)
+        {
+            // Jx is when the particle moves 1 mm, how many pixels it moves on image
+            // Estimate Jx (px/mm) from ±Δ samples (reuse uv cache); estimate pixel margin at center.
+            std::vector<double> Jvals, margins;
+            Jvals.reserve(_cams.size());
+            margins.reserve(_cams.size());
+            for (size_t k = 0; k < _cams.size(); ++k) {
+                if (!shake_cam[k]) continue;
+
+                if (uv[0][k].ok && uv[2][k].ok) {
+                    const double du = uv[2][k].u - uv[0][k].u;
+                    const double dv = uv[2][k].v - uv[0][k].v;
+                    const double Jk = std::hypot(du, dv) / std::max(2.0*delta, 1e-12);
+                    Jvals.push_back(Jk);
+                }
+                if (uv[1][k].ok) {
+                    const auto& rr = ROI_info[k]._ROI_range;
+                    const double mu = std::min(uv[1][k].u - rr.col_min, rr.col_max - 1.0 - uv[1][k].u);
+                    const double mv = std::min(uv[1][k].v - rr.row_min, rr.row_max - 1.0 - uv[1][k].v);
+                    margins.push_back(std::min(mu, mv));
+                }
+            }
+            double Jx  = median(Jvals);
+            double mpx = median(margins);
+            const double Delta_roi = (Jx > 0.0 && mpx > 0.0) ? (0.5 * mpx / Jx) : 0.0;
+
+            // Choose Δ_try:
+            //  A) convex & |x*|>Δ -> direction by sign(x*), with "1px cap"
+            //  B) otherwise -> 1px step along monotonic direction 
+            double Delta_try = 0.0;
+            if (kappa > 0.0) {
+                const double x3 = delta * (fL - fR) / (2.0 * kappa);
+                if (std::abs(x3) > delta) {
+                    s = (x3 > 0.0 ? +1 : -1);
+                    if (Jx > 0.0 && std::abs(x3) > (1.0 / Jx)) {
+                        Delta_try = 1.0 / Jx; // cap by 1 pixel (world units)
+                    } else {
+                        const double alpha = 1.15;
+                        Delta_try = alpha * std::abs(x3);
+                    }
+                }
+            }
+            if (Delta_try <= 0.0 && Jx > 0.0) {
+                Delta_try = 1.0 / Jx; // default 1px
+            }
+
+            // Apply ROI limit and evaluate expansion point at most once
+            const double Delta_prime = (Delta_try > 0.0 && Delta_roi > 0.0) ? std::min(Delta_try, Delta_roi) : 0.0;
+            if (Delta_prime > 0.0) {
+                const double dx_exp = (s >= 0 ? +Delta_prime : -Delta_prime);
+                obj_tmp->_pt_center[ax] = x0 + dx_exp;
+                obj_tmp->projectObject2D(_cams);
+                bool out = false;
+                for (size_t k = 0; k < _cams.size(); ++k) {
+                    if (!shake_cam[k]) continue;
+                    const auto& o2d = obj_tmp->_obj2d_list[k];
+                    const double u = o2d->_pt_center[0], v = o2d->_pt_center[1];
+                    if (!inROI((int)k, u, v)) { out = true; break; }
+                }
+                if (!out) {
+                    const double fexp = _strategy->calShakeResidue(*obj_tmp, ROI_info, shake_cam);
+                    cand_x.push_back(dx_exp);
+                    cand_f.push_back(fexp);
+                    cand_abs.push_back(x0 + dx_exp);
+                }
+            }
+        }
+        // else: non-monotonic or gated -> no expansion; go to final step.
+
+        // ---------- Unified final step: LS quadratic over evaluated candidates ----------
+        std::vector<double> coeff(3, 0.0);
+        myMATH::polyfit(coeff, cand_x, cand_f, 2); // coeff[0] + coeff[1] x + coeff[2] x^2
+
+        if (allow_eval_xhat && coeff[2] > 0.0) { // only if convex
+            const double x_hat = -coeff[1] / (2.0 * coeff[2]); // relative-x
+            double xmin = cand_x[0], xmax = cand_x[0];
+            for (double t : cand_x) { xmin = std::min(xmin, t); xmax = std::max(xmax, t); }
+            if (x_hat >= xmin && x_hat <= xmax) {
+                obj_tmp->_pt_center[ax] = x0 + x_hat;
+                obj_tmp->projectObject2D(_cams);
+                bool out = false;
+                for (size_t k = 0; k < _cams.size(); ++k) {
+                    if (!shake_cam[k]) continue;
+                    const auto& o2d = obj_tmp->_obj2d_list[k];
+                    const double u = o2d->_pt_center[0], v = o2d->_pt_center[1];
+                    if (!inROI((int)k, u, v)) { out = true; break; }
+                }
+                if (!out) {
+                    const double fhat = _strategy->calShakeResidue(*obj_tmp, ROI_info, shake_cam);
+                    cand_x.push_back(x_hat);
+                    cand_f.push_back(fhat);
+                    cand_abs.push_back(x0 + x_hat);
+                }
+            }
+        }
+
+        // ---------- pick the best evaluated candidate ----------
+        int best_id = 0;
+        double best_f = cand_f[0];
+        for (int t = 1; t < (int)cand_f.size(); ++t) {
+            if (cand_f[t] < best_f) { best_f = cand_f[t]; best_id = t; }
+        }
+
+        // Update this axis and refresh 2D before next axis
+        obj._pt_center[ax] = cand_abs[best_id];
+        residue_axis = best_f;
+        obj.projectObject2D(_cams);
     }
 
-    // TODO: remove camera with residue > thredshold, and redo shakeoneobject
-
-    // update 2D information for next loop of shaking
+    // Final projection for next outer iteration
     obj.projectObject2D(_cams);
-
-    return residue;
+    return residue_axis;
 }
+
 
 // calculate score based on the intensity
 double Shake::calObjectScore(Object3D& obj, const std::vector<ROIInfo>& ROI_info) const
@@ -398,8 +651,9 @@ double Shake::calObjectScore(Object3D& obj, const std::vector<ROIInfo>& ROI_info
         if (max_id >= 0) { use_cam[max_id] = 0; --n_used; }
     }
 
-    // calculate intensity ratio for each camera r_k = |sum_measured / sum_model|，and use geometric mean
-    double ratio = 1.0;    // for geometric mean it should be 1.0
+    // calculate intensity ratio for each camera r_k = |sum_measured / sum_model|
+    double ratio = 0.0;    
+    int cam_used = 0;
 
     for (int k = 0; k < n_cam; ++k) {
         if (!use_cam[k]) continue;
@@ -408,8 +662,8 @@ double Shake::calObjectScore(Object3D& obj, const std::vector<ROIInfo>& ROI_info
         double numer = 0.0;    // sum of measured intensity
         double denom = 0.0;    // sum of predicted intensity
 
-        for (int r = R.row_min; r <= R.row_max; ++r) {
-            for (int c = R.col_min; c <= R.col_max; ++c) {
+        for (int r = R.row_min; r < R.row_max; ++r) {
+            for (int c = R.col_min; c < R.col_max; ++c) {
                 // measured：ROI 内用 Aug，外用 residual（可能为负）
                 double meas = ROI_info[k].inRange(r, c)
                                     ? ROI_info[k].aug_img(r, c)
@@ -421,11 +675,13 @@ double Shake::calObjectScore(Object3D& obj, const std::vector<ROIInfo>& ROI_info
                 const double pred = _strategy->project2DInt(obj, k, r, c);
                 denom += pred;
             }
-        }
+        }  
 
         const double rk = std::abs(numer / denom);   // 单相机亮度比值（≥0）
-        ratio *= rk;
+        ratio += rk;
+        cam_used ++;
     }
+    ratio = (cam_used > 0) ? ratio / static_cast<double>(cam_used) : 0.0; // geometric mean may not be stable if prediction is far from measurement in the beginning
 
     return ratio; 
 }
@@ -451,7 +707,7 @@ std::vector<bool> Shake::markRepeatedObj(const std::vector<std::unique_ptr<Objec
     KDTreeObj3d tree_obj3d(3, obj3d_cloud, params);
     tree_obj3d.buildIndex();
 
-    // Remove repeated tracks
+    // mark repeated objects
     double tol_3d = _obj_cfg._sm_param.tol_3d_mm;
     double repeat_thres_2 = tol_3d * tol_3d;
     for (int i = 0; i < n_obj - 1; i ++)
@@ -556,9 +812,13 @@ double TracerShakeStrategy::gaussIntensity(int x, int y, Pt2D const& pt2d, std::
 {
     double dx = x - pt2d[0];
     double dy = y - pt2d[1];
-    double xx =  dx * std::cos(otf_param[3]) + dy * std::sin(otf_param[3]);
-    double yy = -dx * std::sin(otf_param[3]) + dy * std::cos(otf_param[3]);
-    double value = otf_param[0] * std::exp(- otf_param[1] * (xx*xx) - otf_param[2] * (yy*yy));
+
+    const double A  = otf_param[0], B = otf_param[1], C = otf_param[2];
+    const double cs = otf_param[3], sn = otf_param[4]; // cos(theta), sin(theta)
+
+    const double xx =  dx*cs + dy*sn;
+    const double yy = -dx*sn + dy*cs;
+    double value = A * std::exp(-(B*xx*xx + C*yy*yy));
     return std::max(0.0, value);
 }
 
@@ -566,9 +826,36 @@ double TracerShakeStrategy::project2DInt(const Object3D& obj, int id_cam, int ro
 {
     const auto& tr_cfg = static_cast<const TracerConfig&>(_obj_cfg);
 
-    std::vector<double> otf_param = tr_cfg._otf.getOTFParam(id_cam, obj._pt_center);
+    // std::vector<double> otf_param = tr_cfg._otf.getOTFParam(id_cam, obj._pt_center); // calculate OTF param for each pixel is too slow
 
-    return gaussIntensity(col, row, obj._obj2d_list[id_cam]->_pt_center, otf_param);
+    // save the otf_param in thread local storage for reuse
+    struct Cache {
+        const Object3D* obj = nullptr;
+        int cam = -1;
+        double center3d[3]{0,0,0};
+        std::vector<double> otf; 
+    };
+    static thread_local Cache cache; // get the current thread's cache
+
+    // check if need to update the cache
+    auto center_changed = [&]{
+        const double* p = obj._pt_center.data();
+        return p[0] != cache.center3d[0] ||
+               p[1] != cache.center3d[1] ||
+               p[2] != cache.center3d[2];
+    };
+
+    if (cache.obj != &obj || cache.cam != id_cam || center_changed()) {
+        cache.obj = &obj;
+        cache.cam = id_cam;
+        const double* p = obj._pt_center.data();
+        cache.center3d[0] = p[0]; cache.center3d[1] = p[1]; cache.center3d[2] = p[2];
+
+        cache.otf = static_cast<const TracerConfig&>(_obj_cfg)
+                        ._otf.getOTFParam(id_cam, obj._pt_center);
+    }
+
+    return gaussIntensity(col, row, obj._obj2d_list[id_cam]->_pt_center, cache.otf);
 }
 
 ShakeStrategy::ROISize TracerShakeStrategy::calROISize(const Object3D& obj, int id_cam) const 
@@ -621,7 +908,7 @@ double TracerShakeStrategy::calShakeResidue(const Object3D& obj_candidate, std::
                 // Measured Aug value from ROI (the accessor maps full (row,col) to local (i,j) with checks)
                 const double meas = ROI_info[cam].aug_img(row, col);
 
-                double pred = 0;
+                double pred = 0.0;
                 // Forward model prediction for this pixel (Gaussian PSF; returns 0 outside object size)
                 if (row >= pred_row_min && row < pred_row_max &&
                     col >= pred_col_min && col < pred_col_max)

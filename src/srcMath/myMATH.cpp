@@ -700,4 +700,117 @@ bool ismember (int id, std::vector<int> const& vec)
     return std::find(vec.begin(), vec.end(), id) != vec.end();
 }
 
+// Compute the left-tail deletion threshold (low_cut) using KDE + modal HDR + guards.
+// Returns a real low_cut only when the left side is truly sparse and separated from the main mode.
+// Otherwise returns (min(x) - tiny), which effectively means "no deletion".
+double computeLowCutKDE(const std::vector<double>& x_raw,
+                               double p,           // modal HDR mass (candidate region width)
+                               double ratio_thresh,// density ratio threshold f(L)/f(mode) (smaller = more conservative)
+                               double valley_thresh)// valley depth threshold min_{(L,mode)} f / f(mode)
+{
+    // 0) keep finite
+    std::vector<double> x; x.reserve(x_raw.size());
+    for (double v : x_raw) if (std::isfinite(v)) x.push_back(v);
+    if (x.size() < 8) {
+        if (x.empty()) return -std::numeric_limits<double>::infinity();
+        return (*std::min_element(x.begin(), x.end())) - 1e-12; // no deletion
+    }
+
+    // 1) Silverman bandwidth with IQR guard
+    auto silverman_bandwidth = [&](const std::vector<double>& v)->double {
+        const size_t n = v.size();
+        const double mean = std::accumulate(v.begin(), v.end(), 0.0) / double(n);
+        double var = 0.0; for (double a : v) var += (a - mean) * (a - mean);
+        const double sd = std::sqrt(var / double(n - 1));
+        std::vector<double> tmp = v;
+        std::nth_element(tmp.begin(), tmp.begin() + n/4, tmp.end());
+        const double q1 = tmp[n/4];
+        std::nth_element(tmp.begin(), tmp.begin() + (3*n)/4, tmp.end());
+        const double q3 = tmp[(3*n)/4];
+        const double iqr = q3 - q1;
+        const double s = (sd > 0.0 && iqr > 0.0) ? std::min(sd, iqr/1.34) : std::max(sd, iqr/1.34);
+        double h = 0.9 * s * std::pow(double(n), -1.0/5.0);
+        if (!(h > 1e-9)) h = 1e-9;
+        return h;
+    };
+    const double h = silverman_bandwidth(x);
+
+    // 2) Build grid adaptively and compute Gaussian KDE (normalized to integrate ~1)
+    const double xmin = *std::min_element(x.begin(), x.end());
+    const double xmax = *std::max_element(x.begin(), x.end());
+    const double pad = 3.0; // domain padding in multiples of bandwidth
+    const double lo = xmin - pad * h, hi = xmax + pad * h;
+
+    // Adaptive grid size: ~points_per_bw per bandwidth across the effective span
+    const double effective_span = (hi - lo);
+    const double points_per_bw = 48.0;           // resolution per bandwidth (tune 32~64 if needed)
+    int grid_size = int(std::ceil((effective_span / h) * points_per_bw));
+    if (grid_size < 512)  grid_size = 512;
+    if (grid_size > 8192) grid_size = 8192;
+
+    std::vector<double> grid(grid_size);
+    const double dx = (hi - lo) / double(grid_size - 1);
+    for (int i = 0; i < grid_size; ++i) grid[i] = lo + dx * double(i);
+
+    std::vector<double> f(grid_size, 0.0);
+    const double inv_h = 1.0 / h;
+    const double inv_sqrt_2pi = 0.3989422804014327; // 1/sqrt(2*pi)
+    for (int j = 0; j < grid_size; ++j) {
+        double sum = 0.0, gj = grid[j];
+        for (double xi : x) {
+            const double u = (gj - xi) * inv_h;
+            sum += std::exp(-0.5 * u * u) * inv_sqrt_2pi;
+        }
+        f[j] = (sum / double(x.size())) * inv_h;
+    }
+    // normalize by trapezoid rule
+    double area = 0.0;
+    for (int j = 1; j < grid_size; ++j) area += 0.5 * (f[j] + f[j-1]) * (grid[j] - grid[j-1]);
+    if (area > 0.0) for (double& v : f) v /= area;
+
+    // 3) global mode index
+    int i_mode = int(std::max_element(f.begin(), f.end()) - f.begin());
+    const double f_mode = f[i_mode];
+
+    // 4) binary search threshold c so that the connected component around the mode has mass ≈ p
+    auto mass_of_modal_component = [&](double c, int& l_idx, int& r_idx)->double {
+        int L = i_mode, R = i_mode;
+        while (L - 1 >= 0           && f[L-1] >= c) --L;
+        while (R + 1 < grid_size    && f[R+1] >= c) ++R;
+        l_idx = L; r_idx = R;
+        double m = 0.0;
+        for (int j = L + 1; j <= R; ++j) m += 0.5 * (f[j] + f[j-1]) * (grid[j] - grid[j-1]);
+        return m;
+    };
+    double lo_c = 0.0, hi_c = f_mode, best_c = lo_c;
+    int best_l = 0, best_r = grid_size - 1;
+    for (int it = 0; it < 60; ++it) {
+        const double mid = 0.5 * (lo_c + hi_c);
+        int l_idx = 0, r_idx = 0;
+        const double mass = mass_of_modal_component(mid, l_idx, r_idx);
+        if (mass >= p) { // region too wide -> increase c to shrink
+            lo_c = mid; best_c = mid; best_l = l_idx; best_r = r_idx;
+        } else {
+            hi_c = mid;
+        }
+    }
+    const int l_idx = best_l;
+    const double L = grid[l_idx];
+
+    // 5) protection guards: (a) small density ratio at L; (b) clear valley between L and mode
+    const double f_L = f[l_idx];
+    const double ratio = (f_mode > 0.0 ? f_L / f_mode : 1.0);
+
+    double valley = f_L;
+    for (int j = l_idx; j <= i_mode; ++j) valley = std::min(valley, f[j]);
+    const double valley_ratio = (f_mode > 0.0 ? valley / f_mode : 1.0);
+
+    if (ratio > ratio_thresh || valley_ratio > valley_thresh) {
+        // Not truly sparse or no separation -> no deletion
+        return xmin - 1e-12;
+    }
+    // Accept deleting left tail strictly below L
+    return L;
+}
+
 }

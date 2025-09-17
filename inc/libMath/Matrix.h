@@ -169,6 +169,11 @@ public:
     Image (const Image& mtx) : Matrix<double>(mtx) {};
     Image (const Matrix<double>& mtx) : Matrix<double>(mtx) {};
     explicit Image (std::string file_name) : Matrix<double>(file_name) {};
+
+    void save(const std::string& path,
+              int bits_per_sample = 8,
+              int n_channel       = 1,
+              std::uint16_t orientation  = 1) const; // this function is in ImageIO.h because it uses ImageIO
 };
 
 #include "Matrix.hpp"

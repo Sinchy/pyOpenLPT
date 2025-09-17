@@ -1,93 +1,44 @@
-#%%
-import subprocess
-import os
+# build.py — configure & build the Python extension "openlpt" with MSVC + pip pybind11
+import os, sys, subprocess
+from pathlib import Path
 
-#%%
-# enter the path to gcc and g++ compilers
-gcc = "D:/msys2/mingw64/bin/gcc.exe"
-gpp = "D:/msys2/mingw64/bin/g++.exe"
+ROOT  = Path(__file__).resolve().parent
+BUILD = ROOT / "build-py"
+CFG   = os.environ.get("CONFIG", "Release")  # or "Debug"
+GEN   = os.environ.get("CMAKE_GENERATOR", "Visual Studio 17 2022")
+ARCH  = os.environ.get("CMAKE_ARCH", "x64")
 
-# for windows
-powershell = "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-# for Linux
-# powershell = "/bin/bash"
+def run(cmd, cwd=None):
+    print(">>", " ".join(map(str, cmd)))
+    p = subprocess.run(cmd, cwd=cwd, text=True)
+    if p.returncode != 0:
+        raise SystemExit(p.returncode)
 
-# depends on the compiler toolchain 
-generator = "MinGW Makefiles"
-# generator = "Unix Makefiles"
-# generator = "Ninja"
-# generator = "MSYS Makefiles"
+def main():
+    # 确保已安装 pybind11（不装就提示）
+    try:
+        import pybind11
+        pybind11_dir = pybind11.get_cmake_dir()
+    except Exception as e:
+        print("pybind11 not installed. Please run: python -m pip install pybind11")
+        raise
 
+    BUILD.mkdir(exist_ok=True)
 
-# check path 
-if not os.path.exists(gcc):
-    print("gcc path not found!")
-    exit(1)
-if not os.path.exists(gpp):
-    print("g++ path not found!")
-    exit(1)
-if not os.path.exists(powershell):
-    print("powershell/bash path not found!")
-    
-    
-#%%
-if os.path.isdir('./build/'):
-    # clear previous cache 
-    clear_cache_cmd = ["rm", "-r", "./build/*"]
-    out = subprocess.run(clear_cache_cmd, shell=True, check=False, text=True, capture_output=True, executable=powershell)
+    cfg_cmd = [
+        "cmake", "-S", str(ROOT), "-B", str(BUILD),
+        "-G", GEN, "-A", ARCH,
+        "-DPYOPENLPT=ON",
+        f"-DPython_EXECUTABLE={sys.executable}",
+        f"-Dpybind11_DIR={pybind11_dir}",   
+        "-DOPENLPT_PYBIND11_PROVIDER=pip",
+    ]
+    run(cfg_cmd)
 
-    if out.returncode != 0:
-        print(out.stdout)
-        print(out.stderr)
-        exit(1)
-else:
-    os.mkdir('./build/')
-    
-# config cmake
-cmake_config_cmd = ["cmake", "-DCMAKE_C_COMPILER:FILEPATH="+"'{}'".format(gcc), "-DCMAKE_CXX_COMPILER:FILEPATH="+"'{}'".format(gpp), "-S", ".", "-B", "build", "-G", "'{}'".format(generator)]
+    # run(["cmake", "--build", str(BUILD), "--config", CFG, "--target", "openlpt", "--", "/m"])
+    run(["cmake", "--build", str(BUILD), "--config", CFG, "--target", "pyopenlpt", "OpenLPT", "--", "/m"])
 
-out = subprocess.run(cmake_config_cmd, shell=True, check=False, text=True, capture_output=True, executable=powershell)
+    print(f"\nBuild done. Module at: {BUILD / CFG}\n")
 
-if out.returncode != 0:
-    print(out.stdout)
-    print(out.stderr)
-    exit(1)
-
-print('CMake configuration successful!')
-
-
-# build 
-build_command = ["cmake", "--build", "build", "--config", "Release", "--target", "all"]
-
-out = subprocess.run(build_command, shell=True, check=False, text=True, capture_output=True, executable=powershell)
-
-if out.returncode != 0:
-    print(out.stdout)
-    print(out.stderr)
-    exit(1)
-    
-print('Build successful!')
-
-
-# install 
-install_command = ["cmake", "--install", "build", "--config", "Release"]
-
-out = subprocess.run(install_command, shell=True, check=False, text=True, capture_output=True, executable=powershell)
-
-if out.returncode != 0:
-    print(out.stdout)
-    print(out.stderr)
-    exit(1)
-    
-print('Install successful!')
-
-
-#%%
-# run the executable
-# run_command = ["./bin/OpenLPT.exe"]
-
-# out = subprocess.run(run_command, check=True, text=True, capture_output=True)
-
-# print(out.stderr)
-# print(out.stdout)
-# %%
+if __name__ == "__main__":
+    main()

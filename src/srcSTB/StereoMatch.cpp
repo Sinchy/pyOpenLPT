@@ -26,21 +26,19 @@ StereoMatch::StereoMatch(const std::vector<Camera>&                           ca
 {
     // pre-check
     const int n_cams = static_cast<int>(_cams.size());
-    if (n_cams <= 0)
-        throw std::runtime_error("preCheck: cams is empty.");
-    if (static_cast<int>(_obj2d_list.size()) != n_cams)
-        throw std::runtime_error("preCheck: cams and obj2d_list sizes must match.");
+    REQUIRE(n_cams > 0, ErrorCode::InvalidArgument, "preCheck: cams is empty.");
+    REQUIRE(static_cast<int>(_obj2d_list.size()) == n_cams, ErrorCode::InvalidArgument, 
+        "preCheck: cams and obj2d_list sizes must match.");
 
     int n_active = 0;
     for (int i = 0; i < n_cams; ++i)
         if (_cams[i]._is_active) ++n_active;
 
-    if (n_active < 2)
-        throw std::runtime_error("preCheck: need at least 2 active cameras.");
+    REQUIRE(n_active >= 2, ErrorCode::InvalidArgument, "preCheck: need at least 2 active cameras.");
 
     int match_cam_count = _obj_cfg._sm_param.match_cam_count;
-    if (match_cam_count < 2 || match_cam_count > n_active)
-        throw std::runtime_error("preCheck: match_cam_count must be within [2, #active].");
+    REQUIRE_CTX(match_cam_count >= 2 && match_cam_count <= n_active, ErrorCode::InvalidArgument, 
+        "preCheck: match_cam_count must be within [2," + std::to_string(n_active) + "].", "match_cam_count = " + std::to_string(match_cam_count));
 
     // ---- (Re)build IDMaps for all active cams once (used by buildMatch/checkMatch). ----
     _idmaps.clear();

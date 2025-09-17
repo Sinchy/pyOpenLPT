@@ -27,65 +27,72 @@ void PredField::calPredField(const std::vector<std::unique_ptr<Object3D>>& obj3d
     // calculate displacement field
     PFParam& param = _obj_cfg._pf_param;
     // loop for each grid
-    for (int x_id = 0; x_id < param.nx; x_id ++)
+    const int n_thread = _obj_cfg._n_thread;
+    #pragma omp parallel num_threads(n_thread)
     {
-        for (int y_id = 0; y_id < param.ny; y_id ++)
+        #pragma omp for
+        for (int x_id = 0; x_id < param.nx; x_id ++)
         {
-            for (int z_id = 0; z_id < param.nz; z_id ++)
+            for (int y_id = 0; y_id < param.ny; y_id ++)
             {
-                std::vector<int> xyz_id = {x_id, y_id, z_id};
-
-                int grid_id = mapGridID(xyz_id[0],xyz_id[1],xyz_id[2]);
-
-                // find obj that is close to the grid
-                std::vector<int> objID_list_prev, objID_list_curr;
-                findNeighbor(objID_list_prev, xyz_id, obj3d_list_prev);
-                findNeighbor(objID_list_curr, xyz_id, obj3d_list_curr);
-
-                // if not find obj in one frame, then stop
-                if (objID_list_curr.empty() || objID_list_prev.empty())
+                for (int z_id = 0; z_id < param.nz; z_id ++)
                 {
-                    _disp_field(grid_id, 0) = 0;
-                    _disp_field(grid_id, 1) = 0;
-                    _disp_field(grid_id, 2) = 0;
-                }
+                    std::vector<int> xyz_id = {x_id, y_id, z_id};
 
-                // getting the displacement vectors (if there are particles in the search volume for both the frames)
-                std::vector<std::vector<double>> disp_list; // all dx,dy,dz
-                std::vector<double> disp(3,0); // dx,dy,dz
-                int id_curr, id_prev;
-                
-                for (int j = 0; j < objID_list_curr.size(); j ++) 
-                {
-                    id_curr = objID_list_curr[j];
-                    for (int k = 0; k < objID_list_prev.size(); k ++) 
-                    {  
-                        id_prev = objID_list_prev[k];
-                        // TODO: add a filter to get objects with similar features
+                    int grid_id = mapGridID(xyz_id[0],xyz_id[1],xyz_id[2]);
 
-                        disp[0] = obj3d_list_curr[id_curr]->_pt_center[0] 
-                                - obj3d_list_prev[id_prev]->_pt_center[0];
+                    // find obj that is close to the grid
+                    
+                    std::vector<int> objID_list_prev, objID_list_curr;
+                    findNeighbor(objID_list_prev, xyz_id, obj3d_list_prev);
+                    findNeighbor(objID_list_curr, xyz_id, obj3d_list_curr);
 
-                        disp[1] = obj3d_list_curr[id_curr]->_pt_center[1] 
-                                - obj3d_list_prev[id_prev]->_pt_center[1];
-
-                        disp[2] = obj3d_list_curr[id_curr]->_pt_center[2] 
-                                - obj3d_list_prev[id_prev]->_pt_center[2];
-
-                        disp_list.push_back(disp);
+                    // if not find obj in one frame, then stop
+                    if (objID_list_curr.empty() || objID_list_prev.empty())
+                    {
+                        _disp_field(grid_id, 0) = 0;
+                        _disp_field(grid_id, 1) = 0;
+                        _disp_field(grid_id, 2) = 0;
+                        continue;
                     }
+
+                    // getting the displacement vectors (if there are particles in the search volume for both the frames)
+                    std::vector<std::vector<double>> disp_list; // all dx,dy,dz
+                    std::vector<double> disp(3,0); // dx,dy,dz
+                    int id_curr, id_prev;
+                    
+                    for (int j = 0; j < objID_list_curr.size(); j ++) 
+                    {
+                        id_curr = objID_list_curr[j];
+                        for (int k = 0; k < objID_list_prev.size(); k ++) 
+                        {  
+                            id_prev = objID_list_prev[k];
+                            // TODO: add a filter to get objects with similar features
+
+                            disp[0] = obj3d_list_curr[id_curr]->_pt_center[0] 
+                                    - obj3d_list_prev[id_prev]->_pt_center[0];
+
+                            disp[1] = obj3d_list_curr[id_curr]->_pt_center[1] 
+                                    - obj3d_list_prev[id_prev]->_pt_center[1];
+
+                            disp[2] = obj3d_list_curr[id_curr]->_pt_center[2] 
+                                    - obj3d_list_prev[id_prev]->_pt_center[2];
+
+                            disp_list.push_back(disp);
+                        }
+                    }
+                    
+                    // update displacement pdf
+                    std::vector<double> disp_pdf(_nBin_tot, 0);
+                    updateDispPDF(disp_pdf, disp_list);
+
+                    // find the peak location of the displacement pdf
+                    std::vector<double> disp_opt = findPDFPeakLoc(disp_pdf);
+
+                    _disp_field(grid_id, 0) = disp_opt[0];
+                    _disp_field(grid_id, 1) = disp_opt[1];
+                    _disp_field(grid_id, 2) = disp_opt[2];
                 }
-                
-                // update displacement pdf
-                std::vector<double> disp_pdf(_nBin_tot, 0);
-                updateDispPDF(disp_pdf, disp_list);
-
-                // find the peak location of the displacement pdf
-                std::vector<double> disp_opt = findPDFPeakLoc(disp_pdf);
-
-                _disp_field(grid_id, 0) = disp_opt[0];
-                _disp_field(grid_id, 1) = disp_opt[1];
-                _disp_field(grid_id, 2) = disp_opt[2];
             }
         }
     }
@@ -222,10 +229,11 @@ void PredField::findNeighbor (std::vector<int>& pt_list_id, std::vector<int> con
 
     for (int i = 0; i < obj3d_list.size(); i++)
     {
+        
         dx = obj3d_list[i]->_pt_center[0] - x;
         dy = obj3d_list[i]->_pt_center[1] - y;
         dz = obj3d_list[i]->_pt_center[2] - z;
-
+    
         if (dx<param.r && dx>-param.r &&
             dy<param.r && dy>-param.r &&
             dz<param.r && dz>-param.r)

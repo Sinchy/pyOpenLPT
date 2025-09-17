@@ -121,20 +121,17 @@ bool BasicSetting::readConfig(const std::string& config_path) {
 
     // sanity checks
     if (_n_cam <= 0) {
-        std::cerr << "Invalid n_cam in config.\n";
-        return false;
+        THROW_FATAL_CTX(ErrorCode::InvalidArgument, "Invalid n_cam in config: ", config_path + "\n");
     }
     if (_frame_end < _frame_start) {
-        std::cerr << "Invalid frame range.\n";
-        return false;
+        THROW_FATAL_CTX(ErrorCode::InvalidArgument, "Invalid frame range in config: ", config_path + "\n");
+
     }
     if ((int)_image_file_paths.size() != _n_cam) {
-        std::cerr << "Image path count != n_cam.\n";
-        return false;
+        THROW_FATAL_CTX(ErrorCode::InvalidArgument, "Image path count != n_cam in config: ", config_path + "\n");
     }
     if (_object_types.size() != _object_config_paths.size()) {
-        std::cerr << "Object type count mismatch.\n";
-        return false;
+        THROW_FATAL_CTX(ErrorCode::InvalidArgument, "Object type count != config path count in config: ", config_path + "\n");
     }
     if (_n_thread < 0) _n_thread = 0;
 
@@ -171,6 +168,7 @@ ObjectConfig::readCommonConfig(const std::string& filepath, BasicSetting& settin
 
     int id = 0;
     try {
+        _n_thread = settings._n_thread;
         // STB params
         _stb_param._radius_search_obj   = std::stod(lines[id++]) * settings._voxel_to_mm;
         _stb_param._n_initial_frames    = std::stoi(lines[id++]);
@@ -195,7 +193,7 @@ ObjectConfig::readCommonConfig(const std::string& filepath, BasicSetting& settin
 
         // StereoMatch params
         _sm_param.tol_2d_px           = std::stod(lines[id++]);
-        _sm_param.tol_3d_mm           = std::stod(lines[id++]) * settings._voxel_to_mm;
+        _sm_param.tol_3d_mm           = std::stod(lines[id++]) * settings._voxel_to_mm; // in mm
 
         _ipr_param.n_cam_reduced      = std::stoi(lines[id++]);
         _ipr_param.n_loop_ipr_reduced = std::stoi(lines[id++]);
@@ -213,7 +211,7 @@ bool TracerConfig::readConfig(const std::string& filepath, BasicSetting& setting
 
     try {
         _min_obj_int = std::stoi(lines[id++]);
-        _radius_obj  = std::stoi(lines[id++]);
+        _radius_obj  = std::stod(lines[id++]);
 
         // Initialize OTF
         _otf.loadParam(settings._n_cam, 2, 2, 2, settings._axis_limit, settings._cam_list);
@@ -230,10 +228,12 @@ bool TracerConfig::readConfig(const std::string& filepath, BasicSetting& setting
 
         int n_img_otf = 5;
         std::vector<Image> img_list(n_img_otf);
+        std::cout << "Estimating OTF...\n";
         for (int i = 0; i < settings._n_cam; i++) {
             for (int j = 0; j < n_img_otf; j++) {
                 img_list[j] = imgio_list[i].loadImg(settings._frame_start + j);
             }
+            
             _otf.estimateUniformOTFFromImage(i, *this, img_list);
         }
     } catch (...) {

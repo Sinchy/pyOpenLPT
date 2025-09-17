@@ -26,6 +26,11 @@ set(OPENLPT_INC_ROOTS
   "${PROJECT_SOURCE_DIR}/src"  # main.cpp lives here
 )
 
+if (MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")         # /MD
+  set(CMAKE_MSVC_RUNTIME_LIBRARY_DEBUG "MultiThreadedDebugDLL") # /MDd
+endif()
+
 # If you generate a config header from a template, enable:
 # configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h @ONLY)
 # list(APPEND OPENLPT_INC_ROOTS "${PROJECT_BINARY_DIR}")
@@ -248,6 +253,15 @@ openlpt_apply_warnings(Config)
 
 # ---- Final executable ------------------------------------------------
 add_executable(OpenLPT "${PROJECT_SOURCE_DIR}/src/main.cpp")
+target_compile_definitions(OpenLPT PRIVATE OPENLPT_BUILD_CLI)
+set_target_properties(OpenLPT PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
+  RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_BINARY_DIR}/Debug"
+  RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release"
+)
+add_custom_command(TARGET OpenLPT POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E echo "OpenLPT exe: $<TARGET_FILE:OpenLPT>"
+)
 target_include_directories(OpenLPT PRIVATE ${OPENLPT_INC_ROOTS})
 target_link_libraries(OpenLPT PRIVATE
   STB Config

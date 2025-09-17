@@ -11,6 +11,7 @@ set(OPENLPT_PY_DIR "${PROJECT_SOURCE_DIR}/src/pybind_OpenLPT")
 
 # Add or remove binding files here as your module grows
 set(PY_SOURCES
+  "${PROJECT_SOURCE_DIR}/src/main.cpp"
   "${OPENLPT_PY_DIR}/pyConfig.cpp"
   "${OPENLPT_PY_DIR}/pyOpenLPT.cpp"
   "${OPENLPT_PY_DIR}/pyCamera.cpp"
@@ -31,7 +32,7 @@ set(PY_SOURCES
 )
 
 # Python module name (import name)
-set(OPENLPT_PYMODULE_NAME "openlpt")
+set(OPENLPT_PYMODULE_NAME "pyopenlpt")
 
 # Build the Python extension (.pyd/.so)
 pybind11_add_module(${OPENLPT_PYMODULE_NAME} MODULE ${PY_SOURCES})
@@ -68,7 +69,11 @@ target_link_libraries(${OPENLPT_PYMODULE_NAME} PRIVATE
 
 # Compile options
 target_compile_features(${OPENLPT_PYMODULE_NAME} PRIVATE cxx_std_20)
-target_compile_definitions(${OPENLPT_PYMODULE_NAME} PRIVATE NOMINMAX)
+target_compile_definitions(${OPENLPT_PYMODULE_NAME} PRIVATE
+    NOMINMAX
+    OPENLPT_EXPOSE_PRIVATE # Expose private members for debugging 
+)
+
 
 # Match Python's /MD runtime on MSVC
 if (MSVC)

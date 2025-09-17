@@ -331,8 +331,6 @@ double Matrix<T>::norm()
 template<class T>
 void Matrix<T>::write (std::string file_name)
 {
-    std::cout << "\nStart writing!" << std::endl;
-
     std::ofstream outfile(file_name, std::ios::out);
     outfile.setf(std::ios_base::scientific);
     outfile.precision(SAVEPRECISION);
@@ -347,7 +345,6 @@ void Matrix<T>::write (std::string file_name)
     }
 
     outfile.close();
-    std::cout << "Finish writing!" << std::endl;
 }
 
 template<class T>
@@ -680,6 +677,5 @@ Matrix<T> Matrix<T>::transpose ()
     }
     return res;
 }
-
 
 #endif

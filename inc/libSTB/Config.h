@@ -158,7 +158,7 @@ class TracerConfig : public ObjectConfig {
 public:
     // Object Info
     int _min_obj_int; // minimum object intensity
-    int _radius_obj; // radius of the object in pixels;
+    double _radius_obj; // radius of the object in pixels;
 
     OTF _otf; // OTF parameters for tracer projection
 

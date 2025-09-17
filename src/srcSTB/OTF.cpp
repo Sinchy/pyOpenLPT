@@ -39,20 +39,17 @@ void OTF::estimateUniformOTFFromImage(int cam_id,
     int n_obj2d_max = 1000; // maximum number of tracers in each camera
 
     // find objects in each image
-    std::cout << "Camera " << cam_id << std::endl;
-    std::cout << "\tNumber of found tracers in each image: ";
+    std::cout << "Camera " << cam_id << " ";
     for (int j = 0; j < img_list.size(); j ++)
     {
         std::vector<std::unique_ptr<Object2D>> obj2d_list = objfinder.findObject2D(img_list[j], tracer_config); //TODO:
         
-        std::cout << obj2d_list.size();
         // if tr2d_list is too large, randomly select some tracers
         int seed = 123;
         if (obj2d_list.size() > n_obj2d_max)
         {
             std::shuffle(obj2d_list.begin(), obj2d_list.end(), std::default_random_engine(seed));
             obj2d_list.erase(obj2d_list.begin() + n_obj2d_max, obj2d_list.end());
-            std::cout << "(" << n_obj2d_max << ")";
         }
         else if (obj2d_list.size() == 0)
         {
@@ -65,10 +62,8 @@ void OTF::estimateUniformOTFFromImage(int cam_id,
               << ":"       << SRC_LINE(st.err.where) << std::endl;
               return;
         }
-        std::cout << ",";
         tr2d_list_all.push_back(std::move(obj2d_list));
     }
-    std::cout << std::endl;
 
     // estimate OTF parameters
     std::vector<double> I_list;
@@ -129,8 +124,6 @@ void OTF::estimateUniformOTFFromImage(int cam_id,
     }
     a_std = std::sqrt(a_std / n_a);
     a = std::min(a_mean + 2 * a_std, a_max);  
-    std::cout << "\ta_mean = " << a_mean << "; a_std = " << a_std << "; a_max = " << a_max << "; a = " << a << std::endl;
-
     // estimate the coefficients
     int n_coeff = coeff_list.size();
     double logI;
@@ -156,7 +149,7 @@ void OTF::estimateUniformOTFFromImage(int cam_id,
         _param.alpha(cam_id, i) = 0;
     }
     
-    std::cout << "\t(a,b,c,alpha) = " << _param.a(cam_id,0) << "," << _param.b(cam_id,0) << ","  << _param.c(cam_id,0) << "," << _param.alpha(cam_id,0) << std::endl;
+    std::cout << "(a,b,c,alpha) = " << _param.a(cam_id,0) << "," << _param.b(cam_id,0) << ","  << _param.c(cam_id,0) << "," << _param.alpha(cam_id,0) << std::endl << std::endl;
 
     if (_output_path.empty()) {
         Status st = STATUS_ERR(ErrorCode::IOfailure,
@@ -386,12 +379,14 @@ std::vector<double> OTF::getOTFParam(int cam_id, Pt3D const& pt3d) const
         _param.alpha(cam_id,i_011)
     };
 
-    std::vector<double> res(4,0); // a,b,c,alpha
+    std::vector<double> res(5,0); // a,b,c,alpha
     std::vector<double> pt_vec = {pt3d_x, pt3d_y, pt3d_z};
     res[0] = myMATH::triLinearInterp(grid_limit, a_value, pt_vec);
     res[1] = myMATH::triLinearInterp(grid_limit, b_value, pt_vec);
     res[2] = myMATH::triLinearInterp(grid_limit, c_value, pt_vec);
-    res[3] = myMATH::triLinearInterp(grid_limit, alpha_value, pt_vec);
+    double alpha = myMATH::triLinearInterp(grid_limit, alpha_value, pt_vec);
+    res[3] = std::cos(alpha);
+    res[4] = std::sin(alpha);
 
     return res;
 }

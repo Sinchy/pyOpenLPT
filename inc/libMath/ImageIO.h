@@ -19,11 +19,13 @@
 #include <vector>
 #include <cstring> 
 
-#include <tiff.h>
+// #include <tiff.h>
 #include <tiffio.h>
 
 #include "Matrix.h"
 #include "STBCommons.h"
+
+class Image; // forward declaration
 
 
 #define IMAGEIO_CHECK_CALL(call) \
@@ -47,6 +49,7 @@ struct ImageParam
     int n_col;
     int bits_per_sample;
     int n_channel;
+    int img_orientation = ORIENTATION_TOPLEFT;
 };
 
 class ImageIO

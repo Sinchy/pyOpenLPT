@@ -671,8 +671,7 @@ Pt2D Camera::project (Pt3D const& pt_world, bool is_print_detail) const
     }
     else
     {
-        std::cerr << "Camera::Project line " << __LINE__ << " : Error: unknown camera type: " << _type << std::endl;
-        throw error_type;
+        THROW_FATAL(ErrorCode::InvalidArgument, "Unknown camera type: " + std::to_string(_type));
     }
 }
 
