@@ -54,9 +54,9 @@ class CMakeBuild(build_ext):
 
 setup(
     name="openlpt",
-    version="0.2.0",
+    version="1.0.0",
     description="OpenLPT Python bindings",
-    author="Shijie Zhong, Shiyong Tan",
+    author="Shiyong Tan, Shijie Zhong",
     author_email="szhong12@jhu.edu",
     ext_modules=[CMakeExtension("pyopenlpt", sourcedir=".")],
     cmdclass={"build_ext": CMakeBuild},

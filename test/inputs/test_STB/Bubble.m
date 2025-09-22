@@ -57,7 +57,7 @@ tracks_test = tracks_code;
 
 %%
 show_image = 0;
-save_path = '../../results/test_STB_Bubble/ConvergeTrack/Track_Quality_old.mat';
+save_path = '../../results/test_STB_Bubble/ConvergeTrack/Track_Quality.mat';
 
 [fit_ratio, fit, correctness, correct_ratio]= compareTracks(tracks_orig, tracks_test, show_image, save_path);
 

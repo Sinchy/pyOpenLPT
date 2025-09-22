@@ -22,7 +22,7 @@ inline void init_omp_global(int n_threads = 0) {
 #if defined(_MSC_VER) && !defined(__clang__)
     omp_set_nested(1);   // MSVC vcomp 没有 omp_set_max_active_levels
 #else
-    omp_set_max_active_levels(2);  // 只保留2层并行
+    omp_set_max_active_levels(3);  // 只保留2层并行
 #endif
 
     const int hw = std::max(1, omp_get_num_procs());
