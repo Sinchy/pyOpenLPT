@@ -19,6 +19,7 @@ config_file = '${path_to_config_file}'
 lpt.run(config_file)
 ```
 
+Please see the sample format of configuration files, camera files and image files in /test/test_STB or /test/test_STB_Bubble.
 
 ## Features
 - User-friendly interface in python
