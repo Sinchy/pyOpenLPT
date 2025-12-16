@@ -24,14 +24,12 @@
 #include <unordered_set>
 #include <vector>
 
-
 #include "Camera.h" // Camera class, used for projection and line of sight
 #include "Config.h"
 #include "Matrix.h"
 #include "ObjectInfo.h"
 #include "STBCommons.h"
 #include "myMATH.h" // Pt2D, Pt3D, Line2D, Line3D
-
 
 // Forward declarations of types used here
 class IDMap;
@@ -119,7 +117,7 @@ private:
   bool bubbleEarlyCheck(const std::vector<int> &cams_in_path,
                         const std::vector<int> &ids_in_path) const;
 
-  FRIEND_DEBUG(StereoMatch) // for debugging private members
+  FRIEND_DEBUG(StereoMatch); // for debugging private members
 };
 
 /**

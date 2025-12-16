@@ -1,44 +1,45 @@
 #ifndef BUBBLEREFIMG_H
 #define BUBBLEREFIMG_H
 
-#include <vector>
+#include <string>
 #include <typeinfo>
+#include <vector>
 
 #include "BubbleResize.h"
-#include "ObjectInfo.h"
 #include "Matrix.h"
+#include "ObjectInfo.h"
 #include "STBCommons.h"
 #include "myMATH.h"
 
-
 class BubbleRefImg {
 public:
-    // user needs to make sure cam_list.useid_list is well defined
-    BubbleRefImg() {};
+  // user needs to make sure cam_list.useid_list is well defined
+  BubbleRefImg() {};
 
-    ~BubbleRefImg() {};
+  ~BubbleRefImg() {};
 
-    bool calBubbleRefImg(const std::vector<std::unique_ptr<Object3D>>& objs_out,
-                         const std::vector<std::vector<std::unique_ptr<Object2D>>>& bb2d_list_all,
-                         const std::vector<Camera>& cams,
-                         const std::vector<Image>& img_input, 
-                         double r_thres = 6, int n_bb_thres = 5);
+  bool calBubbleRefImg(
+      const std::vector<std::unique_ptr<Object3D>> &objs_out,
+      const std::vector<std::vector<std::unique_ptr<Object2D>>> &bb2d_list_all,
+      const std::vector<Camera> &cams, const std::vector<Image> &img_input,
+      std::string output_folder = "", double r_thres = 6, int n_bb_thres = 5);
 
-    const Image& operator[](int camID) const{
-        return _img_Ref_list[camID];
-    };
+  // Save reference images to folder (e.g. "BubbleRefImg_0.tif", etc.)
+  bool saveRefImg(std::string folder, int n_cam) const;
 
-    double getIntRef(int camID) const {
-        return _intRef_list[camID];
-    };
+  // Load reference images from folder and RECALCULATE intensity
+  bool loadRefImg(std::string folder, int n_cam);
 
-    bool _is_valid = false;
+  const Image &operator[](int camID) const { return _img_Ref_list[camID]; };
+
+  double getIntRef(int camID) const { return _intRef_list[camID]; };
+
+  bool _is_valid = false;
 
 private:
-    std::vector<Image> _img_Ref_list; // reference images for each camera
-    std::vector<double> _intRef_list;  // average intensity of reference images for each camera
-    
+  std::vector<Image> _img_Ref_list; // reference images for each camera
+  std::vector<double>
+      _intRef_list; // average intensity of reference images for each camera
 };
-
 
 #endif // BUBBLEREFIMG_H
