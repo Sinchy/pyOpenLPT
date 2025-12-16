@@ -62,6 +62,9 @@ int run_openlpt(const std::string& config_path) {
             for (size_t i = 0; i < basic_settings._object_types.size(); ++i) {
                 stb_objects[i].loadTracksAll(basic_settings._load_track_path,
                                              basic_settings._load_track_frame);
+                std::cout << "Load previous tracks at frame " << basic_settings._load_track_frame << "\n";
+                std::cout << "  Active short tracks: " << stb_objects[i]._short_track_active.size() << "\n";
+                std::cout << "  Active long tracks: " << stb_objects[i]._long_track_active.size() << "\n\n";
             }
         }
 
@@ -89,6 +92,9 @@ int run_openlpt(const std::string& config_path) {
         int frame_start = basic_settings._frame_start;
         int frame_end   = basic_settings._frame_end;
         int num_cams    = static_cast<int>(imgio_list.size());
+        if (basic_settings._load_track) {
+            frame_start = basic_settings._load_track_frame + 1;
+        }
 
         clock_t start = clock();
         for (int frame_id = frame_start; frame_id <= frame_end; ++frame_id) {

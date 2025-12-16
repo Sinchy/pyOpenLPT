@@ -1,0 +1,417 @@
+[
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\myMath.dir\\src\\srcMath\\myMATH.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\myMATH.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\myMATH.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\ImageIO.dir\\src\\srcMath\\ImageIO.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\ImageIO.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\ImageIO.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\Camera.dir\\src\\srcMath\\Camera.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\Camera.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath\\Camera.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\ObjectInfo.dir\\src\\srcObject\\ObjectInfo.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\ObjectInfo.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\ObjectInfo.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\CircleIdentifier.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\CircleIdentifier.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\CircleIdentifier.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_data.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_data.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_data.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_rtwutil.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_rtwutil.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\BubbleCenterAndSizeByCircle_rtwutil.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\NeighborhoodProcessor.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\NeighborhoodProcessor.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\NeighborhoodProcessor.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\bwconncomp.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\bwconncomp.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\bwconncomp.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\chaccum.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\chaccum.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\chaccum.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\colon.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\colon.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\colon.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\conv2AXPYValidCMP.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\conv2AXPYValidCMP.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\conv2AXPYValidCMP.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\find.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\find.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\find.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imfilter.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imfilter.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imfilter.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imhmax.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imhmax.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\imhmax.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\medfilt2.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\medfilt2.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\medfilt2.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\minOrMax.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\minOrMax.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\minOrMax.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\multithresh.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\multithresh.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\multithresh.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\nullAssignment.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\nullAssignment.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\nullAssignment.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\regionprops.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\regionprops.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\regionprops.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetInf.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetInf.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetInf.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetNaN.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetNaN.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rtGetNaN.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rt_nonfinite.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rt_nonfinite.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\rt_nonfinite.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sort.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sort.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sort.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sortIdx.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sortIdx.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sortIdx.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sum.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sum.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\sum.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\CircleIdentifier.dir\\src\\srcObject\\BubbleCenterAndSizeByCircle\\unique.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\unique.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle\\unique.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\BubbleResize.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\BubbleResize.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\BubbleResize.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\ResizeBubble_data.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\ResizeBubble_data.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\ResizeBubble_data.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\imresize.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\imresize.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\imresize.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\rtGetInf.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rtGetInf.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rtGetInf.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\rtGetNaN.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rtGetNaN.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rtGetNaN.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleResize.dir\\src\\srcObject\\BubbleResize\\rt_nonfinite.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rt_nonfinite.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize\\rt_nonfinite.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\BubbleRefImg.dir\\src\\srcObject\\BubbleRefImg.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleRefImg.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleRefImg.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\nanoflann /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\ObjectFinder.dir\\src\\srcObject\\ObjectFinder.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\ObjectFinder.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\ObjectFinder.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\StereoMatch.dir\\src\\srcSTB\\StereoMatch.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\StereoMatch.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\StereoMatch.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\OTF.dir\\src\\srcSTB\\OTF.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\OTF.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\OTF.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\nanoflann /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\Shake.dir\\src\\srcSTB\\Shake.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Shake.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Shake.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\IPR.dir\\src\\srcSTB\\IPR.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\IPR.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\IPR.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\PredField.dir\\src\\srcSTB\\PredField.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\PredField.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\PredField.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -std:c++20 /FoCMakeFiles\\Track.dir\\src\\srcSTB\\Track.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Track.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Track.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\nanoflann /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\STB.dir\\src\\srcSTB\\STB.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\STB.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\STB.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\Config.dir\\src\\srcSTB\\Config.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Config.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB\\Config.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DOPENLPT_BUILD_CLI -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcMath -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleCenterAndSizeByCircle -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcObject\\BubbleResize -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\srcSTB -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\src -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\nanoflann /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -MD /W4 /permissive- -openmp -std:c++20 /FoCMakeFiles\\OpenLPT.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\main.cpp",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\src\\main.cpp"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_aux.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_aux.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_aux.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_close.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_close.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_close.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_codec.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_codec.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_codec.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_color.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_color.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_color.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_compress.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_compress.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_compress.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_dir.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dir.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dir.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_dirinfo.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirinfo.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirinfo.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_dirread.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirread.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirread.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_dirwrite.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirwrite.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dirwrite.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_dumpmode.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dumpmode.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_dumpmode.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_error.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_error.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_error.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_extension.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_extension.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_extension.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_fax3.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_fax3.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_fax3.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_fax3sm.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_fax3sm.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_fax3sm.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_flush.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_flush.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_flush.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_getimage.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_getimage.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_getimage.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_jbig.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jbig.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jbig.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_jpeg.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jpeg.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jpeg.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_jpeg_12.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jpeg_12.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_jpeg_12.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_luv.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_luv.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_luv.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_lzma.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_lzma.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_lzma.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_lzw.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_lzw.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_lzw.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_next.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_next.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_next.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_ojpeg.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_ojpeg.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_ojpeg.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_open.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_open.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_open.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_packbits.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_packbits.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_packbits.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_pixarlog.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_pixarlog.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_pixarlog.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_predict.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_predict.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_predict.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_print.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_print.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_print.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_read.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_read.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_read.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_strip.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_strip.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_strip.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_swab.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_swab.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_swab.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_thunder.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_thunder.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_thunder.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_tile.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_tile.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_tile.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_version.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_version.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_version.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_warning.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_warning.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_warning.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_write.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_write.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_write.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_zip.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_zip.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_zip.c"
+},
+{
+  "directory": "D:/0.Code/OpenLPTGUI/OpenLPT/build-clangd",
+  "command": "C:\\PROGRA~1\\MICROS~2\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1431~1.311\\bin\\Hostx64\\x64\\cl.exe  /nologo -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff -ID:\\0.Code\\OpenLPTGUI\\OpenLPT\\build-clangd\\_deps\\tiff /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -MD /Fo_deps\\tiff\\CMakeFiles\\tiff.dir\\tif_unix.c.obj /FdTARGET_COMPILE_PDB /FS -c D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_unix.c",
+  "file": "D:\\0.Code\\OpenLPTGUI\\OpenLPT\\inc\\libtiff\\tif_unix.c"
+}
+]

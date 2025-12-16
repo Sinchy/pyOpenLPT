@@ -2,7 +2,9 @@
 /x64/
 /out/
 /build/
+/build-clangd/
 /.metadata/
+/.cache/
 /.settings/
 /.vscode/
 /.vs/

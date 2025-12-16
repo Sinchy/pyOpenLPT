@@ -99,7 +99,7 @@ private:
 
     bool checkLinearFit (Track const& track);
 
-    FRIEND_DEBUG(STB)
+    FRIEND_DEBUG(STB);
 
 };
 
