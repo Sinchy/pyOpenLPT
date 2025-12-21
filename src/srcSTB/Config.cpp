@@ -233,6 +233,8 @@ ObjectConfig::readCommonConfig(const std::string &filepath,
     _ipr_param.n_cam_reduced = std::stoi(lines[id++]);
     _ipr_param.n_loop_ipr_reduced = std::stoi(lines[id++]);
 
+    _vsc_param._output_path = settings._output_path;
+
   } catch (...) {
     THROW_FATAL_CTX(ErrorCode::IOfailure,
                     "Config Error: Failed to parse common config in ",

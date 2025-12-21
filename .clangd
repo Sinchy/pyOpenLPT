@@ -1,26 +1,20 @@
 CompileFlags:
-  CompilationDatabase: .
   Compiler: clang++
   Remove:
     - -std:c++*
+    - /std:c++*
   Add:
     - -std=c++20
-    - -IC:/Users/tan_s/miniconda3/Lib/site-packages/pybind11/include
-    - -IC:/Users/tan_s/miniconda3/include
-    # Use multiple formats to be safe
-    # Space between flag and path is often safer for YAML/clangd parsing
-    - -isystem
-    - d:/0.Code/OpenLPTGUI/OpenLPT/inc/nanoflann
-    - -isystem
-    - d:/0.Code/OpenLPTGUI/OpenLPT/dist/include/nanoflann
-    # Also add parent dirs just in case
-    - -isystem
-    - d:/0.Code/OpenLPTGUI/OpenLPT/inc
-    - -isystem
-    - d:/0.Code/OpenLPTGUI/OpenLPT/dist/include
+    # MSVC compatibility for clangd
     - -fms-extensions
     - -fms-compatibility
     - -Wno-invalid-constexpr
+    - -Wno-microsoft-template
+    - -Wno-microsoft-enum-value
+    # pybind11 include path
+    - -IC:/Users/tan_s/miniconda3/Lib/site-packages/pybind11/include
+    # Python include path
+    - -IC:/Users/tan_s/miniconda3/Include
 
 Index:
   Background: Build
@@ -34,5 +28,3 @@ Diagnostics:
   UnusedIncludes: None
   Suppress:
     - "bugprone-*"
-
-

@@ -7,14 +7,12 @@
 #include <string>
 #include <vector>
 
-
 #include "BubbleRefImg.h"
 #include "Camera.h"
 #include "ImageIO.h"
 #include "OTF.h"
 #include "ObjectInfo.h"
 #include "PredField.h"
-
 
 class BasicSetting {
 public:
@@ -101,6 +99,33 @@ struct STBParam {
                                // convergence phase
 };
 
+// VSC (Volume Self Calibration) configuration
+struct VSCParam {
+  // ----- Data Selection -----
+  int _min_track_len = 30; ///< Minimum track length (frames) for reliability
+  double _isolation_radius = 3.0; ///< [px] Radius to check for neighbors
+
+  // ----- Trigger -----
+  int _min_points_to_trigger = 5000; ///< Minimum points to run calibration
+  int _accumulate_interval = 10;     ///< Accumulate every N frames
+
+  // ----- Output -----
+  std::string _output_path = ""; ///< Path to save VSC results (cameras, data)
+
+  // ----- Optimization -----
+  double _max_reprojection_error = 1.0; ///< [px] Outlier rejection threshold
+  bool _enable_otf = false; ///< Enable OTF calibration (Tracer only)
+
+  // ----- State (Runtime) -----
+  bool _camera_calibrated = false; ///< Camera already calibrated once
+  bool _otf_calibrated = false;    ///< OTF already calibrated once
+
+  // ----- Spatial Binning -----
+  int _n_divisions =
+      10; ///< Number of divisions per dimension for spatial binning
+  int _min_points_per_voxel = 10; ///< Min points to use a voxel in calibration
+};
+
 // object configuration
 enum class ObjectKind { Tracer, Bubble };
 
@@ -131,6 +156,9 @@ public:
   // common configuration parameters for all types of objects
   // STB parameters
   STBParam _stb_param;
+
+  // VSC
+  VSCParam _vsc_param;
 
   // Shake
   ShakeParam _shake_param;

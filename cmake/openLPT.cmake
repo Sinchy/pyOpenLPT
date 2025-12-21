@@ -198,6 +198,16 @@ openlpt_public_includes(OTF)
 target_link_libraries(OTF PUBLIC Camera myMath Matrix OpenMP::OpenMP_CXX)
 openlpt_apply_warnings(OTF)
 
+# VSC (Volume Self Calibration)
+add_library(VSC STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/VSC.cpp")
+openlpt_public_includes(VSC)
+target_link_libraries(VSC PUBLIC
+  OTF Track ObjectFinder Camera myMath Matrix
+  OpenMP::OpenMP_CXX
+  PRIVATE OpenLPT::nanoflann
+)
+openlpt_apply_warnings(VSC)
+
 # Shake (PUBLIC depend on BubbleRefImg)
 add_library(Shake STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/Shake.cpp")
 openlpt_public_includes(Shake)
@@ -235,7 +245,7 @@ openlpt_apply_warnings(Track)
 add_library(STB STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/STB.cpp")
 openlpt_public_includes(STB)
 target_link_libraries(STB PUBLIC
-  StereoMatch OTF Shake IPR PredField Track
+  StereoMatch OTF VSC Shake IPR PredField Track
   ObjectInfo ObjectFinder Camera myMath Matrix
   OpenMP::OpenMP_CXX
 )
@@ -275,6 +285,7 @@ target_link_libraries(OpenLPT PRIVATE
   STB Config
   BubbleResize CircleIdentifier BubbleRefImg ImageIO
   ObjectInfo ObjectFinder Camera myMath Matrix
+  StereoMatch OTF VSC Shake IPR PredField Track
   OpenLPT::nanoflann OpenMP::OpenMP_CXX
 )
 openlpt_apply_warnings(OpenLPT)
@@ -287,7 +298,7 @@ install(DIRECTORY "${PROJECT_SOURCE_DIR}/inc/" DESTINATION ${CMAKE_INSTALL_INCLU
 install(TARGETS
   Matrix myMath ImageIO Camera ObjectInfo
   ObjectFinder CircleIdentifier BubbleResize BubbleRefImg
-  StereoMatch OTF Shake IPR PredField Track
+  StereoMatch OTF VSC Shake IPR PredField Track
   STB Config
   OpenLPT
   EXPORT OpenLPTTargets

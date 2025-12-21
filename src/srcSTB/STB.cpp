@@ -32,6 +32,9 @@ STB::STB(const BasicSetting &setting, const std::string &type,
                     "Unsupported object type:", type);
   }
   // 未来支持 BubbleConfig 同理
+
+  // Configure VSC
+  _vsc.configure(_obj_config->_vsc_param);
 }
 
 void STB::processFrame(int frame_id, std::vector<Image> &img_list) {
@@ -332,6 +335,9 @@ int STB::findNN(KDTreeObj3d const &tree_obj3d, Pt3D const &pt3d_est,
 }
 
 void STB::runConvPhase(int frame, std::vector<Image> &img_list) {
+  // Save original images for VSC (before any modifications)
+  std::vector<Image> img_orig = img_list;
+
   // Initialize some variables
   int n_sa = _short_track_active.size();
   int n_la = _long_track_active.size();
@@ -605,6 +611,64 @@ void STB::runConvPhase(int frame, std::vector<Image> &img_list) {
   std::cout << " Pruning time: "
             << static_cast<double>(t_end - t_start) / CLOCKS_PER_SEC << " s"
             << std::endl;
+
+  // --------------------------- VSC: Volume Self Calibration
+  // --------------------------- //
+  // ----- VSC: Only accumulate every N frames and only if not already
+  // calibrated -----
+  bool skip_vsc = _obj_config->_vsc_param._camera_calibrated &&
+                  (!_obj_config->_vsc_param._enable_otf ||
+                   _obj_config->_vsc_param._otf_calibrated);
+
+  bool is_accumulate_frame =
+      (frame % _obj_config->_vsc_param._accumulate_interval == 0);
+
+  if (!skip_vsc && is_accumulate_frame) {
+    clock_t t_vsc_start = clock();
+    _vsc.accumulate(frame, _long_track_active, img_orig,
+                    _basic_setting._cam_list, *_obj_config);
+    clock_t t_vsc_accum = clock();
+
+    std::cout << " VSC Accumulate: " << _vsc.getBufferSize() << " points ("
+              << static_cast<double>(t_vsc_accum - t_vsc_start) / CLOCKS_PER_SEC
+              << " s)" << std::endl;
+
+    if (_vsc.isReady() && !_obj_config->_vsc_param._camera_calibrated) {
+      std::cout << "Running VSC optimization..." << std::endl;
+      bool updated = _vsc.runVSC(_basic_setting._cam_list);
+      clock_t t_vsc_opt = clock();
+
+      if (updated) {
+        std::cout << "Camera parameters updated by VSC!" << std::endl;
+        _obj_config->_vsc_param._camera_calibrated = true;
+
+        // // Reset VSC buffer to collect new data with updated cams
+        // _vsc.reset();
+
+        // If Tracer, update OTF (only once)
+        if (_obj_config->kind() == ObjectKind::Tracer &&
+            _obj_config->_vsc_param._enable_otf &&
+            !_obj_config->_vsc_param._otf_calibrated) {
+          std::cout << "Running OTF update..." << std::endl;
+          auto *tracer_cfg = dynamic_cast<TracerConfig *>(_obj_config.get());
+          if (tracer_cfg) {
+            std::vector<TracerConfig> cfgs;
+            cfgs.push_back(*tracer_cfg);
+
+            _vsc.runOTF(cfgs);
+
+            tracer_cfg->_otf = cfgs[0]._otf;
+            _obj_config->_vsc_param._otf_calibrated = true;
+            std::cout << "OTF parameters updated." << std::endl;
+          }
+        }
+      }
+
+      std::cout << " VSC Optimization time: "
+                << static_cast<double>(t_vsc_opt - t_vsc_accum) / CLOCKS_PER_SEC
+                << " s" << std::endl;
+    }
+  }
 
   // Print outputs
   std::cout << "\tNo. of active short tracks: " << n_sa << " + " << add_sa

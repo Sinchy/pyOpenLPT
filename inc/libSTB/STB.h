@@ -13,7 +13,6 @@
 #include <typeinfo>
 #include <vector>
 
-
 #include "Camera.h"
 #include "Config.h"
 #include "IPR.h"
@@ -26,6 +25,7 @@
 #include "Shake.h"
 #include "StereoMatch.h"
 #include "Track.h"
+#include "VSC.h"
 
 class STB {
 public:
@@ -61,6 +61,7 @@ private:
   std::unique_ptr<ObjectConfig>
       _obj_config; // settings for IPR, Tracking, Shaking for different object
                    // types
+  VSC _vsc;        // Volume Self Calibration module
 
   std::vector<std::vector<std::unique_ptr<Object3D>>>
       _ipr_candidate; // objects from IPR for building tracks
