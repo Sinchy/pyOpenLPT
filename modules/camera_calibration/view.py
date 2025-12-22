@@ -1,9 +1,9 @@
-
 import numpy as np
+import cv2
 
 import matplotlib
-matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+matplotlib.use('qtagg')
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -12,10 +12,370 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QDoubleSpinBox, QListWidget, QGroupBox, QFormLayout,
                              QCheckBox, QFileDialog, QScrollArea, QFrame,
                              QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-                             QSizePolicy)
+                             QSizePolicy, QGridLayout)
 from PySide6.QtCore import Qt
 from .widgets import RangeSlider
-from .wand_calibrator import WandCalibrator
+from .wand_calibration.wand_calibrator import WandCalibrator
+from PySide6.QtGui import QPainter, QPen, QColor, QPixmap, QPainterPath
+from PySide6.QtCore import QRect, Signal, QPoint
+
+class ZoomableImageLabel(QLabel):
+    """
+    Label with zoom, pan, and multiple interaction modes.
+    """
+    template_selected = Signal(QRect)
+    roi_points_changed = Signal(list)
+    remove_region_selected = Signal(QRect)  # Signal for remove mode
+    add_region_selected = Signal(QRect)     # Signal for add mode
+    origin_selected = Signal(QPoint)        # Signal for origin selection
+    axis_point_selected = Signal(QPoint, int)  # Signal for axis direction (point, axis_index)
+    point_clicked = Signal(QPoint)          # Signal for manual point verification click
+    
+    # Modes
+    MODE_NAV = 0
+    MODE_TEMPLATE = 1
+    MODE_ROI = 2
+    MODE_REMOVE = 3
+    MODE_ADD = 4
+    MODE_ORIGIN = 5
+    MODE_AXES = 6
+    MODE_CHECK_POS = 7
+    
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMouseTracking(True)
+        
+        # Image Data
+        self._pixmap = None
+        
+        # View State (user-controlled zoom and pan)
+        self._user_zoom = 1.0      # User zoom factor (1.0 = fit to window)
+        self._user_pan_x = 0.0     # User pan offset in widget coords
+        self._user_pan_y = 0.0
+        self.last_mouse_pos = None
+        
+        # Interaction State
+        self.mode = self.MODE_NAV
+        self.is_panning = False
+        self.is_selecting_rect = False
+        
+        # Template Selection
+        self.rect_start = None
+        self.rect_end = None # Current drag end
+        self.selection_rect = None # Finished rect (Image Coords)
+        
+        # ROI Selection
+        self.roi_points = [] # List of QPoint (Image Coords)
+        
+        # Interaction Feedback (Hints)
+        self._hint_text = ""
+        self._mouse_pos_widget = QPoint(0, 0)
+        
+    def setPixmap(self, pixmap):
+        self._pixmap = pixmap
+        # Reset view on new image load
+        self.resetView()
+        self.update()
+        
+    def fit_to_window(self):
+        """Reset to fit-to-window view."""
+        self._user_zoom = 1.0
+        self._user_pan_x = 0.0
+        self._user_pan_y = 0.0
+        self.update()
+            
+    def set_mode(self, mode):
+        self.mode = mode
+        if mode == self.MODE_NAV:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self._hint_text = ""  # Clear hint on reset
+        elif mode == self.MODE_TEMPLATE:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        elif mode == self.MODE_ROI:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        elif mode == self.MODE_REMOVE:
+            self.setCursor(Qt.CursorShape.ForbiddenCursor)
+        elif mode in (self.MODE_ADD, self.MODE_ORIGIN, self.MODE_AXES, self.MODE_CHECK_POS):
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        self.update()
+        
+    def clear_overlays(self):
+        self.selection_rect = None
+        self.roi_points = []
+        self.update()
+
+    def _calc_transform_params(self):
+        """Calculate current display transform parameters including user zoom/pan."""
+        if not self._pixmap or self._pixmap.isNull():
+            return 1.0, 0, 0
+        
+        p_w = self._pixmap.width()
+        p_h = self._pixmap.height()
+        w_w = self.width()
+        w_h = self.height()
+        
+        if p_w <= 0 or p_h <= 0 or w_w <= 0 or w_h <= 0:
+            return 1.0, 0, 0
+        
+        # Base fit-to-window scale
+        base_scale = min(w_w / p_w, w_h / p_h)
+        
+        # Apply user zoom
+        scale = base_scale * self._user_zoom
+        
+        t_w = int(p_w * scale)
+        t_h = int(p_h * scale)
+        
+        # Base centered position
+        base_x = (w_w - t_w) / 2
+        base_y = (w_h - t_h) / 2
+        
+        # Apply user pan
+        t_x = int(base_x + self._user_pan_x)
+        t_y = int(base_y + self._user_pan_y)
+        
+        return scale, t_x, t_y
+        
+    def _to_image_coords(self, widget_pt):
+        # Dynamically calculate transform params
+        scale, off_x, off_y = self._calc_transform_params()
+        
+        ix = (widget_pt.x() - off_x) / scale if scale > 0 else 0
+        iy = (widget_pt.y() - off_y) / scale if scale > 0 else 0
+        return QPoint(int(ix), int(iy))
+        
+    def _to_widget_coords(self, img_pt):
+        # Dynamically calculate transform params
+        scale, off_x, off_y = self._calc_transform_params()
+        
+        wx = img_pt.x() * scale + off_x
+        wy = img_pt.y() * scale + off_y
+        return QPoint(int(wx), int(wy))
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel for zooming."""
+        if not self._pixmap or self._pixmap.isNull():
+            return
+            
+        # Get mouse position for zoom-towards-cursor
+        mouse_pos = event.position().toPoint()
+        
+        # Zoom factor
+        delta = event.angleDelta().y()
+        zoom_factor = 1.15 if delta > 0 else (1.0 / 1.15)
+        
+        # Limit zoom range
+        new_zoom = self._user_zoom * zoom_factor
+        if new_zoom < 0.1:
+            new_zoom = 0.1
+        elif new_zoom > 20.0:
+            new_zoom = 20.0
+            
+        # To zoom towards cursor, we need to adjust pan so the point under cursor stays fixed
+        # 1. Get image coord under cursor before zoom
+        old_scale, old_tx, old_ty = self._calc_transform_params()
+        img_x = (mouse_pos.x() - old_tx) / old_scale if old_scale > 0 else 0
+        img_y = (mouse_pos.y() - old_ty) / old_scale if old_scale > 0 else 0
+        
+        # 2. Apply new zoom
+        self._user_zoom = new_zoom
+        
+        # 3. Calculate where that image point would be with new zoom (at center, no pan adjustment yet)
+        new_scale, new_tx, new_ty = self._calc_transform_params()
+        new_widget_x = img_x * new_scale + new_tx
+        new_widget_y = img_y * new_scale + new_ty
+        
+        # 4. Adjust pan so the image point stays at mouse position
+        self._user_pan_x += mouse_pos.x() - new_widget_x
+        self._user_pan_y += mouse_pos.y() - new_widget_y
+        
+        self.update()
+        event.accept()
+
+    def resetView(self):
+        """Reset zoom and pan to default fit-to-window."""
+        self._user_zoom = 1.0
+        self._user_pan_x = 0.0
+        self._user_pan_y = 0.0
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            self.is_panning = True
+            self.last_mouse_pos = event.position().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            
+        elif event.button() == Qt.MouseButton.LeftButton:
+            img_pt = self._to_image_coords(event.position().toPoint())
+            
+            if self.mode == self.MODE_TEMPLATE:
+                self.is_selecting_rect = True
+                self.rect_start = img_pt
+                self.rect_end = img_pt
+                
+            elif self.mode == self.MODE_ROI:
+                # Add point (max 4)
+                if len(self.roi_points) < 4:
+                    self.roi_points.append(img_pt)
+                    self.roi_points_changed.emit(self.roi_points)
+                    self.update()
+                    
+            elif self.mode in (self.MODE_REMOVE, self.MODE_ADD):
+                # Start rect selection for remove/add
+                self.is_selecting_rect = True
+                self.rect_start = img_pt
+                self.rect_end = img_pt
+                
+            elif self.mode == self.MODE_ORIGIN:
+                # Single click to select origin
+                self.origin_selected.emit(img_pt)
+                
+            elif self.mode == self.MODE_AXES:
+                # Click to select axis direction point
+                axis_idx = getattr(self, '_current_axis_index', 0)
+                self.axis_point_selected.emit(img_pt, axis_idx)
+                
+            elif self.mode == self.MODE_CHECK_POS:
+                # Click to check 3D position
+                self.point_clicked.emit(img_pt)
+
+    def mouseMoveEvent(self, event):
+        self._mouse_pos_widget = event.position().toPoint()
+        
+        if self.is_panning:
+            delta = self._mouse_pos_widget - self.last_mouse_pos
+            self._user_pan_x += delta.x()
+            self._user_pan_y += delta.y()
+            self.last_mouse_pos = self._mouse_pos_widget
+            self.update()
+            
+        elif self.is_selecting_rect:
+            self.rect_end = self._to_image_coords(self._mouse_pos_widget)
+            self.update()
+            
+        elif self.mode in (self.MODE_ORIGIN, self.MODE_AXES):
+            # Just trigger repaint for hint following
+            self.update()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            self.is_panning = False
+            # If in Remove or Add mode, exit to NAV mode on right-click
+            if self.mode in (self.MODE_REMOVE, self.MODE_ADD):
+                self.set_mode(self.MODE_NAV)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor if self.mode == self.MODE_NAV else Qt.CursorShape.CrossCursor)
+            
+        elif event.button() == Qt.MouseButton.LeftButton and self.is_selecting_rect:
+            self.is_selecting_rect = False
+            # Normalize rect
+            if self.rect_start and self.rect_end:
+                x1, y1 = self.rect_start.x(), self.rect_start.y()
+                x2, y2 = self.rect_end.x(), self.rect_end.y()
+                r = QRect(QPoint(min(x1,x2), min(y1,y2)), QPoint(max(x1,x2), max(y1,y2)))
+                if r.width() > 2 and r.height() > 2:
+                    if self.mode == self.MODE_TEMPLATE:
+                        self.selection_rect = r
+                        self.template_selected.emit(r)
+                    elif self.mode == self.MODE_REMOVE:
+                        self.remove_region_selected.emit(r)
+                    elif self.mode == self.MODE_ADD:
+                        self.add_region_selected.emit(r)
+            # Clear temp rect
+            self.rect_start = None
+            self.rect_end = None
+            self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(20, 20, 20)) # Dark bg
+        
+        if self._pixmap and not self._pixmap.isNull():
+            # Get transform params (includes user zoom and pan)
+            scale, t_x, t_y = self._calc_transform_params()
+            
+            p_w = self._pixmap.width()
+            p_h = self._pixmap.height()
+            t_w = int(p_w * scale)
+            t_h = int(p_h * scale)
+            
+            # Store for coordinate transforms (used by _to_image_coords)
+            self._draw_scale = scale
+            self._draw_offset_x = t_x
+            self._draw_offset_y = t_y
+            
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.drawPixmap(QRect(t_x, t_y, t_w, t_h), self._pixmap)
+            
+            # Draw Overlays in Widget Coords
+            # 1. Template Selection Rect (finished)
+            if self.selection_rect:
+                pen = QPen(QColor(0, 255, 0), 2)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                # Convert image coords to widget coords
+                r = self.selection_rect
+                wx = int(r.x() * scale + t_x)
+                wy = int(r.y() * scale + t_y)
+                ww = int(r.width() * scale)
+                wh = int(r.height() * scale)
+                painter.drawRect(wx, wy, ww, wh)
+                
+            # 2. Dragging rect (in progress)
+            if self.is_selecting_rect and self.rect_start and self.rect_end:
+                pen = QPen(QColor(0, 255, 255), 2, Qt.PenStyle.DashLine)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                x1, y1 = self.rect_start.x(), self.rect_start.y()
+                x2, y2 = self.rect_end.x(), self.rect_end.y()
+                wx1 = int(min(x1, x2) * scale + t_x)
+                wy1 = int(min(y1, y2) * scale + t_y)
+                ww = int(abs(x2 - x1) * scale)
+                wh = int(abs(y2 - y1) * scale)
+                painter.drawRect(wx1, wy1, ww, wh)
+                
+            # 3. ROI Polygon
+            if self.roi_points:
+                pen = QPen(QColor(255, 0, 0), 2)
+                painter.setPen(pen)
+                # Convert to widget coords
+                widget_pts = []
+                for p in self.roi_points:
+                    wx = int(p.x() * scale + t_x)
+                    wy = int(p.y() * scale + t_y)
+                    widget_pts.append(QPoint(wx, wy))
+                # Draw lines
+                for i in range(len(widget_pts) - 1):
+                    painter.drawLine(widget_pts[i], widget_pts[i+1])
+                # Close loop if 4 points
+                if len(widget_pts) == 4:
+                    painter.drawLine(widget_pts[-1], widget_pts[0])
+                    # Fill semi-transparent
+                    path = QPainterPath()
+                    path.moveTo(widget_pts[0])
+                    for p in widget_pts[1:]:
+                        path.lineTo(p)
+                    path.closeSubpath()
+                    painter.fillPath(path, QColor(255, 0, 0, 50))
+                # Draw vertices
+                painter.setBrush(QColor(255, 255, 0))
+                for p in widget_pts:
+                    painter.drawEllipse(p, 5, 5)
+
+            # --- Draw Hint Text ---
+            if self._hint_text:
+                painter.setPen(QPen(QColor(255, 255, 0), 2)) # Yellow hint
+                font = painter.font()
+                font.setPointSize(12)
+                font.setBold(True)
+                painter.setFont(font)
+                # Offset from cursor
+                painter.drawText(self._mouse_pos_widget.x() + 15, self._mouse_pos_widget.y() + 25, self._hint_text)
+
+        else:
+            painter.setPen(QColor(100, 100, 100))
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Image")
 
 class NumericTableWidgetItem(QTableWidgetItem):
     """TableWidgetItem that sorts numerically instead of alphabetically."""
@@ -256,9 +616,14 @@ class CameraCalibrationView(QWidget):
             QPushButton:pressed { background-color: #008fb3; }
         """
 
-        # --- Tab 1: Detection ---
-        det_tab = QWidget()
-        det_layout = QVBoxLayout(det_tab)
+        # --- Tab 1: Detection (with Scroll Area) ---
+        det_scroll = QScrollArea()
+        det_scroll.setWidgetResizable(True)
+        det_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        det_scroll.setStyleSheet("background-color: transparent;")
+        
+        det_content = QWidget()
+        det_layout = QVBoxLayout(det_content)
         det_layout.setSpacing(10)
         det_layout.setContentsMargins(10, 10, 10, 10)
         
@@ -339,6 +704,12 @@ class CameraCalibrationView(QWidget):
         det_layout.addWidget(self.btn_process_wand)
         
         det_layout.addStretch()
+        
+        det_scroll.setWidget(det_content)
+        det_tab = QWidget()
+        det_tab_layout = QVBoxLayout(det_tab)
+        det_tab_layout.setContentsMargins(0, 0, 0, 0)
+        det_tab_layout.addWidget(det_scroll)
 
         # --- Tab 2: Calibration (with scroll area) ---
         cal_tab = QWidget()
@@ -556,7 +927,7 @@ class CameraCalibrationView(QWidget):
         
         # Assume the HTML file is in the same directory as this script
         current_dir = Path(__file__).parent
-        guide_path = current_dir / "WAND_CALIBRATION_USER_GUIDE.html"
+        guide_path = current_dir / "wand_calibration" / "WAND_CALIBRATION_USER_GUIDE.html"
         
         if guide_path.exists():
             webbrowser.open(guide_path.as_uri())
@@ -586,6 +957,26 @@ class CameraCalibrationView(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to load points:\n{msg}")
     def __init__(self):
         super().__init__()
+        
+        # Style Constants
+        self.GROUP_BOX_STYLE = """
+            QGroupBox { 
+                background-color: #000; 
+                border: 1px solid #444; 
+                font-weight: bold; 
+                color: #00d4ff; 
+                border-radius: 6px; 
+                margin-top: 15px;
+                padding-top: 15px;
+            } 
+            QGroupBox::title { 
+                subcontrol-origin: margin; 
+                left: 10px; 
+                padding: 0 5px; 
+            }
+        """
+        self.INDEXING_BTN_STYLE = "background-color: #2a2a2a; border: 1px solid #555; color: #fff; padding: 6px; font-weight: bold;"
+        
         self.setup_ui()
 
     def setup_ui(self):
@@ -593,6 +984,14 @@ class CameraCalibrationView(QWidget):
         self.plate_images = [] # List of absolute paths
         self.wand_images = {}  # Dict {cam_idx: [paths]}
         self.wand_calibrator = WandCalibrator() # Init calibrator
+        self.plate_cam_labels = {} # Map {cam_idx: ZoomableImageLabel}
+        self.plate_3d_viewer = Calibration3DViewer() # Init 3D viewer for plate
+        self.all_camera_params = {} # Accumulate calibrated camera params {cam_idx: {...}}
+        
+        # New: Tracking for indexed points across images
+        self.saved_calibration_data = {} # {(cam_idx, path): {'keypoints': [], 'indices': [], 'plane': int}}
+        self.plane_num_offset = 0
+        self._is_manually_changing_plane = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -639,112 +1038,454 @@ class CameraCalibrationView(QWidget):
              """)
 
     def create_plate_tab(self):
-        """Create the Plate Calibration tab (Single Camera)."""
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
+        """Create the Plate Calibration tab (Single/Multi Camera) - Refactored Layout."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
         
-        # 1. Visualization (LEFT)
+        # 1. Visualization (LEFT) - Wrapped in Frame for Border
         vis_frame = QFrame()
         vis_frame.setStyleSheet("background-color: #000000; border: 1px solid #333;")
         vis_layout = QVBoxLayout(vis_frame)
-        self.plate_vis_label = QLabel("No Image Loaded")
-        self.plate_vis_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.plate_vis_label.setStyleSheet("color: #666;")
-        vis_layout.addWidget(self.plate_vis_label)
-        layout.addWidget(vis_frame, stretch=2)
+        vis_layout.setContentsMargins(0,0,0,0)
 
-        # 2. Controls (RIGHT)
-        controls = QWidget()
-        controls.setFixedWidth(350)
-        controls_layout = QVBoxLayout(controls)
-        controls_layout.setContentsMargins(10, 0, 10, 0)
-        controls_layout.setSpacing(15)
+        self.plate_vis_tabs = QTabWidget()
+        self.plate_vis_tabs.setStyleSheet("""
+            QTabWidget::pane { border: 0; }
+            QTabBar::tab { background: #222; color: #888; padding: 5px; }
+            QTabBar::tab:selected { background: #444; color: #fff; }
+        """)
+        vis_layout.addWidget(self.plate_vis_tabs)
+        self.plate_vis_tabs.addTab(self.plate_3d_viewer, "3D View")
+        layout.addWidget(vis_frame, stretch=2)
+        
+        # 2. Controls (RIGHT) - Tabbed
+        self.plate_ctrl_tabs = QTabWidget()
+        self.plate_ctrl_tabs.setFixedWidth(370) # Match Wand Tab Width
+        self.plate_ctrl_tabs.setStyleSheet("""
+             QTabWidget::pane { border: 1px solid #444; background: #000000; }
+             QTabBar::tab { background: #222; color: #aaa; padding: 8px; min-width: 100px; }
+             QTabBar::tab:selected { background: #000000; color: #fff; border-top: 2px solid #00d4ff; border-bottom: 0px; font-weight: bold; }
+        """) 
+        # Note: Wand screenshot seems to have Top Blue Border for active tab and Black background
+
+        
+        # Styles
+        btn_style = """
+            QPushButton {
+                background-color: #2a3f5f; 
+                color: white; 
+                border: 1px solid #444; 
+                border-radius: 4px; 
+                padding: 6px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #3b5278; }
+            QPushButton:pressed { background-color: #1e2d42; }
+        """
+        
+        btn_style_primary = """
+            QPushButton {
+                background-color: #00d4ff; 
+                color: black; 
+                border: 1px solid #00a0cc; 
+                border-radius: 4px; 
+                padding: 8px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover { background-color: #33e0ff; }
+            QPushButton:pressed { background-color: #008cb3; }
+        """
+        
+        # --- CONTROL TAB 1: Detection ---
+        det_tab = QWidget()
+        det_layout_wrap = QVBoxLayout(det_tab)
+        det_layout_wrap.setContentsMargins(0,0,0,0)
         
         controls_scroll = QScrollArea()
         controls_scroll.setWidgetResizable(True)
         controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        controls_scroll.setFixedWidth(370) 
+        controls_scroll.setFrameShape(QFrame.Shape.NoFrame)  # Remove frame like Wand
+        controls_scroll.setStyleSheet("background-color: transparent;")  # Match Wand
         
-        # -- Configuration Group --
-        conf_group = QGroupBox("Configuration")
-        conf_layout = QFormLayout(conf_group)
+        controls = QWidget()
+        controls.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        controls.setStyleSheet("background-color: #000000;") # Pure Black
         
-        self.num_cams_spin = QSpinBox()
-        self._apply_input_style(self.num_cams_spin)
-        self.num_cams_spin.setValue(4)
-        self.num_cams_spin.setRange(1, 16)
-        self.num_cams_spin.valueChanged.connect(self._update_cam_list)
+        det_layout = QVBoxLayout(controls)
+        det_layout.setContentsMargins(10, 10, 10, 10)  # Match Wand Calibration margins
+        det_layout.setSpacing(15)
         
+        # 1. Camera Images Group (Merged Settings + Images)
+        img_group = QGroupBox("Camera Images")
+        img_group.setStyleSheet(self.GROUP_BOX_STYLE)
+        img_group.setMaximumWidth(345)  # Fit within 370px panel minus margins
+        img_layout = QVBoxLayout(img_group)
+        img_layout.setSpacing(10)
+        
+        # Upper Section: Camera Controls
+        cam_ctrl_layout = QFormLayout()
+        cam_ctrl_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # Num Cameras
+        self.plate_num_cams = QSpinBox()
+        self._apply_input_style(self.plate_num_cams)
+        self.plate_num_cams.setRange(1, 16)
+        self.plate_num_cams.setValue(4)
+        self.plate_num_cams.setMaximumWidth(200)  # Constrain width
+        self.plate_num_cams.valueChanged.connect(lambda v: self._update_cam_list(v))
+        cam_ctrl_layout.addRow("Num Cameras:", self.plate_num_cams)
+        
+        # Target Camera
         self.plate_cam_combo = QComboBox()
         self._apply_input_style(self.plate_cam_combo)
+        self.plate_cam_combo.setMaximumWidth(200)  # Constrain width
+        self.plate_cam_combo.currentIndexChanged.connect(self._sync_vis_tab)
+        cam_ctrl_layout.addRow("Target Camera:", self.plate_cam_combo)
         
+        # Detection Settings Group - Moved outside Camera Images
+        self.adv_group = QGroupBox("Detection Settings")
+        self.adv_group.setStyleSheet(self.GROUP_BOX_STYLE)
+        
+        adv_det_layout = QFormLayout()
+        
+        # 1. Point Color
+        self.plate_color_combo = QComboBox()
+        self._apply_input_style(self.plate_color_combo)
+        self.plate_color_combo.setMaximumWidth(200)  # Constrain width
+        self.plate_color_combo.addItems(["Bright (Standard)", "Dark"])
+        adv_det_layout.addRow("Point Color:", self.plate_color_combo)
+        
+        # 2. Select Template Button
+        btn_layout = QHBoxLayout()
+        self.btn_select_template = QPushButton("Select Template")
+        self.btn_select_template.clicked.connect(self._start_template_selection)
+        self.btn_select_template.setStyleSheet("background-color: #555; color: #fff; padding: 5px;")
+        self.btn_select_template.setMaximumWidth(130)  # Constrain width
+        btn_layout.addWidget(self.btn_select_template)
+        
+        # 3. Select ROI Button
+        self.btn_select_roi = QPushButton("Select Search ROI")
+        self.btn_select_roi.clicked.connect(self._start_roi_selection)
+        self.btn_select_roi.setStyleSheet("background-color: #555; color: #fff; padding: 5px;")
+        self.btn_select_roi.setMaximumWidth(130)  # Constrain width
+        btn_layout.addWidget(self.btn_select_roi)
+        
+        adv_det_layout.addRow(btn_layout)
+        
+        # 4. Status & Preview
+        self.lbl_template_status = QLabel("Ready")
+        self.lbl_template_status.setStyleSheet("color: #ff5555;")
+        self.lbl_template_status.setMaximumWidth(150)  # Prevent layout expansion
+        self.lbl_template_status.setWordWrap(True)
+        adv_det_layout.addRow("Template:", self.lbl_template_status)
+        
+        self.lbl_template_preview = QLabel()
+        self.lbl_template_preview.setFixedSize(80, 80)
+        self.lbl_template_preview.setStyleSheet("border: 1px solid #555; background-color: #000;")
+        adv_det_layout.addRow("Preview:", self.lbl_template_preview)
+        
+        self.lbl_roi_status = QLabel("Region: Full Image")
+        self.lbl_roi_status.setStyleSheet("color: #aaa;")
+        adv_det_layout.addRow("ROI:", self.lbl_roi_status)
+        
+        # 5. Threshold Slider
+        from .widgets import SimpleSlider
+        self.slider_match_thresh = SimpleSlider(min_val=0.1, max_val=1.0, initial=0.7, decimals=2)
+        adv_det_layout.addRow("Match Threshold:", self.slider_match_thresh)
+        
+        # 6. Action Buttons Row
+        action_btn_layout = QHBoxLayout()
+        
+        self.btn_detect = QPushButton("Detect")
+        self.btn_detect.setStyleSheet("background-color: #2d6a4f; color: #fff; padding: 5px; font-weight: bold;")
+        self.btn_detect.clicked.connect(self._run_detection_and_show)
+        action_btn_layout.addWidget(self.btn_detect)
+        
+        self.btn_remove_points = QPushButton("Remove")
+        self.btn_remove_points.setStyleSheet("background-color: #9d0208; color: #fff; padding: 5px;")
+        self.btn_remove_points.clicked.connect(self._start_remove_mode)
+        action_btn_layout.addWidget(self.btn_remove_points)
+        
+        self.btn_add_points = QPushButton("Add")
+        self.btn_add_points.setStyleSheet("background-color: #3a86ff; color: #fff; padding: 5px;")
+        self.btn_add_points.clicked.connect(self._start_add_mode)
+        action_btn_layout.addWidget(self.btn_add_points)
+        
+        adv_det_layout.addRow(action_btn_layout)
+        
+        # 7. Points count status
+        self.lbl_points_count = QLabel("Points: 0")
+        self.lbl_points_count.setStyleSheet("color: #00ff00;")
+        adv_det_layout.addRow("Detected:", self.lbl_points_count)
+        
+        self.adv_group.setLayout(adv_det_layout)
+        # cam_ctrl_layout.addWidget(self.adv_group) # Removed - will add to main det_layout instead
+        
+        img_layout.addLayout(cam_ctrl_layout)
+        
+        # Init State
+        self.current_template = None
+        self.template_offset = (0.0, 0.0)
+        self.search_roi_points = []
+        self.detected_keypoints = []  # Store detected keypoints for modification
+        
+        # Middle Section: Buttons
+        btn_row = QHBoxLayout()
+        self.btn_load_plate = QPushButton("Open Files")
+        self.btn_load_plate.setStyleSheet(btn_style)
+        self.btn_load_plate.clicked.connect(self._load_plate_images)
+        
+        self.btn_clear_plate = QPushButton("Clear")
+        self.btn_clear_plate.setStyleSheet(btn_style)
+        self.btn_clear_plate.clicked.connect(self._clear_plate_images)
+        
+        btn_row.addWidget(self.btn_load_plate)
+        btn_row.addWidget(self.btn_clear_plate)
+        img_layout.addLayout(btn_row)
+        
+        # Lower Section: List
+        img_layout.addWidget(QLabel("Frame List (Click to Preview):"))
+        self.plate_img_list = QListWidget()
+        self.plate_img_list.setStyleSheet("background-color: #111; color: #aaa; border: 1px solid #333;")
+        self.plate_img_list.setFixedHeight(80) # Reduced height (approx 3 rows)
+        self.plate_img_list.currentRowChanged.connect(self._display_plate_image)
+        img_layout.addWidget(self.plate_img_list)
+        
+        det_layout.addWidget(img_group)
+        # Detection Settings Group (moved here from inside Camera Images)
+        det_layout.addWidget(self.adv_group)
+        
+        # 4. Indexing Group
+        indexing_group = QGroupBox("Indexing")
+        indexing_group.setStyleSheet(self.GROUP_BOX_STYLE)
+        indexing_group.setMaximumWidth(345)  # Fit within 370px panel
+        indexing_layout = QFormLayout()
+        indexing_layout.setContentsMargins(8, 20, 8, 10)  # Reduced horizontal margins
+        
+        # Set Origin button
+        self.btn_set_origin = QPushButton("Set Origin")
+        self.btn_set_origin.setStyleSheet(self.INDEXING_BTN_STYLE)
+        self.btn_set_origin.clicked.connect(self._start_origin_selection)
+        indexing_layout.addRow(self.btn_set_origin)
+        
+        # Fixed Axis Checkboxes (mutually exclusive) with single Plane Number input
+        axis_row = QHBoxLayout()
+        
+        self.chk_fix_x = QCheckBox("X")
+        self.chk_fix_y = QCheckBox("Y") 
+        self.chk_fix_z = QCheckBox("Z")
+        self.chk_fix_z.setChecked(True)  # Default: Z is fixed (2D plate)
+        
+        for chk in [self.chk_fix_x, self.chk_fix_y, self.chk_fix_z]:
+            chk.setStyleSheet("color: #fff;")
+        
+        # Make checkboxes mutually exclusive
+        self.chk_fix_x.toggled.connect(lambda checked: self._on_axis_check_toggled('x', checked))
+        self.chk_fix_y.toggled.connect(lambda checked: self._on_axis_check_toggled('y', checked))
+        self.chk_fix_z.toggled.connect(lambda checked: self._on_axis_check_toggled('z', checked))
+        
+        axis_row.addWidget(self.chk_fix_x)
+        axis_row.addWidget(self.chk_fix_y)
+        axis_row.addWidget(self.chk_fix_z)
+        
+        # Single plane number spinbox
+        plane_label = QLabel("Plane:")
+        plane_label.setStyleSheet("color: #aaa;")
+        axis_row.addWidget(plane_label)
+        self.spin_plane_num = QSpinBox()
+        self._apply_input_style(self.spin_plane_num)
+        self.spin_plane_num.setRange(-1000, 10000)
+        self.spin_plane_num.setValue(0)
+        self.spin_plane_num.setFixedWidth(60)
+        self.spin_plane_num.valueChanged.connect(self._on_plane_num_manually_changed)
+        axis_row.addWidget(self.spin_plane_num)
+        axis_row.addStretch()
+        
+        indexing_layout.addRow("Fixed Axis:", axis_row)
+        
+        # Set Axes Direction button
+        self.btn_set_axes = QPushButton("Set Axis Directions")
+        self.btn_set_axes.setStyleSheet(self.INDEXING_BTN_STYLE)
+        self.btn_set_axes.clicked.connect(self._start_axes_selection)
+        indexing_layout.addRow(self.btn_set_axes)
+        
+        # Run Indexing button
+        self.btn_index_points = QPushButton("Index Points")
+        self.btn_index_points.setStyleSheet("background-color: #2d6a4f; color: #fff; padding: 6px; font-weight: bold; margin-top: 5px;")
+        self.btn_index_points.clicked.connect(self._run_indexing)
+        indexing_layout.addRow(self.btn_index_points)
+
+        # Verification/Sparse settings
+        viz_row = QHBoxLayout()
+        viz_row.addWidget(QLabel("Step:"))
+        self.spin_index_step = QSpinBox()
+        self._apply_input_style(self.spin_index_step)
+        self.spin_index_step.setRange(1, 100)
+        self.spin_index_step.setValue(1)
+        self.spin_index_step.setFixedWidth(50)
+        viz_row.addWidget(self.spin_index_step)
+        
+        self.btn_check_index = QPushButton("Check Index")
+        self.btn_check_index.setStyleSheet(self.INDEXING_BTN_STYLE)
+        self.btn_check_index.clicked.connect(self._visualize_keypoints_with_origin)
+        viz_row.addWidget(self.btn_check_index)
+        viz_row.addStretch()
+        
+        indexing_layout.addRow("Verify View:", viz_row)
+        
+        # New: Physical Size Settings (dx, dy, dz) - Vertical Layout
+        size_header = QLabel("Physical Spacing (mm):")
+        size_header.setStyleSheet("color: #00d4ff; font-weight: bold; margin-top: 5px;")
+        indexing_layout.addRow(size_header)
+        
+        self.spin_dx = QDoubleSpinBox()
+        self.spin_dy = QDoubleSpinBox()
+        self.spin_dz = QDoubleSpinBox()
+        for i, (spin, lbl) in enumerate(zip([self.spin_dx, self.spin_dy, self.spin_dz], ["  dx:", "  dy:", "  dz:"])):
+            spin.setRange(0, 1000)
+            spin.setValue(10.0 if i < 2 else 0.0) # Default 10x10mm, 0 for Z
+            spin.setSuffix(" mm")
+            spin.setFixedWidth(100)
+            self._apply_input_style(spin)
+            indexing_layout.addRow(lbl, spin)
+        
+        # New: Check Position button
+        self.btn_check_pos = QPushButton("Check Position")
+        self.btn_check_pos.setStyleSheet(self.INDEXING_BTN_STYLE)
+        self.btn_check_pos.clicked.connect(self._start_check_position_mode)
+        indexing_layout.addRow(self.btn_check_pos)
+        
+        # New: Add to Calibration Data button
+        self.btn_add_to_data = QPushButton("Add to Calibration Data")
+        self.btn_add_to_data.setStyleSheet("background-color: #00d4ff; color: #000; padding: 6px; font-weight: bold; margin-top: 5px;")
+        self.btn_add_to_data.clicked.connect(self._add_to_calibration_data)
+        indexing_layout.addRow(self.btn_add_to_data)
+        
+        indexing_group.setLayout(indexing_layout)
+        det_layout.addWidget(indexing_group)
+        
+        # New: Export CSV button (outside indexing group)
+        self.btn_export_csv = QPushButton("Export All to Calibration CSV")
+        self.btn_export_csv.setStyleSheet("background-color: #34495e; color: #fff; padding: 8px 15px; font-weight: bold; margin-top: 10px;")
+        self.btn_export_csv.clicked.connect(self._export_calibration_to_csv)
+        det_layout.addWidget(self.btn_export_csv, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Initialize indexing state
+        self.origin_point = None        # (x, y) in image coords
+        self.axis1_point = None         # Point defining first axis direction
+        self.axis2_point = None         # Point defining second axis direction
+        self._axes_selection_step = 0   # 0 = not selecting, 1 = selecting first axis, 2 = selecting second
+        self.point_indices = []         # List of [i, j, k] tuples corresponding to detected_keypoints
+        self.check_pos_point = None    # User-clicked point for 3D verification
+        self.check_pos_label = ""      # Label text for 3D verification
+        
+        det_layout.addStretch()
+        
+        controls_scroll.setWidget(controls)
+        det_layout_wrap.addWidget(controls_scroll)
+        
+        self.plate_ctrl_tabs.addTab(det_tab, "Point Detection")
+        
+        # --- CONTROL TAB 2: Calibration ---
+        cal_tab = QWidget()
+        cal_layout = QVBoxLayout(cal_tab)
+        cal_layout.setSpacing(15)
+        cal_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Camera Settings
+        cal_group = QGroupBox("Camera Settings")
+        cal_group.setStyleSheet("QGroupBox { border: 1px solid #444; font-weight: bold; color: #00d4ff; border-radius: 6px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }")
+        cal_form = QFormLayout(cal_group)
+        cal_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # 1. Target Camera
+        self.cal_target_cam_combo = QComboBox()
+        self._apply_input_style(self.cal_target_cam_combo)
+        # Sync with the main cam combo
+        self.cal_target_cam_combo.addItems([f"Camera {i+1}" for i in range(4)]) # Initial default
+        cal_form.addRow("Target Camera:", self.cal_target_cam_combo)
+        
+        # 2. Model
         self.plate_model_combo = QComboBox()
         self._apply_input_style(self.plate_model_combo)
-        self.plate_model_combo.addItems(["Pinhole", "Polynomial"])
+        self.plate_model_combo.addItems(["Pinhole"])
+        cal_form.addRow("Model:", self.plate_model_combo)
         
-        conf_layout.addRow("Num Cameras:", self.num_cams_spin)
-        conf_layout.addRow("Target Camera:", self.plate_cam_combo)
-        conf_layout.addRow("Camera Model:", self.plate_model_combo)
+        # 3. Resolution
+        self.cal_img_width = QSpinBox()
+        self.cal_img_height = QSpinBox()
+        for sb in [self.cal_img_width, self.cal_img_height]:
+            self._apply_input_style(sb)
+            sb.setRange(1, 10000)
+        self.cal_img_width.setValue(1280)
+        self.cal_img_height.setValue(800)
+        cal_form.addRow("Image Width (px):", self.cal_img_width)
+        cal_form.addRow("Image Height (px):", self.cal_img_height)
         
-        self.btn_load_plate = QPushButton("Load Images")
-        self.btn_load_plate.setStyleSheet("background-color: #2a3f5f;")
-        self.btn_load_plate.clicked.connect(self._load_plate_images)
-        conf_layout.addRow(self.btn_load_plate)
-
-        self.btn_clear_plate = QPushButton("Clear Images")
-        self.btn_clear_plate.setStyleSheet("background-color: #3a3f4f; font-size: 11px;")
-        self.btn_clear_plate.clicked.connect(self._clear_plate_images)
-        conf_layout.addRow(self.btn_clear_plate)
+        # 4. Sensor Width
+        self.cal_sensor_width = QDoubleSpinBox()
+        self._apply_input_style(self.cal_sensor_width)
+        self.cal_sensor_width.setRange(0.0001, 100.0)
+        self.cal_sensor_width.setDecimals(4)
+        self.cal_sensor_width.setValue(0.0200) 
+        cal_form.addRow("Sensor Width (mm/px):", self.cal_sensor_width)
         
-        controls_layout.addWidget(conf_group)
-
-        self._update_cam_list(4)
-
-        # -- Plate Settings Group --
-        plate_group = QGroupBox("Plate Settings")
-        plate_layout = QFormLayout(plate_group)
+        # 5. Focal Length
+        self.init_focal_spin = QDoubleSpinBox()
+        self._apply_input_style(self.init_focal_spin)
+        self.init_focal_spin.setRange(0.1, 1000.0)
+        self.init_focal_spin.setValue(180.0)
+        self.init_focal_spin.setSuffix(" mm")
+        cal_form.addRow("Focal Length (mm):", self.init_focal_spin)
         
-        self.rows_spin = QSpinBox()
-        self._apply_input_style(self.rows_spin)
-        self.rows_spin.setValue(10)
-        self.cols_spin = QSpinBox()
-        self._apply_input_style(self.cols_spin)
-        self.cols_spin.setValue(10)
-        self.space_spin = QDoubleSpinBox()
-        self._apply_input_style(self.space_spin)
-        self.space_spin.setValue(10.0)
-        self.space_spin.setSuffix(" mm")
+        # 6. Distortion Coefficients Number
+        self.cal_dist_coeffs_num = QSpinBox()
+        self._apply_input_style(self.cal_dist_coeffs_num)
+        self.cal_dist_coeffs_num.setRange(0, 5)
+        self.cal_dist_coeffs_num.setValue(0)
+        cal_form.addRow("Distortion Coeffs Num:", self.cal_dist_coeffs_num)
         
-        plate_layout.addRow("Rows:", self.rows_spin)
-        plate_layout.addRow("Columns:", self.cols_spin)
-        plate_layout.addRow("Spacing:", self.space_spin)
-        controls_layout.addWidget(plate_group)
+        cal_layout.addWidget(cal_group)
         
-        controls_layout.addWidget(QLabel("Loaded Images:"))
-        self.plate_img_list = QListWidget()
-        self.plate_img_list.setMaximumHeight(100)
-        self.plate_img_list.currentRowChanged.connect(self._display_plate_image)
-        controls_layout.addWidget(self.plate_img_list)
-
-        # -- Actions Group --
-        action_layout = QVBoxLayout()
-        self.btn_detect_plate = QPushButton("Detect Points")
-        self.btn_detect_plate.setStyleSheet("background-color: #2a3f5f;")
-        self.btn_detect_plate.clicked.connect(self._detect_plate_points)
+        # Data Import Button
+        self.btn_read_csv = QPushButton("Read Plate Points (from CSV)")
+        self.btn_read_csv.setStyleSheet("background-color: #27ae60; color: #fff; padding: 8px; font-weight: bold; margin-top: 10px;")
+        self.btn_read_csv.clicked.connect(self._read_calibration_from_csv)
+        cal_layout.addWidget(self.btn_read_csv)
         
         self.btn_calibrate_plate = QPushButton("Run Calibration")
-        self.btn_calibrate_plate.setStyleSheet("background-color: #00d4ff; color: #000000; font-weight: bold;")
+        self.btn_calibrate_plate.setStyleSheet(btn_style_primary)
         self.btn_calibrate_plate.clicked.connect(self._run_plate_calibration)
+        cal_layout.addWidget(self.btn_calibrate_plate)
         
-        action_layout.addWidget(self.btn_detect_plate)
-        action_layout.addWidget(self.btn_calibrate_plate)
-        controls_layout.addLayout(action_layout)
+        # Results Group
+        res_group = QGroupBox("Calibration Results")
+        res_group.setStyleSheet("QGroupBox { border: 1px solid #444; font-weight: bold; color: #a0a0a0; border-radius: 6px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }")
+        res_layout = QFormLayout(res_group)
+        self.lbl_cal_rms = QLabel("N/A")
+        self.lbl_cal_rms.setStyleSheet("color: #00ff88; font-weight: bold;")
+        res_layout.addRow("Mean RMS Error:", self.lbl_cal_rms)
+        cal_layout.addWidget(res_group)
         
-        controls_layout.addStretch()
-        controls_scroll.setWidget(controls)
-        layout.addWidget(controls_scroll)
+        # Save All Button
+        self.btn_save_all_cams = QPushButton("Save All Camera Parameters")
+        self.btn_save_all_cams.setStyleSheet("background-color: #00d4ff; color: #000; font-weight: bold; padding: 10px; margin-top: 10px;")
+        self.btn_save_all_cams.clicked.connect(self._save_all_camera_params)
+        cal_layout.addWidget(self.btn_save_all_cams)
         
-        return tab
+        cal_layout.addStretch()
+        
+        self.plate_ctrl_tabs.addTab(cal_tab, "Calibration")
+        self.plate_ctrl_tabs.addTab(QWidget(), "Tutorial")
+
+        layout.addWidget(self.plate_ctrl_tabs)
+        
+        # Initialize labels
+        self._update_cam_list(4)
+             
+        return container
+    
 
     def create_wand_tab(self):
         """Create the Wand Calibration tab (Multi-Camera)."""
@@ -897,26 +1638,225 @@ class CameraCalibrationView(QWidget):
         return tab
 
     def _update_cam_list(self, count):
-        """Update camera dropdown based on count."""
+        """Update camera dropdown and visualization tabs based on count."""
+        # 1. Update Combo
+        self.plate_cam_combo.blockSignals(True) # Avoid triggering update while changing
         current_idx = self.plate_cam_combo.currentIndex()
         self.plate_cam_combo.clear()
         items = [f"Camera {i+1}" for i in range(count)]
         self.plate_cam_combo.addItems(items)
         if current_idx >= 0 and current_idx < count:
             self.plate_cam_combo.setCurrentIndex(current_idx)
+        else:
+            self.plate_cam_combo.setCurrentIndex(0)
+        self.plate_cam_combo.blockSignals(False)
+        
+        # New: Update Calibration Cam Combo
+        if hasattr(self, 'cal_target_cam_combo'):
+            self.cal_target_cam_combo.blockSignals(True)
+            self.cal_target_cam_combo.clear()
+            self.cal_target_cam_combo.addItems(items)
+            self.cal_target_cam_combo.setCurrentIndex(self.plate_cam_combo.currentIndex())
+            self.cal_target_cam_combo.blockSignals(False)
+            
+        # 2. Update Visualization Tabs
+        self.plate_vis_tabs.clear()
+        self.plate_cam_labels = {}
+        for i in range(count):
+            lbl = ZoomableImageLabel(f"Camera {i+1} View")
+            lbl.setStyleSheet("background-color: #202020; color: #666; font-size: 16px;")
+            
+            # Connect signals
+            lbl.template_selected.connect(lambda rect, idx=i: self._on_template_roi_selected(rect, idx))
+            lbl.roi_points_changed.connect(lambda pts, idx=i: self._on_roi_points_changed(pts, idx))
+            lbl.remove_region_selected.connect(lambda rect, idx=i: self._on_remove_region(rect, idx))
+            lbl.add_region_selected.connect(lambda rect, idx=i: self._on_add_region(rect, idx))
+            lbl.origin_selected.connect(lambda pt, idx=i: self._on_origin_selected(pt, idx))
+            lbl.axis_point_selected.connect(lambda pt, axis_idx, idx=i: self._on_axis_point_selected(pt, axis_idx, idx))
+            lbl.point_clicked.connect(self._on_check_pos_clicked)
+            
+            self.plate_cam_labels[i] = lbl
+            self.plate_vis_tabs.addTab(lbl, f"Cam {i+1}")
+            
+        # Re-add 3D View tab after clearing
+        self.plate_vis_tabs.addTab(self.plate_3d_viewer, "3D View")
+            
+    def _on_template_roi_selected(self, rect, cam_idx):
+        """Handle ROI selection for template matching."""
+        # rect is already in IMAGE coordinates (converted by ZoomableImageLabel._to_image_coords)
+            
+        # Get raw image
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            return
+            
+        img_path = self.plate_images[row]
+        import cv2
+        img = cv2.imread(str(img_path))
+        if img is None:
+            return
+            
+        orig_h, orig_w = img.shape[:2]
+        
+        # Use rect directly as image coordinates
+        ix = rect.x()
+        iy = rect.y()
+        iw = rect.width()
+        ih = rect.height()
+        
+        # Clip to image bounds
+        ix = max(0, min(ix, orig_w - 1))
+        iy = max(0, min(iy, orig_h - 1))
+        iw = min(iw, orig_w - ix)
+        ih = min(ih, orig_h - iy)
+        
+        if iw > 0 and ih > 0:
+            # 1. Extract Initial Patch
+            patch = img[iy:iy+ih, ix:ix+iw]
+            
+            # 2. Auto-Center Logic
+            try:
+                gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+                
+                # Threshold
+                # Use Otsu's thresholding
+                # Note: We don't strictly rely on is_dark for inv/norm here anymore, 
+                # we'll use a border check to ensure the 'dot' is the foreground.
+                gray_u8 = gray.astype(np.uint8)
+                _, binary = cv2.threshold(gray_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                
+                # Check borders to see if background is white (255)
+                # If background is white, findContours will treat it as object. We want dot as object.
+                h_b, w_b = binary.shape
+                border_mean = (np.mean(binary[0, :]) + np.mean(binary[-1, :]) + 
+                               np.mean(binary[:, 0]) + np.mean(binary[:, -1])) / 4.0
+                               
+                if border_mean > 127:
+                    # Background is white -> Invert so Background is black, Dot is white
+                    binary = 255 - binary
+                
+                # Find Contours
+                contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                
+                if contours:
+                    # Assume largest contour is the dot
+                    largest_cnt = max(contours, key=cv2.contourArea)
+                    
+                    # Use Bounding Rect for geometric center (more robust than intensity centroid)
+                    bx, by, bw, bh = cv2.boundingRect(largest_cnt)
+                    
+                    # Center of the contour (relative to patch)
+                    cnt_cx = bx + bw / 2.0
+                    cnt_cy = by + bh / 2.0
+                    
+                    # Absolute Center in Original Image
+                    abs_cx = ix + cnt_cx
+                    abs_cy = iy + cnt_cy
+                    
+                    # Define New Crop Window (preserving original width/height)
+                    # We want abs_center to be at (iw/2, ih/2) of new patch
+                    new_ix = int(abs_cx - iw / 2.0)
+                    new_iy = int(abs_cy - ih / 2.0)
+                    
+                    # Check bounds
+                    if 0 <= new_ix and 0 <= new_iy and new_ix + iw <= orig_w and new_iy + ih <= orig_h:
+                        # Apply shift
+                        ix = new_ix
+                        iy = new_iy
+                        patch = img[iy:iy+ih, ix:ix+iw] # Re-crop
+                        self.lbl_template_status.setText(f"{iw}x{ih} OK")
+                    else:
+                        # Fallback for edge cases: clip to bounds
+                        ix = max(0, min(new_ix, orig_w - iw))
+                        iy = max(0, min(new_iy, orig_h - ih))
+                        patch = img[iy:iy+ih, ix:ix+iw]
+                        self.lbl_template_status.setText(f"{iw}x{ih} OK*")
+                
+                    # 3. Calculate Sub-Pixel Offset
+                    # Re-run contour on the FINAL patch to find exact centroid offset
+                    # This handles the fact that integer shifting might still be 0.5px off
+                    try:
+                        p_gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+                        # Check border for auto-polarity
+                        if (np.mean(p_gray[0,:]) + np.mean(p_gray[-1,:]) + np.mean(p_gray[:,0]) + np.mean(p_gray[:,-1]))/4 > 127:
+                            p_bin = 255 - p_gray # Invert
+                        else:
+                            p_bin = p_gray
+                            
+                        # Threshold
+                        _, p_bin = cv2.threshold(p_bin, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                        
+                        p_contours, _ = cv2.findContours(p_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        if p_contours:
+                            largest_p = max(p_contours, key=cv2.contourArea)
+                            M = cv2.moments(largest_p)
+                            if M["m00"] > 0:
+                                fcx = M["m10"] / M["m00"]
+                                fcy = M["m01"] / M["m00"]
+                                
+                                # Geometric center of patch
+                                gcx = patch.shape[1] / 2.0
+                                gcy = patch.shape[0] / 2.0
+                                
+                                # Offset
+                                off_x = fcx - gcx
+                                off_y = fcy - gcy
+                                self.template_offset = (off_x, off_y)
+                                # Sub-pixel offset stored but not displayed to save space
+                    except Exception as ex:
+                        print(f"Sub-pixel calc failed: {ex}")
+                        self.template_offset = (0.0, 0.0)
+
+                else:
+                    # No contour found
+                    self.lbl_template_status.setText(f"{iw}x{ih} (raw)")
+            except Exception as e:
+                print(f"Auto-center failed: {e}")
+                self.lbl_template_status.setText(f"{iw}x{ih}")
+
+            self.current_template = patch
+            self.lbl_template_status.setStyleSheet("color: #00ff00;")
+            
+            # Show Preview
+            # Convert BGR to RGB
+            preview_img = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
+            h, w, ch = preview_img.shape
+            
+            # Draw Crosshair on preview to show center
+            cx, cy = w // 2, h // 2
+            cv2.line(preview_img, (cx - 5, cy), (cx + 5, cy), (0, 255, 0), 1)
+            cv2.line(preview_img, (cx, cy - 5), (cx, cy + 5), (0, 255, 0), 1)
+            
+            from PySide6.QtGui import QImage, QPixmap
+            q_img = QImage(preview_img.data, w, h, ch * w, QImage.Format.Format_RGB888)
+            pix = QPixmap.fromImage(q_img)
+            self.lbl_template_preview.setPixmap(pix.scaled(
+                self.lbl_template_preview.size(), 
+                Qt.AspectRatioMode.KeepAspectRatio, 
+                Qt.TransformationMode.FastTransformation
+            ))
+            
+        else:
+             self.lbl_template_status.setText("Invalid Selection")
+             self.lbl_template_preview.clear()
+        
+    def _sync_vis_tab(self, idx):
+        """Sync visualization tab with combo box selection."""
+        if idx >= 0 and idx < self.plate_vis_tabs.count():
+            self.plate_vis_tabs.setCurrentIndex(idx)
 
     def _update_wand_table(self, count):
         self.wand_cam_table.setRowCount(count)
         self.wand_images = {i: [] for i in range(count)}
         
-        # Update Vis Tabs
+        # Update Vis Tabs (Wand)
         try:
             self.vis_tabs.clear()
             self.cam_vis_labels = {}
             for i in range(count):
-                lbl = QLabel(f"Cam {i+1} Image")
+                lbl = QLabel("No Image")
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                lbl.setStyleSheet("background: #000;")
+                lbl.setStyleSheet("background: #1a1a1a; color: #666; font-size: 18px;")
                 self.cam_vis_labels[i] = lbl
                 self.vis_tabs.addTab(lbl, f"Cam {i+1}")
             
@@ -924,9 +1864,10 @@ class CameraCalibrationView(QWidget):
             if not hasattr(self, 'calib_3d_view') or self.calib_3d_view is None:
                 self.calib_3d_view = Calibration3DViewer()
             self.vis_tabs.addTab(self.calib_3d_view, "3D View")
+            # self.vis_tabs.addTab(QLabel("3D View Disabled (Debug)"), "3D View")
             
         except RuntimeError:
-            return # Widget deleted or not ready
+            return 
 
         for i in range(count):
             # Col 0: Load Folder button (compact)
@@ -965,38 +1906,132 @@ class CameraCalibrationView(QWidget):
     # --- Logic Implementation ---
 
     def _load_plate_images(self, checked=False):
+        """Load selected image files for the currently selected camera."""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Calibration Images", "", "Images (*.png *.jpg *.bmp *.tif)"
+            self, 
+            "Select Image Files", 
+            "", 
+            "Image Files (*.png *.jpg *.bmp *.tif *.jpeg);;All Files (*)"
         )
+        if not files:
+            return
+        
+        from pathlib import Path
+        files = sorted(files)
+        
         if files:
+            # Clear previous images as requested
+            self.plate_images.clear()
+            self.plate_img_list.clear() # Clear list widget
+            
+            # If list was empty, we want to show the FIRST new image.
+            # (It is now always "empty" before adding since we cleared it)
+            was_empty = True
+            
             self.plate_images.extend(files)
+            
             for f in files:
-                from pathlib import Path
                 self.plate_img_list.addItem(Path(f).name)
-            if self.plate_img_list.count() > 0:
-                self.plate_img_list.setCurrentRow(self.plate_img_list.count() - 1)
+            
+            # Auto-display logic
+            if was_empty:
+                self.plate_img_list.setCurrentRow(0) # Selects first
+                self._display_plate_image(0) # Explicitly call display
+
+        else:
+            QMessageBox.warning(self, "No Images", "No images found in selected folder.")
 
     def _clear_plate_images(self, checked=False):
         self.plate_images.clear()
         self.plate_img_list.clear()
-        self.plate_vis_label.clear()
-        self.plate_vis_label.setText("No Images")
+        # Clear current label
+        idx = self.plate_cam_combo.currentIndex()
+        if idx in self.plate_cam_labels:
+            self.plate_cam_labels[idx].clear()
+            self.plate_cam_labels[idx].setText("No Images")
 
     def _display_plate_image(self, row):
         if row < 0 or row >= len(self.plate_images):
             return
         img_path = self.plate_images[row]
-        from PySide6.QtGui import QPixmap
-        pixmap = QPixmap(img_path)
-        if not pixmap.isNull():
-            scaled_pix = pixmap.scaled(
-                self.plate_vis_label.size(), 
-                Qt.AspectRatioMode.KeepAspectRatio, 
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self.plate_vis_label.setPixmap(scaled_pix)
+        
+        # --- Clear Previous State ---
+        # 1. Clear overlays on current label
+        cam_idx = self.plate_cam_combo.currentIndex()
+        target_label = self.plate_cam_labels.get(cam_idx, None)
+        if target_label:
+            target_label.clear_overlays()
+        
+        # 2. Reset origin and axis info to prevent stale data usage
+        self.origin_point = None
+        self.axis1_pt = None
+        self.axis2_pt = None
+        self._axes_selection_step = 0
+        # Clear axis direction labels if they exist
+        if hasattr(self, 'lbl_axis1_status'):
+            self.lbl_axis1_status.setText("Not Set")
+        if hasattr(self, 'lbl_axis2_status'):
+            self.lbl_axis2_status.setText("Not Set")
+        if hasattr(self, 'lbl_origin_status'):
+            self.lbl_origin_status.setText("Not Set")
+        # --- End Clear ---
+        
+        # New: Update plane number based on current row and offset
+        self._is_manually_changing_plane = False # Block offset update
+        self.spin_plane_num.blockSignals(True)
+        self.spin_plane_num.setValue(row + self.plane_num_offset)
+        self.spin_plane_num.blockSignals(False)
+
+        # New: Load saved data if exists (using Cam ID + Path)
+        data_key = (cam_idx, img_path)
+        if data_key in self.saved_calibration_data:
+            data = self.saved_calibration_data[data_key]
+            self.detected_keypoints = data['keypoints']
+            self.point_indices = data['indices']
+            self.lbl_points_count.setText(f"Points: {len(self.detected_keypoints)} (Loaded from Cam {cam_idx})")
         else:
-            self.plate_vis_label.setText("Failed to load image")
+            # Optionally clear or keep? Let's clear to avoid confusion across images
+            self.detected_keypoints = []
+            self.point_indices = []
+            self.lbl_points_count.setText("Points: 0")
+
+        # Robust loading with OpenCV
+        import cv2
+        import numpy as np
+        from PySide6.QtGui import QPixmap, QImage
+        
+        pixmap = QPixmap() # Default empty
+        img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
+        
+        if img is not None:
+             # Convert to RGB for Qt
+             if len(img.shape) == 2:  # Grayscale
+                 img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+             elif img.shape[2] == 4:  # RGBA
+                 img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
+             else:  # BGR
+                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+             
+             if img.dtype != np.uint8:
+                 img = (img / img.max() * 255).astype(np.uint8)
+                  
+             h, w, ch = img.shape
+             bytes_per_line = ch * w
+             q_img = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+             pixmap = QPixmap.fromImage(q_img)
+        else:
+             pixmap = QPixmap(str(img_path))
+        
+        cam_idx = self.plate_cam_combo.currentIndex()
+        target_label = self.plate_cam_labels.get(cam_idx, None)
+        
+        if target_label:
+            if not pixmap.isNull():
+                target_label.setPixmap(pixmap)
+                # Ensure we also visualize origin/points if loaded
+                self._visualize_keypoints_with_origin()
+            else:
+                target_label.setText(f"Failed to load image:\n{Path(img_path).name}")
 
     def _load_wand_folder_for_cam(self, cam_idx):
         folder = QFileDialog.getExistingDirectory(self, f"Select Image Folder for Camera {cam_idx+1}")
@@ -1149,15 +2184,369 @@ class CameraCalibrationView(QWidget):
             else:
                 lbl.setText("No Image")
 
+    def _test_grid_detection(self):
+        self._run_detection(smart_fill=False)
+        
+    def _test_smart_fill(self):
+        self._run_detection(smart_fill=True)
+
+    def _toggle_detection_method(self, checked):
+        # 1. Toggle Template Group
+        self.template_group.setVisible(checked)
+        
+        # 2. Toggle Blob Settings Group
+        # Iterate over layout items in Detection Settings group to hide/show them
+        # Except the Method Toggle itself
+        # This is a bit hacky, easier if we had a sub-widget or layout.
+        # But we added "adv_group" (Detection Settings) in create_plate_tab.
+        # Let's just assume we want to hide sliders.
+        return
+
+    def _run_detection(self, smart_fill=False):
+        """Test the grid detection algorithm on the currently selected image."""
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            QMessageBox.warning(self, "No Image", "Please select an image from the list first.")
+            return
+
+        img_path = self.plate_images[row]
+        
+        try:
+            from .plate_calibration.grid_detector import GridDetector
+            
+            # --- Template Matching Branch ---
+            if self.check_use_template.isChecked():
+                if self.current_template is None:
+                    QMessageBox.warning(self, "No Template", "Please select a template ROI on the image first.")
+                    return
+                
+                threshold = self.slider_match_thresh.value()
+                
+                keypoints, vis_img = GridDetector.detect_template(
+                    img_path,
+                    self.current_template,
+                    threshold=threshold,
+                    smart_fill=smart_fill,
+                    center_offset=self.template_offset
+                )
+            
+            # --- Blob Detection Branch ---
+            else:
+                import math
+                min_r, max_r = self.grid_radius_range.value()
+                min_area = int(math.pi * (min_r**2))
+                max_area = int(math.pi * (max_r**2))
+                
+                min_circ = self.grid_min_circ.value()
+                
+                # Point Color
+                color_text = self.plate_color_combo.currentText()
+                blob_color = 0 if "Dark" in color_text else 255
+                
+                # Run Detection
+                keypoints, vis_img = GridDetector.detect(
+                    img_path,
+                    min_area=min_area,
+                    max_area=max_area,
+                    min_circ=min_circ,
+                    min_conv=0.1, 
+                    min_inertia=0.1,
+                    blob_color=blob_color,
+                    smart_fill=smart_fill
+                )
+            
+            # Convert to QPixmap for display
+            import cv2
+            h, w, ch = vis_img.shape
+            bytes_per_line = ch * w
+            # OpenCV is BGR, Qt needs RGB
+            vis_img_rgb = cv2.cvtColor(vis_img, cv2.COLOR_BGR2RGB)
+            
+            from PySide6.QtGui import QImage, QPixmap
+            q_img = QImage(vis_img_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            pix = QPixmap.fromImage(q_img)
+            
+            # Display on the CORRECT label (active camera)
+            cam_idx = self.plate_cam_combo.currentIndex()
+            target_label = self.plate_cam_labels.get(cam_idx, None)
+
+            if target_label:
+                # Set ORIGINAL pixmap - paintEvent will handle scaling
+                target_label.setPixmap(pix)
+            
+            # Show stats
+            QMessageBox.information(self, "Detection Result", f"Found {len(keypoints)} points.")
+            
+        except ImportError:
+             QMessageBox.critical(self, "Import Error", "Could not import GridDetector.")
+        except TypeError as te:
+             # Likely GridDetector.detect signature mismatch if I added max_area
+             QMessageBox.critical(self, "Detection Error", f"Argument Error: {te}")
+        except Exception as e:
+            QMessageBox.critical(self, "Detection Error", f"An error occurred during detection:\n{e}")
+
     def _detect_plate_points(self, checked=False):
         print("Detecting points...")
 
     def _run_plate_calibration(self, checked=False):
-        print("Running Plate Calibration...")
+        """
+        Run camera calibration for the selected target camera using 3D-2D correspondences.
+        Optimization:
+        1. Fix intrinsics, solve for extrinsics (Pose) via PnP.
+        2. Refine both intrinsics (f, cx, cy) and extrinsics via calibrateCamera.
+        """
+        target_cam_idx = self.cal_target_cam_combo.currentIndex()
+        print(f"Running Plate Calibration for Camera {target_cam_idx+1}...")
+        
+        # 1. Gather all points for this camera
+        img_points = []
+        obj_points = []
+        
+        # Unique paths that have data for this camera
+        relevant_keys = [k for k in self.saved_calibration_data.keys() if k[0] == target_cam_idx]
+        
+        if not relevant_keys:
+            QMessageBox.warning(self, "No Data", f"No calibration data found for Camera {target_cam_idx+1}.\nPlease add data point in detection tab or read from CSV first.")
+            return
+            
+        for key in relevant_keys:
+            data = self.saved_calibration_data[key]
+            # Convert KeyPoints to numpy Nx2
+            kpts = np.array([[kp.pt[0], kp.pt[1]] for kp in data['keypoints']], dtype=np.float32)
+            world = np.array(data['world_coords'], dtype=np.float32)
+            
+            if len(kpts) > 0:
+                img_points.append(kpts)
+                obj_points.append(world)
+                
+        if not img_points:
+            QMessageBox.warning(self, "No Data", "No valid point sets found.")
+            return
+
+        # Image size
+        w = self.cal_img_width.value()
+        h = self.cal_img_height.value()
+        img_size = (w, h)
+        
+        # 2. Initialization of Intrinsics
+        f_mm = self.init_focal_spin.value()
+        pw_mm = self.cal_sensor_width.value() 
+        f_px = f_mm / pw_mm
+        
+        cx_init = w / 2.0
+        cy_init = h / 2.0
+        
+        K = np.array([[f_px, 0, cx_init],
+                      [0, f_px, cy_init],
+                      [0, 0, 1]], dtype=np.float32)
+        
+        # Distortion initialization based on UI setting
+        dist_num = self.cal_dist_coeffs_num.value()
+        dist_coeffs = np.zeros(5, dtype=np.float32) # Always use 5 for standard pinhole logic
+        
+        # 3. Stage 1: Solve for Pose (Extrinsics) using solvePnP for initial guess
+        # We pick the first set of points for a rough pose initialization.
+        success_pnp, rvec, tvec = cv2.solvePnP(obj_points[0], img_points[0], K, dist_coeffs)
+        if not success_pnp:
+            QMessageBox.critical(self, "Error", "Initial pose estimation (PnP) failed.")
+            return
+            
+        # 4. Stage 2: Refine All (Intrinsics + Extrinsics)
+        # calibrateCamera expects lists of rvecs/tvecs for initial guess.
+        rvecs = [rvec.copy() for _ in range(len(img_points))]
+        tvecs = [tvec.copy() for _ in range(len(img_points))]
+        
+        # Calibration Flags: Always use intrinsic guess
+        flags = cv2.CALIB_USE_INTRINSIC_GUESS 
+        
+        # Standard OpenCV dist order: (k1, k2, p1, p2, k3)
+        # We apply FIX flags based on dist_num
+        if dist_num == 0:
+            flags |= cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 | cv2.CALIB_FIX_TANGENT_DIST
+        elif dist_num == 1:
+            flags |= cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 | cv2.CALIB_FIX_TANGENT_DIST
+        elif dist_num == 2:
+            flags |= cv2.CALIB_FIX_K3 | cv2.CALIB_FIX_TANGENT_DIST
+        elif dist_num == 3:
+            # k1, k2, k3 (fix p1, p2)
+            flags |= cv2.CALIB_FIX_TANGENT_DIST
+        elif dist_num == 4:
+            # k1, k2, p1, p2 (fix k3)
+            flags |= cv2.CALIB_FIX_K3
+        # if dist_num == 5, nothing is fixed
+        
+        try:
+            rms, K_opt, dist_opt, rvecs_opt, tvecs_opt = cv2.calibrateCamera(
+                obj_points, img_points, img_size, K, dist_coeffs, 
+                flags=flags
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Calibration Failed", f"Optimization error: {str(e)}")
+            return
+            
+        # 5. Display Results
+        self.lbl_cal_rms.setText(f"{rms:.4f} px")
+        
+        # 6. Store Calibration Results
+        R_first, _ = cv2.Rodrigues(rvecs_opt[0])
+        T_first = tvecs_opt[0]
+        
+        # Store in accumulation dict (keyed by cam_idx for 0-based, +1 for display)
+        self.all_camera_params[target_cam_idx] = {
+            'R': R_first,
+            'T': T_first,
+            'K': K_opt,
+            'dist': dist_opt,
+            'img_size': (h, w),
+            'rms': rms
+        }
+        
+        # 7. Update 3D View with ALL calibrated cameras
+        # Reformat for plot_calibration (expects 1-based keys)
+        cam_viz_data = {idx + 1: params for idx, params in self.all_camera_params.items()}
+        
+        # Combine all 3D points from all images into one cloud
+        all_3d = np.vstack(obj_points)
+        
+        self.plate_3d_viewer.plot_calibration(cam_viz_data, all_3d)
+        self.plate_vis_tabs.setCurrentWidget(self.plate_3d_viewer)
+        
+        # 8. Notify user (no per-camera save prompt - use Save All button instead)
+        QMessageBox.information(self, "Calibration Complete", 
+                               f"Camera {target_cam_idx+1} calibrated successfully.\nRMS: {rms:.4f} px\n\nUse 'Save All Camera Parameters' to export.")
+
+    def _save_plate_calibration_params(self, cam_idx, K, dist, R, T, img_size):
+        """Save calibrated parameters in OpenLPT format (consistent with Wand calibration)."""
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Camera Parameters", 
+                                                 f"camera_{cam_idx+1}_params.txt", 
+                                                 "Text Files (*.txt)")
+        if not file_path:
+            return
+            
+        try:
+            with open(file_path, 'w') as f:
+                f.write("# Camera Model: (PINHOLE/POLYNOMIAL)\n")
+                f.write("PINHOLE\n")
+                f.write("# Camera Calibration Error: \n")
+                f.write("None\n")
+                f.write("# Pose Calibration Error: \n")
+                f.write("None\n")
+                f.write("# Image Size: (n_row,n_col)\n")
+                f.write(f"{img_size[1]},{img_size[0]}\n") # H, W
+                
+                f.write("# Camera Matrix: \n")
+                f.write(f"{K[0,0]},{K[0,1]},{K[0,2]}\n")
+                f.write(f"{K[1,0]},{K[1,1]},{K[1,2]}\n")
+                f.write(f"{K[2,0]},{K[2,1]},{K[2,2]}\n")
+                
+                f.write("# Distortion Coefficients: \n")
+                dist_str = ",".join(map(str, dist.flatten()))
+                f.write(f"{dist_str}\n")
+                
+                f.write("# Rotation Vector: \n")
+                r_vec, _ = cv2.Rodrigues(R)
+                f.write(f"{r_vec[0,0]},{r_vec[1,0]},{r_vec[2,0]}\n")
+                
+                f.write("# Rotation Matrix: \n")
+                f.write(f"{R[0,0]},{R[0,1]},{R[0,2]}\n")
+                f.write(f"{R[1,0]},{R[1,1]},{R[1,2]}\n")
+                f.write(f"{R[2,0]},{R[2,1]},{R[2,2]}\n")
+                
+                f.write("# Inverse of Rotation Matrix: \n")
+                r_inv = R.T
+                f.write(f"{r_inv[0,0]},{r_inv[0,1]},{r_inv[0,2]}\n")
+                f.write(f"{r_inv[1,0]},{r_inv[1,1]},{r_inv[1,2]}\n")
+                f.write(f"{r_inv[2,0]},{r_inv[2,1]},{r_inv[2,2]}\n")
+                
+                f.write("# Translation Vector: \n")
+                # Ensure T is formatted correctly as a single vector
+                f.write(f"{T[0][0]},{T[1][0]},{T[2][0]}\n")
+                
+                f.write("# Inverse of Translation Vector: \n")
+                t_inv = -r_inv @ T
+                f.write(f"{t_inv[0][0]},{t_inv[1][0]},{t_inv[2][0]}\n")
+                
+            QMessageBox.information(self, "Success", f"Parameters saved to {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save parameters: {str(e)}")
+
+    def _save_all_camera_params(self):
+        """Save all calibrated camera parameters to a camFile folder."""
+        if not self.all_camera_params:
+            QMessageBox.warning(self, "No Data", "No cameras have been calibrated yet.")
+            return
+            
+        # Prompt for directory
+        folder = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if not folder:
+            return
+            
+        from pathlib import Path
+        cam_folder = Path(folder) / "camFile"
+        cam_folder.mkdir(parents=True, exist_ok=True)
+        
+        saved_count = 0
+        try:
+            for cam_idx, params in sorted(self.all_camera_params.items()):
+                file_path = cam_folder / f"cam{cam_idx}.txt"
+                
+                K = params['K']
+                dist = params['dist']
+                R = params['R']
+                T = params['T']
+                img_size = params['img_size']
+                
+                with open(file_path, 'w') as f:
+                    f.write("# Camera Model: (PINHOLE/POLYNOMIAL)\n")
+                    f.write("PINHOLE\n")
+                    f.write("# Camera Calibration Error: \n")
+                    f.write("None\n")
+                    f.write("# Pose Calibration Error: \n")
+                    f.write("None\n")
+                    f.write("# Image Size: (n_row,n_col)\n")
+                    f.write(f"{img_size[0]},{img_size[1]}\n")  # H, W
+                    
+                    f.write("# Camera Matrix: \n")
+                    f.write(f"{K[0,0]},{K[0,1]},{K[0,2]}\n")
+                    f.write(f"{K[1,0]},{K[1,1]},{K[1,2]}\n")
+                    f.write(f"{K[2,0]},{K[2,1]},{K[2,2]}\n")
+                    
+                    f.write("# Distortion Coefficients: \n")
+                    dist_str = ",".join(map(str, dist.flatten()))
+                    f.write(f"{dist_str}\n")
+                    
+                    f.write("# Rotation Vector: \n")
+                    r_vec, _ = cv2.Rodrigues(R)
+                    f.write(f"{r_vec[0,0]},{r_vec[1,0]},{r_vec[2,0]}\n")
+                    
+                    f.write("# Rotation Matrix: \n")
+                    f.write(f"{R[0,0]},{R[0,1]},{R[0,2]}\n")
+                    f.write(f"{R[1,0]},{R[1,1]},{R[1,2]}\n")
+                    f.write(f"{R[2,0]},{R[2,1]},{R[2,2]}\n")
+                    
+                    f.write("# Inverse of Rotation Matrix: \n")
+                    r_inv = R.T
+                    f.write(f"{r_inv[0,0]},{r_inv[0,1]},{r_inv[0,2]}\n")
+                    f.write(f"{r_inv[1,0]},{r_inv[1,1]},{r_inv[1,2]}\n")
+                    f.write(f"{r_inv[2,0]},{r_inv[2,1]},{r_inv[2,2]}\n")
+                    
+                    f.write("# Translation Vector: \n")
+                    f.write(f"{T[0][0]},{T[1][0]},{T[2][0]}\n")
+                    
+                    f.write("# Inverse of Translation Vector: \n")
+                    t_inv = -r_inv @ T
+                    f.write(f"{t_inv[0][0]},{t_inv[1][0]},{t_inv[2][0]}\n")
+                    
+                saved_count += 1
+                
+            QMessageBox.information(self, "Success", 
+                                   f"Saved {saved_count} camera(s) to:\n{cam_folder}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save parameters: {str(e)}")
     
     def _detect_single_frame(self, checked=False):
         # Run detection on current frame only and visualize (Async)
-        from .wand_calibrator import WandCalibrator, WandDetectionSingleFrameWorker
+        from .wand_calibration.wand_calibrator import WandCalibrator, WandDetectionSingleFrameWorker
         import cv2
         import numpy as np
         from PySide6.QtGui import QPixmap, QImage
@@ -1270,7 +2659,7 @@ class CameraCalibrationView(QWidget):
         self.status_label.setText(f"Frame {idx}: Found {total_points} points in {len(res)} cameras.")
 
     def _process_wand_frames(self, checked=False):
-        from .wand_calibrator import WandCalibrator, WandDetectionWorker
+        from .wand_calibration.wand_calibrator import WandCalibrator, WandDetectionWorker
         from .widgets import ProcessingDialog
         from PySide6.QtWidgets import QMessageBox, QFileDialog, QDialog
         from PySide6.QtCore import QFileInfo
@@ -1490,6 +2879,19 @@ class CameraCalibrationView(QWidget):
     
         # Store precalibration state
         self._is_precalibrating = precalibrate
+        
+        # Calculate num_cams based on actual data in wand_points, NOT the UI table
+        # User might have 4 cameras in UI but only imported data for 2.
+        if self.wand_calibrator.wand_points:
+            unique_cams = set()
+            # Optimization: Check first 100 frames or all? 
+            # All is safer and fast enough for typical calibration sizes.
+            for obs in self.wand_calibrator.wand_points.values():
+                unique_cams.update(obs.keys())
+            self._calib_num_cams = len(unique_cams)
+            print(f"[UI] Active cameras in wand data: {self._calib_num_cams} {sorted(list(unique_cams))}")
+        else:
+            self._calib_num_cams = len(camera_settings) if camera_settings else 0
     
         # Disable button to prevent double click
         sender = self.sender()
@@ -1499,7 +2901,7 @@ class CameraCalibrationView(QWidget):
         self.wand_calibrator.dist_coeff_num = dist_coeff_num
         
         # Use Worker
-        from .wand_calibrator import CalibrationWorker
+        from .wand_calibration.wand_calibrator import CalibrationWorker
         self._calib_worker = CalibrationWorker(self.wand_calibrator, wand_len, init_focal, precalibrate=precalibrate)
         self._calib_worker.finished_signal.connect(self._on_calibration_finished)
         self._calib_worker.cost_signal.connect(self._on_cost_update)
@@ -1710,9 +3112,17 @@ class CameraCalibrationView(QWidget):
              else:
                  self._calib_status_label.setText(f"{phase}, {stage}, Proj error: {rmse:.4f} px.")
         
-        # Enable/disable Stop button based on phase (only Phase 3 allows stopping)
         if hasattr(self, '_stop_calib_btn'):
+            should_enable = False
+            
+            # Condition 1: Phase 3 or Refinement (always allow stop)
             if "Phase 3" in phase or "Refinement" in phase:
+                should_enable = True
+            # Condition 2: 2 Cameras (allow stop in Phase 1 since it's the only phase)
+            elif hasattr(self, '_calib_num_cams') and self._calib_num_cams == 2:
+                should_enable = True
+                
+            if should_enable:
                 self._stop_calib_btn.setEnabled(True)
                 self._stop_calib_btn.setStyleSheet("background-color: #d32f2f; color: white; font-weight: bold; padding: 5px;")
             else:
@@ -2192,6 +3602,879 @@ class CameraCalibrationView(QWidget):
         if hasattr(self, 'plate_vis_label') and self.tabs.currentIndex() == 0:
             if self.plate_img_list.currentRow() >= 0:
                 self._display_plate_image(self.plate_img_list.currentRow())
+
+    def _start_template_selection(self):
+        """Enable template selection mode on the active camera view."""
+        cam_idx = self.plate_cam_combo.currentIndex()
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_TEMPLATE)
+    
+    def _start_roi_selection(self):
+        """Enable ROI selection mode."""
+        self.search_roi_points = []
+        self.lbl_roi_status.setText("Region: Click 4 points")
+        
+        cam_idx = self.plate_cam_combo.currentIndex()
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.clear_overlays() # Clear visual ROI
+            lbl.set_mode(ZoomableImageLabel.MODE_ROI)
+
+    def _on_roi_points_changed(self, points, idx):
+        """Update ROI status when points added."""
+        # IMPORTANT: Make a copy of points, not a reference!
+        # Otherwise if ZoomableImageLabel clears its roi_points, our copy will also be emptied.
+        self.search_roi_points = [QPoint(p.x(), p.y()) for p in points]
+        count = len(points)
+        if count == 4:
+            self.lbl_roi_status.setText("Region: Defined (4 pts)")
+            # Auto switch back to nav mode?
+            lbl = self.plate_cam_labels.get(idx, None)
+            if lbl:
+                lbl.set_mode(ZoomableImageLabel.MODE_NAV)
+        else:
+            self.lbl_roi_status.setText(f"Region: {count}/4 points")
+
+    def _run_detection_and_show(self):
+        """Run detection and display results."""
+        self._run_detection(smart_fill=False)
+        
+    def _test_grid_detection(self):
+        self._run_detection(smart_fill=False)
+        
+    def _test_smart_fill(self):
+        self._run_detection(smart_fill=True)
+
+    def _start_remove_mode(self):
+        """Enable remove mode - drag to remove points."""
+        if not self.detected_keypoints:
+            QMessageBox.warning(self, "No Points", "Please run detection first.")
+            return
+        cam_idx = self.plate_cam_combo.currentIndex()
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_REMOVE)
+            
+    def _start_add_mode(self):
+        """Enable add mode - drag to add points via blob detection."""
+        cam_idx = self.plate_cam_combo.currentIndex()
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_ADD)
+
+    def _on_remove_region(self, rect, cam_idx):
+        """Remove keypoints within the selected region."""
+        if not self.detected_keypoints:
+            return
+            
+        # Filter out points inside the rect
+        new_keypoints = []
+        for kp in self.detected_keypoints:
+            x, y = kp.pt
+            if not rect.contains(QPoint(int(x), int(y))):
+                new_keypoints.append(kp)
+                
+        removed_count = len(self.detected_keypoints) - len(new_keypoints)
+        self.detected_keypoints = new_keypoints
+        self.lbl_points_count.setText(f"Points: {len(self.detected_keypoints)}")
+        
+        # Re-visualize (stay in Remove mode for continuous removal)
+        self._visualize_keypoints()
+
+    def _on_add_region(self, rect, cam_idx):
+        """Add keypoints via blob detection within the selected region."""
+        import cv2
+        
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            return
+            
+        img_path = self.plate_images[row]
+        img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return
+            
+        # Extract ROI
+        x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+        # Clamp to image bounds
+        x = max(0, x)
+        y = max(0, y)
+        x2 = min(img.shape[1], x + w)
+        y2 = min(img.shape[0], y + h)
+        
+        if x2 <= x or y2 <= y:
+            return
+            
+        roi = img[y:y2, x:x2]
+        
+        # Simple blob detection using adaptive threshold + contours
+        blur = cv2.GaussianBlur(roi, (5, 5), 0)
+        
+        # Determine polarity from Point Color setting
+        is_dark = self.plate_color_combo.currentIndex() == 1
+        
+        if is_dark:
+            # Dark on bright - invert
+            _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        else:
+            _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        added_count = 0
+        for cnt in contours:
+            M = cv2.moments(cnt)
+            if M["m00"] > 0:
+                cx = M["m10"] / M["m00"] + x  # Convert back to image coords
+                cy = M["m01"] / M["m00"] + y
+                
+                # Check if point already exists nearby
+                is_duplicate = False
+                for kp in self.detected_keypoints:
+                    dist = ((kp.pt[0] - cx)**2 + (kp.pt[1] - cy)**2)**0.5
+                    if dist < 5:  # 5 pixel threshold
+                        is_duplicate = True
+                        break
+                        
+                if not is_duplicate:
+                    kp = cv2.KeyPoint(x=float(cx), y=float(cy), size=10.0)
+                    self.detected_keypoints.append(kp)
+                    added_count += 1
+                    
+        self.lbl_points_count.setText(f"Points: {len(self.detected_keypoints)}")
+        
+        # Re-visualize (stay in Add mode for continuous addition)
+        self._visualize_keypoints()
+
+    def _visualize_keypoints(self):
+        """Redraw the image with current keypoints."""
+        import cv2
+        from PySide6.QtGui import QImage, QPixmap
+        
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            return
+            
+        img_path = self.plate_images[row]
+        img = cv2.imread(str(img_path))
+        if img is None:
+            return
+            
+        # Draw keypoints
+        marker_size = 5
+        for kp in self.detected_keypoints:
+            x, y = int(kp.pt[0]), int(kp.pt[1])
+            cv2.line(img, (x - marker_size, y), (x + marker_size, y), (0, 255, 0), 2)
+            cv2.line(img, (x, y - marker_size), (x, y + marker_size), (0, 255, 0), 2)
+            
+        # Convert to QPixmap
+        h, w, ch = img.shape
+        bytes_per_line = ch * w
+        vis_img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        q_img = QImage(vis_img_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pix = QPixmap.fromImage(q_img)
+        
+        cam_idx = self.plate_cam_combo.currentIndex()
+        target_label = self.plate_cam_labels.get(cam_idx, None)
+        if target_label:
+            target_label.setPixmap(pix)
+
+    # ========== INDEXING METHODS ==========
+    
+    def _start_origin_selection(self):
+        """Enable origin selection mode."""
+        cam_idx = self.plate_cam_combo.currentIndex()
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_ORIGIN)
+            
+    def _start_axes_selection(self):
+        """Enable axis direction selection mode."""
+        if self.origin_point is None:
+            QMessageBox.warning(self, "No Origin", "Please set the origin first.")
+            return
+            
+        # Determine which axes are free (not fixed)
+        free_axes = self._get_free_axis_names()
+        if len(free_axes) < 2:
+            QMessageBox.warning(self, "Error", "Need exactly 2 free axes to set directions.")
+            return
+            
+        self._axes_selection_step = 1
+        self._free_axes = free_axes
+        
+        cam_idx = self.plate_cam_combo.currentIndex()
+        # Set MODE_AXES on current label
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_AXES)
+            lbl._current_axis_index = 0
+            # Show mouse-following hint text
+            first_axis = self._free_axes[0] if self._free_axes else "axis"
+            lbl._hint_text = f"Click +{first_axis}"
+            lbl.update()
+        
+    def _on_origin_selected(self, pt, cam_idx):
+        """Handle origin point selection."""
+        # Find nearest keypoint
+        if self.detected_keypoints:
+            min_dist = float('inf')
+            nearest_kp = None
+            for kp in self.detected_keypoints:
+                dist = ((kp.pt[0] - pt.x())**2 + (kp.pt[1] - pt.y())**2)**0.5
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_kp = kp
+            
+            if nearest_kp and min_dist < 30:  # 30 pixel threshold
+                self.origin_point = (nearest_kp.pt[0], nearest_kp.pt[1])
+            else:
+                # Use exact click position
+                self.origin_point = (pt.x(), pt.y())
+        else:
+            self.origin_point = (pt.x(), pt.y())
+        
+        # Visualize origin
+        self._visualize_keypoints_with_origin()
+        
+        # Switch back to nav mode
+        lbl = self.plate_cam_labels.get(cam_idx, None)
+        if lbl:
+            lbl.set_mode(ZoomableImageLabel.MODE_NAV)
+            
+    def _on_axis_point_selected(self, pt, axis_idx, cam_idx):
+        """Handle axis direction point selection."""
+        print(f"Indexing Debug: Axis point selected at ({pt.x()}, {pt.y()}) for Cam {cam_idx}, Step {self._axes_selection_step}")
+        # Find nearest keypoint
+        if self.detected_keypoints:
+            min_dist = float('inf')
+            nearest_kp = None
+            for kp in self.detected_keypoints:
+                dist = ((kp.pt[0] - pt.x())**2 + (kp.pt[1] - pt.y())**2)**0.5
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_kp = kp
+            
+            if nearest_kp and min_dist < 30:
+                selected_pt = (nearest_kp.pt[0], nearest_kp.pt[1])
+            else:
+                selected_pt = (pt.x(), pt.y())
+        else:
+            selected_pt = (pt.x(), pt.y())
+        
+        if self._axes_selection_step == 1:
+            self.axis1_point = selected_pt
+            self._axes_selection_step = 2
+            
+            # Prompt for second axis
+            lbl = self.plate_cam_labels.get(cam_idx, None)
+            if lbl:
+                lbl._current_axis_index = 1
+                # Update hint text to show second axis
+                if len(self._free_axes) >= 2:
+                    second_axis = self._free_axes[1]
+                    lbl._hint_text = f"Click +{second_axis}"
+                    lbl.update()
+            
+        elif self._axes_selection_step == 2:
+            self.axis2_point = selected_pt
+            self._axes_selection_step = 0
+            
+            # Visualize axes
+            self._visualize_keypoints_with_origin()
+            
+            # Switch back to nav mode
+            lbl = self.plate_cam_labels.get(cam_idx, None)
+            if lbl:
+                lbl.set_mode(ZoomableImageLabel.MODE_NAV)
+                lbl._hint_text = ""
+                
+    def _run_indexing(self):
+        """Calculate integer indices [i, j, k] for all detected points."""
+        if not self.detected_keypoints:
+            QMessageBox.warning(self, "No Points", "No keypoints detected. Run detection first.")
+            return
+        if self.origin_point is None or self.axis1_point is None or self.axis2_point is None:
+            QMessageBox.warning(self, "Missing Indexing Info", "Please set origin and both axis directions first.")
+            return
+
+        # 1. Setup Axes
+        origin = np.array(self.origin_point)
+        p1 = np.array(self.axis1_point)
+        p2 = np.array(self.axis2_point)
+        
+        v1 = p1 - origin
+        v2 = p2 - origin
+        
+        norm1 = np.linalg.norm(v1)
+        norm2 = np.linalg.norm(v2)
+        
+        if norm1 < 1e-6 or norm2 < 1e-6:
+            QMessageBox.warning(self, "Error", "Axis points are too close to origin.")
+            return
+            
+        u1 = v1 / norm1
+        u2 = v2 / norm2
+        
+        # 2. Project all points into the custom basis defined by u1, u2
+        # We solve the system: [u1, u2] * [d1; d2] = (pt - origin)
+        pts = np.array([kp.pt for kp in self.detected_keypoints])
+        diffs = pts - origin
+        
+        # Matrix A = [u1.x u2.x; u1.y u2.y]
+        A = np.stack((u1, u2), axis=1)
+        try:
+            # Solving for all points at once: D = A * X => X = inv(A) * D
+            # (X will be [d1, d2] for each point)
+            coords = np.linalg.solve(A, diffs.T).T
+            proj1 = coords[:, 0]
+            proj2 = coords[:, 1]
+        except np.linalg.LinAlgError:
+            # Fallback to dot if axes are nearly parallel
+            proj1 = np.dot(diffs, u1)
+            proj2 = np.dot(diffs, u2)
+        
+    def _run_indexing(self):
+        """Calculate integer indices [i, j, k] using a topological 'Greedy Walk' strategy."""
+        if not self.detected_keypoints:
+            QMessageBox.warning(self, "No Points", "No keypoints detected. Run detection first.")
+            return
+        if self.origin_point is None or self.axis1_point is None or self.axis2_point is None:
+            QMessageBox.warning(self, "Missing Indexing Info", "Please set origin and both axis directions first.")
+            return
+
+        # 0. Setup and Delta Estimation
+        all_pts = np.array([kp.pt for kp in self.detected_keypoints])
+        n_pts = len(all_pts)
+        
+        # Estimate delta (median distance to nearest 5 neighbors)
+        all_deltas = []
+        for i in range(min(n_pts, 100)): # Check first 100 points for speed
+            dists = np.linalg.norm(all_pts - all_pts[i], axis=1)
+            neighbor_dists = np.sort(dists)[1:6]
+            all_deltas.extend(neighbor_dists)
+        delta = np.median(all_deltas) if all_deltas else 50.0
+        print(f"Indexing Debug: Estimated delta = {delta:.2f}px")
+
+        # 1. Directions
+        origin_pt = np.array(self.origin_point)
+        p1 = np.array(self.axis1_point)
+        p2 = np.array(self.axis2_point)
+        
+        u1 = (p1 - origin_pt) / np.linalg.norm(p1 - origin_pt)
+        u2 = (p2 - origin_pt) / np.linalg.norm(p2 - origin_pt)
+        
+        # 2. Helper to find nearest neighbor in a specific direction
+        def find_next_point(current_pt, direction, pool_indices, d_max=1.5*delta, lat_tol=0.3*delta):
+            best_idx = -1
+            min_dist = d_max
+            
+            for idx in pool_indices:
+                vec = all_pts[idx] - current_pt
+                dist_along = np.dot(vec, direction)
+                if dist_along < 5: continue # Must move forward significantly
+                
+                dist_lat = np.linalg.norm(vec - dist_along * direction)
+                if dist_lat < lat_tol and dist_along < d_max:
+                    if dist_along < min_dist:
+                        min_dist = dist_along
+                        best_idx = idx
+            return best_idx
+
+        # 3. Backbone Walk (Primary Axis)
+        # Determine which direction has more points to pick as primary
+        def count_points_on_axis(u):
+            count = 0
+            curr = origin_pt
+            temp_pool = list(range(n_pts))
+            while True:
+                nxt = find_next_point(curr, u, temp_pool)
+                if nxt == -1: break
+                count += 1
+                curr = all_pts[nxt]
+                temp_pool.remove(nxt)
+            return count
+
+        c1 = count_points_on_axis(u1) + count_points_on_axis(-u1)
+        c2 = count_points_on_axis(u2) + count_points_on_axis(-u2)
+        
+        if c1 >= c2:
+            primary_u, secondary_u = u1, u2
+            primary_is_v1 = True
+        else:
+            primary_u, secondary_u = u2, u1
+            primary_is_v1 = False
+
+        print(f"Indexing Debug: Primary Axis: {'V1' if primary_is_v1 else 'V2'} (Count: {max(c1, c2)})")
+
+        # 4. Perform the Walks
+        # Store results as a map: {point_index: (walk1_idx, walk2_idx)}
+        visit_map = {}
+        
+        # Origin is (0, 0)
+        origin_idx = -1
+        for i, pt in enumerate(all_pts):
+            if np.linalg.norm(pt - origin_pt) < 5:
+                origin_idx = i
+                break
+        
+        if origin_idx == -1:
+            # Add origin if not found in detected keypoints? No, use the closest one.
+            origin_idx = np.argmin(np.linalg.norm(all_pts - origin_pt, axis=1))
+            
+        visit_map[origin_idx] = (0, 0)
+        backbone = [(origin_idx, 0)] # (idx, w1_pos)
+
+        # Walk primary axis (pos & neg)
+        for direction, step in [(primary_u, 1), (-primary_u, -1)]:
+            curr_idx = origin_idx
+            curr_w = 0
+            while True:
+                pool = [i for i in range(n_pts) if i not in visit_map]
+                nxt = find_next_point(all_pts[curr_idx], direction, pool)
+                if nxt == -1: break
+                curr_w += step
+                visit_map[nxt] = (curr_w, 0)
+                backbone.append((nxt, curr_w))
+                curr_idx = nxt
+
+        # Walk secondary axis from each backbone point
+        for b_idx, w1 in backbone:
+            for direction, step in [(secondary_u, 1), (-secondary_u, -1)]:
+                curr_idx = b_idx
+                curr_w2 = 0
+                while True:
+                    pool = [i for i in range(n_pts) if i not in visit_map]
+                    nxt = find_next_point(all_pts[curr_idx], direction, pool)
+                    if nxt == -1: break
+                    curr_w2 += step
+                    visit_map[nxt] = (w1, curr_w2)
+                    curr_idx = nxt
+
+        # 5. Final Mapping to (i, j, k)
+        fixed_val = self.spin_plane_num.value()
+        self.point_indices = [None] * n_pts
+        
+        # Figure out which walk corresponds to which logical index i, j, k
+        # UI selection: Fixed X -> Y, Z free. Fixed Y -> X, Z free. Fixed Z -> X, Y free.
+        # secondary walk follows the order of user selection or standard (X then Y).
+        
+        for idx, (w1, w2) in visit_map.items():
+            # n1, n2 are the relative integer steps from primary/secondary walk
+            n1, n2 = w1, w2
+            if not primary_is_v1: n1, n2 = n2, n1 # Swap if V2 was primary
+            
+            if self.chk_fix_x.isChecked():
+                self.point_indices[idx] = (fixed_val, n1, n2)
+            elif self.chk_fix_y.isChecked():
+                self.point_indices[idx] = (n1, fixed_val, n2)
+            else: # Fix Z
+                self.point_indices[idx] = (n1, n2, fixed_val)
+
+        # Fill missing with dummy or handle
+        for i in range(n_pts):
+            if self.point_indices[i] is None:
+                # Still not visited? Assign huge index or ignore
+                self.point_indices[i] = (999, 999, 999)
+
+        # 6. Visualize
+        self._visualize_keypoints_with_origin()
+        QMessageBox.information(self, "Indexing Complete", f"Assigned indices using walk strategy to {len(visit_map)}/{n_pts} points.")
+
+    def _on_axis_check_toggled(self, axis, checked):
+        """Handle axis checkbox toggle - enforce mutual exclusion and sync plane number."""
+        if checked:
+            # Block signals to prevent recursion
+            self.chk_fix_x.blockSignals(True)
+            self.chk_fix_y.blockSignals(True)
+            self.chk_fix_z.blockSignals(True)
+            
+            # Uncheck others (mutual exclusion)
+            if axis == 'x':
+                self.chk_fix_y.setChecked(False)
+                self.chk_fix_z.setChecked(False)
+            elif axis == 'y':
+                self.chk_fix_x.setChecked(False)
+                self.chk_fix_z.setChecked(False)
+            elif axis == 'z':
+                self.chk_fix_x.setChecked(False)
+                self.chk_fix_y.setChecked(False)
+            
+            self.chk_fix_x.blockSignals(False)
+            self.chk_fix_y.blockSignals(False)
+            self.chk_fix_z.blockSignals(False)
+            
+            # Set plane number to current frame index + offset
+            frame_idx = self.plate_img_list.currentRow()
+            if frame_idx < 0:
+                frame_idx = 0
+            self.spin_plane_num.setValue(frame_idx + self.plane_num_offset)
+
+    def _on_plane_num_manually_changed(self, new_val):
+        """Handle manual change of plane number - updates the global offset."""
+        if not self.spin_plane_num.signalsBlocked():
+            curr_row = self.plate_img_list.currentRow()
+            if curr_row >= 0:
+                self.plane_num_offset = new_val - curr_row
+                print(f"Indexing Debug: New Plane Offset = {self.plane_num_offset}")
+
+    def _start_check_position_mode(self):
+        """Enable click-to-check 3D position mode."""
+        idx = self.plate_cam_combo.currentIndex()
+        if idx in self.plate_cam_labels:
+            self.plate_cam_labels[idx].set_mode(ZoomableImageLabel.MODE_CHECK_POS)
+
+    def _on_check_pos_clicked(self, pt):
+        """Handle point click to show physical position."""
+        if not self.detected_keypoints or not self.point_indices:
+            return
+            
+        # Find nearest point
+        best_dist = float('inf')
+        best_idx = -1
+        
+        for i, kp in enumerate(self.detected_keypoints):
+            dx = kp.pt[0] - pt.x()
+            dy = kp.pt[1] - pt.y()
+            dist = dx*dx + dy*dy
+            if dist < best_dist:
+                best_dist = dist
+                best_idx = i
+                
+        if best_idx >= 0 and self.point_indices[best_idx] != (999,999,999):
+            idx = self.point_indices[best_idx]
+            dx, dy, dz = self.spin_dx.value(), self.spin_dy.value(), self.spin_dz.value()
+            phys_x = idx[0] * dx
+            phys_y = idx[1] * dy
+            phys_z = idx[2] * dz
+            
+            # Store for visualization
+            self.check_pos_point = self.detected_keypoints[best_idx].pt
+            self.check_pos_label = f"X:{phys_x:.2f} Y:{phys_y:.2f} Z:{phys_z:.2f} mm"
+            # Clear previous markings by refreshing
+            self._visualize_keypoints_with_origin()
+            
+    def _add_to_calibration_data(self):
+        """Save currently detected keypoints and their 3D world coordinates."""
+        row = self.plate_img_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "No Image", "Select an image first.")
+            return
+            
+        if not self.point_indices or len(self.point_indices) != len(self.detected_keypoints):
+            QMessageBox.warning(self, "No Indices", "Please run indexing before adding points.")
+            return
+
+        cam_idx = self.plate_cam_combo.currentIndex()
+        img_path = self.plate_images[row]
+        
+        # Calculate world coordinates
+        dx, dy, dz = self.spin_dx.value(), self.spin_dy.value(), self.spin_dz.value()
+        world_coords = []
+        for idx in self.point_indices:
+            if idx == (999,999,999):
+                world_coords.append(None)
+            else:
+                world_coords.append((idx[0]*dx, idx[1]*dy, idx[2]*dz))
+
+        # Consistent key: (camera_index, image_path)
+        data_key = (cam_idx, img_path)
+        self.saved_calibration_data[data_key] = {
+            'keypoints': list(self.detected_keypoints), # Copy list
+            'indices': list(self.point_indices),
+            'world_coords': world_coords,
+            'plane': self.spin_plane_num.value()
+        }
+        
+        self.lbl_points_count.setText(f"Points: {len(self.detected_keypoints)} (Added to Cam {cam_idx})")
+        QMessageBox.information(self, "Added", f"Added {len(self.detected_keypoints)} points with 3D positions for Camera {cam_idx}, Image {self.plate_img_list.currentItem().text()}")
+
+    def _export_calibration_to_csv(self):
+        """Export all saved calibration data across all cameras and images to a CSV file."""
+        import csv
+        if not self.saved_calibration_data:
+            QMessageBox.warning(self, "No Data", "There is no calibration data to export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(self, "Export Calibration Data", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                # Header
+                writer.writerow(["CameraID", "ImagePath", "Plane", "PixelX", "PixelY", "WorldX", "WorldY", "WorldZ"])
+                
+                # Data
+                for (cam_idx, img_path), data in self.saved_calibration_data.items():
+                    kpts = data['keypoints']
+                    world = data['world_coords']
+                    plane = data['plane']
+                    
+                    for kp, w_pos in zip(kpts, world):
+                        if w_pos is None: continue # Skip un-indexed points
+                        
+                        writer.writerow([
+                            cam_idx,
+                            img_path,
+                            plane,
+                            f"{kp.pt[0]:.3f}",
+                            f"{kp.pt[1]:.3f}",
+                            f"{w_pos[0]:.3f}",
+                            f"{w_pos[1]:.3f}",
+                            f"{w_pos[2]:.3f}"
+                        ])
+            
+            QMessageBox.information(self, "Success", f"Successfully exported data to {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export CSV: {str(e)}")
+
+    def _read_calibration_from_csv(self):
+        """Read calibration data from a CSV file and populate saved_calibration_data."""
+        import csv
+        import cv2
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Calibration CSV", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        try:
+            new_data = {} # (cam_idx, path) -> {kpts, world, plane}
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Parse header: CameraID, ImagePath, Plane, PixelX, PixelY, WorldX, WorldY, WorldZ
+                    c_id = int(row['CameraID'])
+                    i_path = row['ImagePath']
+                    plane = int(row['Plane'])
+                    px_x = float(row['PixelX'])
+                    px_y = float(row['PixelY'])
+                    wx = float(row['WorldX'])
+                    wy = float(row['WorldY'])
+                    wz = float(row['WorldZ'])
+                    
+                    key = (c_id, i_path)
+                    if key not in new_data:
+                        new_data[key] = {
+                            'keypoints': [],
+                            'world_coords': [],
+                            'indices': [], # We don't strictly need indices for calibration if we have world_coords
+                            'plane': plane
+                        }
+                    
+                    kp = cv2.KeyPoint(px_x, px_y, 1.0) # Dummy size 1.0
+                    new_data[key]['keypoints'].append(kp)
+                    new_data[key]['world_coords'].append([wx, wy, wz])
+                    new_data[key]['indices'].append([0, 0, 0]) # Placeholder indices
+            
+            if not new_data:
+                QMessageBox.warning(self, "No Data", "No valid data found in CSV.")
+                return
+
+            # Merge or Overwrite? Let's Merge
+            self.saved_calibration_data.update(new_data)
+            
+            # Refresh current view
+            row = self.plate_img_list.currentRow()
+            if row >= 0:
+                self._display_plate_image(row)
+                
+            QMessageBox.information(self, "Success", f"Successfully loaded data for {len(new_data)} image-camera pairs.")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to parse CSV: {str(e)}")
+    def _get_fixed_axis_name(self):
+        """Get the name of the fixed axis."""
+        if self.chk_fix_x.isChecked():
+            return 'X'
+        elif self.chk_fix_y.isChecked():
+            return 'Y'
+        elif self.chk_fix_z.isChecked():
+            return 'Z'
+        return None
+        
+    def _get_free_axis_names(self):
+        """Get the names of the free (unfixed) axes."""
+        axes = []
+        if not self.chk_fix_x.isChecked():
+            axes.append('X')
+        if not self.chk_fix_y.isChecked():
+            axes.append('Y')
+        if not self.chk_fix_z.isChecked():
+            axes.append('Z')
+        return axes
+        
+    def _visualize_keypoints_with_origin(self):
+        """Visualize keypoints with origin and axis markers."""
+        import cv2
+        from PySide6.QtGui import QImage, QPixmap
+        
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            return
+            
+        img_path = self.plate_images[row]
+        img = cv2.imread(str(img_path))
+        if img is None:
+            return
+            
+        # Draw keypoints
+        marker_size = 5
+        for kp in self.detected_keypoints:
+            x, y = int(kp.pt[0]), int(kp.pt[1])
+            cv2.line(img, (x - marker_size, y), (x + marker_size, y), (0, 255, 0), 2)
+            cv2.line(img, (x, y - marker_size), (x, y + marker_size), (0, 255, 0), 2)
+        
+        # Draw origin
+        if self.origin_point:
+            ox, oy = int(self.origin_point[0]), int(self.origin_point[1])
+            cv2.circle(img, (ox, oy), 10, (255, 0, 255), 3)  # Magenta circle
+            cv2.drawMarker(img, (ox, oy), (255, 0, 255), cv2.MARKER_CROSS, 20, 3)
+            
+        # Draw axes
+        if self.origin_point and self.axis1_point:
+            ox, oy = int(self.origin_point[0]), int(self.origin_point[1])
+            ax1, ay1 = int(self.axis1_point[0]), int(self.axis1_point[1])
+            cv2.arrowedLine(img, (ox, oy), (ax1, ay1), (255, 0, 0), 3, tipLength=0.2)  # Blue = axis1
+            
+            if hasattr(self, '_free_axes') and len(self._free_axes) > 0:
+                cv2.putText(img, f"+{self._free_axes[0]}", (ax1 + 5, ay1), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+            
+        if self.origin_point and self.axis2_point:
+            ox, oy = int(self.origin_point[0]), int(self.origin_point[1])
+            ax2, ay2 = int(self.axis2_point[0]), int(self.axis2_point[1])
+            cv2.arrowedLine(img, (ox, oy), (ax2, ay2), (0, 165, 255), 3, tipLength=0.2)  # Orange = axis2
+            
+            if hasattr(self, '_free_axes') and len(self._free_axes) > 1:
+                cv2.putText(img, f"+{self._free_axes[1]}", (ax2 + 5, ay2), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+            
+        # Draw Indices
+        if hasattr(self, 'point_indices') and self.point_indices and len(self.point_indices) == len(self.detected_keypoints):
+            # Check for sparse visualization step
+            viz_step = 1
+            if hasattr(self, 'spin_index_step'):
+                viz_step = self.spin_index_step.value()
+            
+            for kp, idx in zip(self.detected_keypoints, self.point_indices):
+                if idx is None: continue
+                # Skip filtering for origin [0,0,0]
+                is_origin = (idx[0] == 0 and idx[1] == 0 and idx[2] == 0)
+                
+                # Filter based on step
+                show = is_origin
+                if not show:
+                    # Only show if free indices are multiples of viz_step
+                    if self.chk_fix_x.isChecked():
+                        if idx[1] % viz_step == 0 and idx[2] % viz_step == 0: show = True
+                    elif self.chk_fix_y.isChecked():
+                        if idx[0] % viz_step == 0 and idx[2] % viz_step == 0: show = True
+                    else: # Z fixed
+                        if idx[0] % viz_step == 0 and idx[1] % viz_step == 0: show = True
+                
+                if not show: continue
+
+                x, y = int(kp.pt[0]), int(kp.pt[1])
+                # Draw a highlighted marker for the indexed point
+                marker_size = 6
+                highlight_color = (255, 0, 0) # Blue in BGR
+                cv2.line(img, (x - marker_size, y), (x + marker_size, y), highlight_color, 2)
+                cv2.line(img, (x, y - marker_size), (x, y + marker_size), highlight_color, 2)
+
+                # Label: [i,j,k]
+                label = f"[{idx[0]},{idx[1]},{idx[2]}]"
+                cv2.putText(img, label, (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.4, highlight_color, 1)
+
+        # Draw check position highlight
+        if hasattr(self, 'check_pos_point') and self.check_pos_point is not None:
+            cx, cy = int(self.check_pos_point[0]), int(self.check_pos_point[1])
+            cv2.circle(img, (cx, cy), 8, (0, 255, 255), 2)  # Yellow circle
+            cv2.putText(img, self.check_pos_label, (cx + 12, cy + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                
+        # Convert to QPixmap
+        h, w, ch = img.shape
+        bytes_per_line = ch * w
+        vis_img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        q_img = QImage(vis_img_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pix = QPixmap.fromImage(q_img)
+        
+        cam_idx = self.plate_cam_combo.currentIndex()
+        target_label = self.plate_cam_labels.get(cam_idx, None)
+        if target_label:
+            target_label.setPixmap(pix)
+
+    def _run_detection(self, smart_fill=False):
+        """Test the grid detection algorithm (Template Matching Only)."""
+        row = self.plate_img_list.currentRow()
+        if row < 0 or row >= len(self.plate_images):
+            QMessageBox.warning(self, "No Image", "Please select an image from the list first.")
+            return
+
+        img_path = self.plate_images[row]
+        
+        try:
+            if self.current_template is None:
+                QMessageBox.warning(self, "No Template", "Please select a template ROI on the image first.")
+                return
+            
+            from .plate_calibration.grid_detector import GridDetector
+
+            threshold = self.slider_match_thresh.value()
+            
+            # Prepare ROI Mask
+            roi_mask = None
+            if len(self.search_roi_points) == 4:
+                # Create mask same size as image
+                import cv2
+                img = cv2.imread(str(img_path))
+                if img is not None:
+                    h, w = img.shape[:2]
+                    roi_mask = np.zeros((h, w), dtype=np.uint8)
+                    pts = np.array([[p.x(), p.y()] for p in self.search_roi_points], dtype=np.int32)
+                    cv2.fillPoly(roi_mask, [pts], 255)
+            
+            keypoints, vis_img = GridDetector.detect_template(
+                img_path,
+                self.current_template,
+                threshold=threshold,
+                smart_fill=smart_fill,
+                center_offset=self.template_offset,
+                search_mask=roi_mask
+            )
+            
+            # Convert to QPixmap for display
+            import cv2
+            h, w, ch = vis_img.shape
+            bytes_per_line = ch * w
+            # OpenCV is BGR, Qt needs RGB
+            vis_img_rgb = cv2.cvtColor(vis_img, cv2.COLOR_BGR2RGB)
+            
+            from PySide6.QtGui import QImage, QPixmap
+            q_img = QImage(vis_img_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            pix = QPixmap.fromImage(q_img)
+            
+            # Display on the CORRECT label (active camera)
+            cam_idx = self.plate_cam_combo.currentIndex()
+            target_label = self.plate_cam_labels.get(cam_idx, None)
+            
+            if target_label:
+                # Set Pixmap on Zoomable Label
+                target_label.setPixmap(pix)
+            
+            # Store keypoints for later modification (Remove/Add)
+            self.detected_keypoints = keypoints
+            self.lbl_points_count.setText(f"Points: {len(keypoints)}")
+            
+            # Show stats
+            msg = f"Found {len(keypoints)} points."
+            if roi_mask is not None:
+                msg += " (Restricted to ROI)"
+            QMessageBox.information(self, "Detection Result", msg)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Detection Error", f"An error occurred during detection:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def create_wand_tab_v2_OLD_DUPLICATE_IGNORE(self):
         """Create the Wand Calibration tab (Multi-Camera) - Tabbed Interface."""

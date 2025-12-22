@@ -1027,7 +1027,7 @@ class WandCalibrator:
             self.points_3d = old_points_3d
             return False, str(e), float('inf')
     
-    def _finalize_calibration(self, wand_length_mm, optimal_f0, progress_callback):
+    # [DELETED LEGACY DEF]
         """Run full optimization with the determined optimal focal length."""
         if progress_callback:
             progress_callback(f"Final calibration with f0={optimal_f0}...")
@@ -1219,6 +1219,9 @@ class WandCalibrator:
             try:
                 res1 = scipy.optimize.least_squares(self._residuals, X0, **kwargs_s1)
             except CalibrationStoppedError as e:
+                # Check if stopped by user
+                if "Stopped by user" in str(e):
+                    raise e
                 # Hit iteration limit - use partial result
                 print(f"    [Pipeline-Stage 1] Hit iteration limit, using partial result")
                 res1 = type('obj', (object,), {'x': e.params, 'cost': np.inf})()
@@ -1260,6 +1263,9 @@ class WandCalibrator:
             try:
                 res2 = scipy.optimize.least_squares(self._residuals, X1, **kwargs_s2)
             except CalibrationStoppedError as e:
+                # Check if stopped by user
+                if "Stopped by user" in str(e):
+                    raise e
                 # Hit iteration limit - use partial result
                 print(f"    [Pipeline-Stage 2] Hit iteration limit, using partial result")
                 res2 = type('obj', (object,), {'x': e.params, 'cost': np.inf})()
@@ -1383,9 +1389,15 @@ class WandCalibrator:
         self.wand_length = wand_length_mm # Update instance var
 
         # Build Camera Map (Continuous Index 0..N-1)
-        cam_ids = sorted(self.cameras.keys())
+        # Use ONLY cameras present in wand_data
+        active_cams = set()
+        for obs in wand_data.values():
+            active_cams.update(obs.keys())
+        cam_ids = sorted(list(active_cams))
+        
         cam_id_map = {old_id: i for i, old_id in enumerate(cam_ids)}
         num_cams = len(cam_ids)
+        print(f"Active cameras for calibration: {num_cams} {cam_ids}")
         
         if num_cams < 2:
             raise RuntimeError("Need at least 2 cameras.")
@@ -1587,10 +1599,14 @@ class WandCalibrator:
                     best_pair, lb_prim, ub_prim, **kwargs
                 )
             except CalibrationStoppedError as e:
-                print("Calibration Stopped by User during Phase 1.")
-                # We can return what we have, or just fail gracefully
-                return False, "Stopped by user during Phase 1", None
-
+                print("Calibration Stopped by User during Phase 1. Using partial results.")
+                # Recover partial parameters
+                if e.params is not None:
+                    res_prim = type('obj', (object,), {'x': e.params, 'cost': 0.0})()
+                else:
+                    # Should not happen if params passed
+                    raise e
+            
             # Update updated params back to main storage
             X_opt = res_prim.x
             cam_params[cam_id_map[prim_cam_ids[0]]] = X_opt[0:11]
@@ -1598,12 +1614,38 @@ class WandCalibrator:
             
             # Update 3D points
             points_3d_prim = X_opt[22:].reshape(-1, 3)
-            print(f"  Primary Optimization Done. Cost: {res_prim.cost:.2e}")
             
-            # OPTIMIZATION: If only 2 cameras, we are done!
-            if num_cams == 2:
-                print("\n=== Only 2 Cameras: Skipping Phase 2 & 3 ===")
-                return self._finalize_calibration(res_prim, prim_cam_map, wand_data, wand_length_mm, valid_frames_prim)
+            # If stopped in Stage 3/4 (Triangulation Constraint), X_opt only has camera params.
+            # We must re-triangulate points to provide a valid result.
+            if len(points_3d_prim) == 0:
+                print("  Re-triangulating points from partial camera parameters...")
+                # Update P matrices
+                idx0 = cam_id_map[prim_cam_ids[0]]
+                idx1 = cam_id_map[prim_cam_ids[1]]
+                P1_new = get_P(cam_params[idx0])
+                P2_new = get_P(cam_params[idx1])
+                
+                new_pts = []
+                for f_idx in frames_prim: # Ensure using frames_prim order
+                    obs = wand_data[f_idx]
+                    uv1 = obs[prim_cam_ids[0]]
+                    uv2 = obs[prim_cam_ids[1]]
+                    
+                    # Pt A
+                    pt1_A = np.array(uv1[0][:2]).reshape(2, 1)
+                    pt2_A = np.array(uv2[0][:2]).reshape(2, 1)
+                    res_A = cv2.triangulatePoints(P1_new, P2_new, pt1_A, pt2_A)
+                    new_pts.append((res_A[:3] / res_A[3]).flatten())
+                    
+                    # Pt B
+                    pt1_B = np.array(uv1[1][:2]).reshape(2, 1)
+                    pt2_B = np.array(uv2[1][:2]).reshape(2, 1)
+                    res_B = cv2.triangulatePoints(P1_new, P2_new, pt1_B, pt2_B)
+                    new_pts.append((res_B[:3] / res_B[3]).flatten())
+                
+                points_3d_prim = np.array(new_pts)
+            
+            print(f"  Primary Optimization Done. Cost: {res_prim.cost:.2e}")
 
         # ==========================================
         # PHASE 2: Secondary Initialization (PnP)
@@ -1723,12 +1765,12 @@ class WandCalibrator:
     def _initialize_system(self, wand_length_mm, initial_focal_len_px, **kwargs):
         """
         Legacy Compat: calls _geometric_init_and_pnp with optimize_pair=True.
-        Returns initialized (cam_params, cam_id_map, best_pair).
+        Returns initialized (cam_params, cam_id_map, best_pair, points_3d).
         """
-        cam_params, cam_id_map, best_pair, _ = self._geometric_init_and_pnp(
+        cam_params, cam_id_map, best_pair, points_3d = self._geometric_init_and_pnp(
             wand_length_mm, initial_focal_len_px, optimize_pair=True, **kwargs
         )
-        return cam_params, cam_id_map, best_pair
+        return cam_params, cam_id_map, best_pair, points_3d
 
     def run_precalibration_check(self, wand_length=1.0, init_focal_length=5000, callback=None, **kwargs):
         """
@@ -1880,96 +1922,15 @@ class WandCalibrator:
             final_x = res.x
             
             # Reconstruct result (Simplified return)
-            return self._finalize_calibration(res, cam_id_map, valid_frames_all, wand_data, best_pair)
+            # Correct call signature for master definition
+            return self._finalize_calibration(res, cam_id_map, wand_data, wand_length, valid_frames_all)
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return False, f"Pre-calib failed: {e}", None
 
-    def _finalize_calibration(self, res, cam_id_map, frame_list, wand_data, best_pair):
-        """Helper to package optimization result."""
-        import numpy as np
-        
-        # Unpack
-        num_cams = len(cam_id_map)
-        final_cam_params = res.x[:num_cams*11].reshape((num_cams, 11))
-        final_points_flat = res.x[num_cams*11:]
-        
-        # Need to reconstruct FULL points structure for all frames
-        # run_precalibration optimized ALL visible points, so points 3D should mask frame_list
-        # The frame_list passed here is valid_frames_all sorted.
-        # self.points_3d expects a list where indices map to frame_list order?
-        # Actually calculate_per_frame_errors iterates frame_list = sorted(wand_data.keys())
-        # The optimized points correspond to valid_frames_all (subset).
-        # We need to map them back.
-        
-        self.points_3d = []
-        # Create a map: valid_frame_idx -> [ptA, ptB]
-        # optimized points are flat list corresponding to valid_frames_all
-        
-        # Populate self.final_params
-        self.final_params = {} # Format expected by calculate_per_frame_errors: {cid: {R, T, K, dist}}
-        
-        for c_id, idx in cam_id_map.items():
-             cp = final_cam_params[idx]
-             rvec, tvec = cp[0:3], cp[3:6]
-             f, cx, cy = cp[6], cp[7], cp[8]
-             k1, k2 = cp[9], cp[10]
-             
-             R, _ = cv2.Rodrigues(rvec)
-             K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
-             dist = np.array([k1, k2, 0, 0, 0])
-             
-             # updates internal storage too
-             self.cameras[c_id]['R'] = R
-             self.cameras[c_id]['T'] = tvec
-             self.cameras[c_id]['f'] = f
-             self.cameras[c_id]['c'] = np.array([cx, cy])
-             self.cameras[c_id]['dist'] = dist
-             
-             self.final_params[c_id] = {
-                 'R': R, 'T': tvec, 'K': K, 'dist': dist
-             }
-
-        # Store 3D points
-        # Warning: calculate_per_frame_errors iterates "sorted(wand_data.keys())"
-        # but our optimized points are only for "valid_frames_all" (subset).
-        # We must fill gaps with None or handle mapping.
-        # Check calculate_per_frame_errors implementation:
-        # "for i, fid in enumerate(frame_list):" -> assumes i maps to self.points_3d[i*2]
-        # This implies self.points_3d MUST correspond 1:1 to sorted(wand_data.keys()).
-        
-        # Let's rebuild full points array
-        full_frame_list = sorted(wand_data.keys())
-        full_points_3d = np.zeros((len(full_frame_list)*2, 3)) # Default zeros? 
-        # Alternatively, calculate_per_frame_errors checks indices?
-        
-        # View said: "if idx_B >= len(self.points_3d): continue"
-        # So we better match the length.
-        
-        opt_pts = final_points_flat.reshape(-1, 3)
-        # valid_frames_all indices map to opt_pts rows
-        
-        valid_set = set(frame_list)
-        opt_idx = 0
-        
-        self.points_3d = np.zeros((len(full_frame_list)*2, 3)) 
-        
-        for i, fid in enumerate(full_frame_list):
-            if fid in valid_set:
-                # Copy from optimization result
-                # opt_pts has 2 points per valid frame
-                self.points_3d[i*2] = opt_pts[opt_idx*2]
-                self.points_3d[i*2+1] = opt_pts[opt_idx*2+1]
-                opt_idx += 1
-            else:
-                # Frame was not in optimization (maybe <2 cams)
-                # usage of 0,0,0 might cause huge error?
-                # calculate_per_frame_errors computes dist = norm(A-B). 0-0=0. Length Err = wand_length.
-                # Projecting 0,0,0 might be valid or fail?
-                # Let's leave as zeros.
-                pass
-                
-        return True, "Pre-calibration (Check) Complete.", self.cameras
+    # [DELETED DUPLICATE DEF]
 
 
     def calibrate_wand(self, wand_length=1.0, init_focal_length=5000, callback=None, **kwargs):
@@ -2010,12 +1971,52 @@ class WandCalibrator:
 
         try:
              # CALL NEW INITIALIZER
-             cam_params, cam_id_map, best_pair = self._initialize_system(wand_length_mm, initial_focal_len_px)
+             cam_params, cam_id_map, best_pair, points_3d = self._initialize_system(wand_length_mm, initial_focal_len_px)
         except RuntimeError as e:
              return False, str(e), None
 
         num_cams = len(cam_id_map)
         n_cam_params = 11
+
+        # OPTIMIZATION: If only 2 cameras, Phase 1 (inside initialize) already optimized everything!
+        # Skip Phase 3 (which would just re-do N-View triangulation for 2 cams = same result).
+        if num_cams == 2:
+            print("\n=== Only 2 Cameras: Phase 3 Skipped (Data already optimized) ===")
+            # Construct a dummy result object for finalize
+            # res.x needs to be flat [cam_params, points_3d]
+            flat_cams = cam_params.flatten()
+            flat_pts = points_3d.flatten()
+            full_x = np.concatenate([flat_cams, flat_pts])
+            
+            from scipy.optimize import OptimizeResult
+            # We don't have exact cost unless we stored it, but Phase 1 printed it.
+            res_dummy = OptimizeResult(x=full_x, cost=0.0, message="Optimized (2-Cam Shortcut)")
+            
+            # Find valid frames for finalization (assume all points are valid from Phase 1)
+            # Actually _initialize_system returns points for 'valid_frames_prim'.
+            # We need the frame list matching points_3d. 
+            # In Phase 1, valid_frames_prim corresponds to points_3d_prim.
+            # But 'valid_frames_prim' is local to _geometric_init...
+            # However, points_3d row count = len(valid_frames) * 2.
+            # We can reconstruct valid frames from wand_data if needed, or better:
+            # We need to pass the frame list out of _initialize_system too? 
+            # Or just use sorted(wand_data.keys()) and filter?
+            # BUT points_3d returned by Phase 1 only contains "valid_frames_prim" (common frames).
+            # Let's derive it.
+            
+            all_frames = sorted(wand_data.keys())
+            # Phase 1 uses intersection of cam 0 and 1.
+            c0, c1 = best_pair
+            valid_frames = [f for f in all_frames if c0 in wand_data[f] and c1 in wand_data[f]]
+            
+            # Sanity check length
+            if len(points_3d) != len(valid_frames) * 2:
+                print(f"Warning: Point count {len(points_3d)} != 2 * Frames {len(valid_frames)}. Mismatch?")
+                # Fallback: Just proceed to Phase 3 if mismatch to be safe?
+                pass
+            else:
+                # Correct call signature
+                return self._finalize_calibration(res_dummy, cam_id_map, wand_data, wand_length_mm, valid_frames)
 
         # ==========================================
         # PHASE 3: Prepare Full Optimization
@@ -2318,7 +2319,7 @@ class WandCalibrator:
         cam_repro_count = {} # {cam_idx: num_coords}
 
         for i, fid in enumerate(frame_list):
-            obs = self.wand_points[fid]
+            obs = wand_data[fid]
             idx_A = i * 2
             idx_B = i * 2 + 1
             pt3d_A = points_3d[idx_A]
@@ -2760,6 +2761,16 @@ class WandCalibrator:
             c_idx = cam_id_map[i]
             
             R, _ = cv2.Rodrigues(rvec)
+            if c_idx not in self.cameras:
+                self.cameras[c_idx] = {}
+                
+            # updates internal storage too
+            self.cameras[c_idx]['R'] = R
+            self.cameras[c_idx]['T'] = tvec
+            self.cameras[c_idx]['f'] = f
+            self.cameras[c_idx]['c'] = np.array([cx, cy])
+            self.cameras[c_idx]['dist'] = np.array([k1, k2, 0, 0, 0]) # Re-create dist array here
+            
             K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
             dist = np.array([k1, k2, 0, 0, 0])
             

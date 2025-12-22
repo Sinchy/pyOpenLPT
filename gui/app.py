@@ -192,6 +192,7 @@ class OpenLPTMainWindow(QMainWindow):
         # Add in verified order
         self.calib_view = CameraCalibrationView()
         self.stack.addWidget(self.calib_view) # 0
+        # self.stack.addWidget(QLabel("Calibration Module Disabled")) # Placeholder
         self.stack.addWidget(self.views["preprocessing"]) # 1
         self.stack.addWidget(self.views["settings"])      # 2
         self.stack.addWidget(self.views["tracking"])      # 3

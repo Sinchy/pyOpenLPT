@@ -121,7 +121,8 @@
                     cell or a load button if available).</li>
                 <li>Enter the initial <strong>Focal Length (px)</strong> (e.g., <code>9000</code>).</li>
                 <li>Enter the detection <strong>Width</strong> and <strong>Height</strong> (e.g., <code>1280</code> x
-                    <code>800</code>).</li>
+                    <code>800</code>).
+                </li>
             </ol>
         </div>
 
@@ -147,7 +148,8 @@
         <h2>2. Calibration</h2>
         <p>After extracting points, switch to the <strong>Calibration</strong> sub-tab.</p>
 
-        <img src="wand_calibration_ui.png" alt="Calibration Interface">
+        <!-- Updated Image -->
+        <img src="wand_calibration_ui_v2.png" alt="Calibration Interface">
 
         <div class="step-block">
             <h3>Step 4: Calibration Settings</h3>
@@ -158,42 +160,79 @@
                     balls (e.g., <code>10.00 mm</code>). <span style="color: #ff5252;"><strong>Accurate measurement is
                             critical.</strong></span></li>
                 <li><strong>Dist Coeffs</strong>: Number of distortion coefficients to optimize (typically
-                    <code>0</code> for initial testing, or higher for complex lenses).</li>
+                    <code>0</code> for initial testing, or higher for complex lenses).
+                </li>
             </ul>
         </div>
 
+        <!-- NEW Step: Precalibration -->
         <div class="step-block">
-            <h3>Step 5: Run Optimization</h3>
+            <h3>Step 5: Precalibration & Data Cleaning</h3>
+            <p>Before running the full optimization, it is crucial to clean your data to remove outliers (errors in
+                detection).</p>
             <ol>
-                <li>Click the blue <strong>Run Calibration</strong> button.</li>
-                <li>The system will optimize the camera parameters. The <strong>3D View</strong> on the left will
-                    visualize the camera positions and wand points.</li>
+                <li>Click the orange <strong>Precalibrate to Check</strong> button.</li>
+                <li>The system will perform a fast, global optimization to estimate the error of each frame.</li>
+                <li>Check the <strong>Error Analysis</strong> table usage below:
+                    <ul>
+                        <li>High <strong>Reprojection Errors</strong> (red) indicate bad detections.</li>
+                        <li>High <strong>Length Errors</strong> indicate points that don't match the physical wand
+                            length.</li>
+                    </ul>
+                </li>
+                <li><strong>Visual Verification</strong>:
+                    <ul>
+                        <li>Click on any cell in the table (e.g., a high error value).</li>
+                        <li>Look at the <strong>Left View</strong>: It will show the original camera image overlaid with
+                            the detected points (green circles).</li>
+                        <li>Check if the detection is correct. If the system detected a reflection or noise instead of a
+                            wand, click the checkbox in the <strong>Del</strong> column to mark it for removal.</li>
+                    </ul>
+                </li>
+                <li><strong>Iterative Cleaning</strong>:
+                    <ul>
+                        <li>Use the filter buttons (e.g., "Delete when proj error > X") or manual Del checkboxes to
+                            exclude bad frames.</li>
+                        <li>Click <strong>Precalibrate to Check</strong> AGAIN.</li>
+                        <li>Repeat until errors are low (e.g., &lt; 1.0 px).</li>
+                    </ul>
+                </li>
             </ol>
         </div>
 
         <div class="step-block">
-            <h3>Step 6: Analyze & Filter Errors</h3>
-            <p>Review the <strong>Error Analysis</strong> table:</p>
+            <h3>Step 6: Run Full Calibration</h3>
+            <ol>
+                <li>Click the blue <strong>Run Calibration</strong> button.</li>
+                <li>The system will perform the final Bundle Adjustment (BA) with 4-stage optimization (Geometry Init ->
+                    Intrinsics -> Triangulation -> Final Tune).</li>
+                <li>The <strong>3D View</strong> on the left will visualize the optimized camera positions and wand
+                    points.</li>
+            </ol>
+        </div>
+
+        <div class="step-block">
+            <h3>Step 7: Final Analysis</h3>
+            <p>Review the final results in the <strong>Error Analysis</strong> table:</p>
             <ul>
-                <li><strong>Reprojection Error (Cam 1, Cam 2, ...)</strong>: Ideally less than 1.0 pixel (blue/normal).
-                    High errors (red) indicate outliers.</li>
-                <li><strong>Length Error (Len Err)</strong>: deviation from the specified wand length.</li>
+                <li><strong>Reprojection Error</strong>: Should be very low (e.g., &lt; 0.5 px).</li>
+                <li><strong>Length Error</strong>: Should be close to 0.</li>
             </ul>
             <div class="highlight">
-                <strong>Refinement:</strong>
+                <strong>Stopping & Refining:</strong>
                 <ul>
-                    <li>Mark valid/bad frames in the table.</li>
-                    <li>Use the <strong>Delete when proj error > [X] px</strong> button to automatically remove frames
-                        with high reprojection errors (e.g., <code>1.00 px</code>).</li>
-                    <li><strong>Re-run Calibration</strong> after filtering to improve accuracy.</li>
+                    <li>If the process takes too long or results look wrong, click the <strong>Stop</strong> button to
+                        get partial results.</li>
+                    <li>If errors are still high, perform another round of cleaning (Step 5) or adjust the <em>Wand
+                            Length</em> setting.</li>
                 </ul>
             </div>
         </div>
 
         <div class="step-block">
-            <h3>Step 7: Save Results</h3>
-            <p>When the "Calibration Successful" message appears (or upon completion), you can save the resulting
-                intrinsic and extrinsic parameters for usage in 3D tracking.</p>
+            <h3>Step 8: Save Results</h3>
+            <p>When the "Calibration Successful" message appears, your parameters are ready. You can save the intrinsic
+                and extrinsic parameters to file for use in tracking.</p>
         </div>
 
     </div>
