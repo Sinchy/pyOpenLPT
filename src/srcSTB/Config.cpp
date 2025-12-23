@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <sstream>
 
-
 // --------------------------- BasicSetting ---------------------------
 bool BasicSetting::readConfig(const std::string &config_path) {
   std::ifstream file(config_path);

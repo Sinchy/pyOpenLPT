@@ -180,19 +180,21 @@ class OpenLPTMainWindow(QMainWindow):
         # Stacked widget for different views
         self.stack = QStackedWidget()
         
-        # Add views
-        self.views = {
-            "camera": CameraCalibrationView(),
-            "preprocessing": ImagePreprocessingView(),
-            "settings": TrackingSettingsView(),
-            "tracking": TrackingView(),
-            "results": ResultsView(),
-        }
+        # Initialize views dict
+        self.views = {}
         
-        # Add in verified order
+        # Initialize views with dependencies
         self.calib_view = CameraCalibrationView()
+        self.views["preprocessing"] = ImagePreprocessingView()
+        self.views["settings"] = TrackingSettingsView(
+            calibration_view=self.calib_view,
+            preprocessing_view=self.views["preprocessing"]
+        )
+        self.views["tracking"] = TrackingView()
+        self.views["results"] = ResultsView()
+        
+        # Add to stack
         self.stack.addWidget(self.calib_view) # 0
-        # self.stack.addWidget(QLabel("Calibration Module Disabled")) # Placeholder
         self.stack.addWidget(self.views["preprocessing"]) # 1
         self.stack.addWidget(self.views["settings"])      # 2
         self.stack.addWidget(self.views["tracking"])      # 3
@@ -314,7 +316,7 @@ def main():
     app.setStyle("Fusion")  # Use Fusion style for better cross-platform look
     
     window = OpenLPTMainWindow()
-    window.show()
+    window.showMaximized()
     
     sys.exit(app.exec())
 

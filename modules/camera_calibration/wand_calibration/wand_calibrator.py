@@ -2820,14 +2820,33 @@ class WandCalibrator:
         dist_coeffs = list(p['dist'])
         # No negation necessary for standard frame
              
+        # Calculate overall error statistics (Mean + 3*Std)
+        errors = self.calculate_per_frame_errors()
+        proj_err_3sigma = "None"
+        tri_err_3sigma = "None"
+        
+        if errors:
+            all_proj_errs = []
+            all_tri_errs = []
+            for fid, err in errors.items():
+                all_tri_errs.append(err['len_error'])
+                for cam_id, e in err['cam_errors'].items():
+                    all_proj_errs.append(e)
+            
+            if all_proj_errs:
+                proj_err_3sigma = np.mean(all_proj_errs) + 3 * np.std(all_proj_errs)
+                
+            if all_tri_errs:
+                tri_err_3sigma = np.mean(all_tri_errs) + 3 * np.std(all_tri_errs)
+
         # Write to file
         with open(file_path, 'w') as f:
             f.write("# Camera Model: (PINHOLE/POLYNOMIAL)\n")
             f.write("PINHOLE\n")
             f.write("# Camera Calibration Error: \n")
-            f.write("None\n")
+            f.write(f"{proj_err_3sigma}\n")
             f.write("# Pose Calibration Error: \n")
-            f.write("None\n")
+            f.write(f"{tri_err_3sigma}\n")
             f.write("# Image Size: (n_row,n_col)\n")
             f.write(f"{self.image_size[0]},{self.image_size[1]}\n") # H, W
             

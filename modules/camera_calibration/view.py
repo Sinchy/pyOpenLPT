@@ -1477,7 +1477,34 @@ class CameraCalibrationView(QWidget):
         cal_layout.addStretch()
         
         self.plate_ctrl_tabs.addTab(cal_tab, "Calibration")
-        self.plate_ctrl_tabs.addTab(QWidget(), "Tutorial")
+        
+        # --- CONTROL TAB 3: Tutorial ---
+        tutorial_tab = QWidget()
+        tutorial_layout = QVBoxLayout(tutorial_tab)
+        tutorial_layout.setContentsMargins(15, 20, 15, 20)
+        
+        tutorial_label = QLabel("Learn how to use Plate Calibration with our step-by-step guide.")
+        tutorial_label.setWordWrap(True)
+        tutorial_label.setStyleSheet("color: #aaa; font-size: 13px;")
+        tutorial_layout.addWidget(tutorial_label)
+        
+        btn_open_guide = QPushButton("Open User Guide")
+        btn_open_guide.setStyleSheet("""
+            QPushButton {
+                background-color: #00bcd4;
+                color: #000;
+                font-weight: bold;
+                padding: 12px;
+                font-size: 14px;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #4dd0e1; }
+        """)
+        btn_open_guide.clicked.connect(self._open_plate_calibration_guide)
+        tutorial_layout.addWidget(btn_open_guide)
+        
+        tutorial_layout.addStretch()
+        self.plate_ctrl_tabs.addTab(tutorial_tab, "Tutorial")
 
         layout.addWidget(self.plate_ctrl_tabs)
         
@@ -4688,3 +4715,15 @@ class CameraCalibrationView(QWidget):
             # Ideally we'd visualize, but just loading is fine for now.
         else:
             QMessageBox.critical(self, "Error", f"Failed to load points:\n{msg}")
+    
+    def _open_plate_calibration_guide(self):
+        """Open the Plate Calibration user guide in the default browser."""
+        import webbrowser
+        from pathlib import Path
+        
+        guide_path = Path(__file__).parent / "plate_calibration" / "PLATE_CALIBRATION_USER_GUIDE.html"
+        if guide_path.exists():
+            webbrowser.open(guide_path.as_uri())
+        else:
+            QMessageBox.warning(self, "Guide Not Found", 
+                               f"User guide not found at:\n{guide_path}")
