@@ -248,6 +248,7 @@ class WandCalibrator:
         self.final_params = {} # {cam_idx: {'R':..., 'T':..., 'K':..., 'dist':...}}
         self.points_3d = None  # Optimized 3D points from last calibration
         self.per_frame_errors = {}  # {frame_idx: {'cam_errors': {cam_id: err}, 'len_error': float}}
+        self.params_dirty = False  # True when new results are available but not yet exported
         self.dist_coeff_num = 2  # Number of radial distortion coefficients (0-4)
     
     def calculate_per_frame_errors(self):
@@ -258,6 +259,10 @@ class WandCalibrator:
         """
         if not self.final_params or self.points_3d is None:
             return {}
+            
+        # Optimization: Use cached errors if available
+        if self.per_frame_errors:
+            return self.per_frame_errors
         
         # Get current wand data
         wand_data = self.wand_points_filtered if self.wand_points_filtered else self.wand_points
@@ -281,14 +286,20 @@ class WandCalibrator:
             dist = np.linalg.norm(pt3d_A - pt3d_B)
             len_err = abs(dist - self.wand_length)
             
-            # Per-camera reprojection error
+            # Per-camera reprojection error and triangulation error (3D residual)
             cam_errors = {}
+            tri_errors = []
             for cam_idx, uv_obs in obs.items():
                 if cam_idx not in self.final_params:
                     continue
                 p = self.final_params[cam_idx]
                 R, T, K, dist_coeffs = p['R'], p['T'], p['K'], p['dist']
                 rvec, _ = cv2.Rodrigues(R)
+                
+                # Camera center and ray direction (simplified pinhole assumption for 3D resid)
+                C = -R.T @ T.reshape(3,1)
+                R_inv = R.T
+                K_inv = np.linalg.inv(K)
                 
                 # Project A
                 proj_A, _ = cv2.projectPoints(pt3d_A.reshape(1,3), rvec, T, K, dist_coeffs)
@@ -298,12 +309,27 @@ class WandCalibrator:
                 proj_B, _ = cv2.projectPoints(pt3d_B.reshape(1,3), rvec, T, K, dist_coeffs)
                 err_B = np.linalg.norm(proj_B.flatten()[:2] - np.array(uv_obs[1][:2]))
                 
-                # Max of the two points
                 cam_errors[cam_idx] = max(err_A, err_B)
+
+                # 3D Triangulation Residual (distance to ray)
+                for pt3d, uv in [(pt3d_A, uv_obs[0]), (pt3d_B, uv_obs[1])]:
+                    # Normalized coords
+                    uv_h = np.array([uv[0], uv[1], 1.0]).reshape(3,1)
+                    # For a more exact ray, one should ideally undistort uv first.
+                    # Given we want an error estimate, a linear ray is usually sufficient.
+                    d = R_inv @ K_inv @ uv_h
+                    d = d / (np.linalg.norm(d) + 1e-12)
+                    
+                    # Dist P to ray C + t*d is |(P-C) x d|
+                    P = pt3d.reshape(3,1)
+                    vec = P - C
+                    dist_3d = np.linalg.norm(np.cross(vec.flatten(), d.flatten()))
+                    tri_errors.append(dist_3d)
             
             self.per_frame_errors[fid] = {
-                'cam_errors': cam_errors,
-                'len_error': len_err
+                'cam_errors': cam_errors, 
+                'len_error': len_err,
+                'tri_errors': tri_errors # Actual 3D residuals in mm
             }
         
         return self.per_frame_errors
@@ -626,8 +652,8 @@ class WandCalibrator:
                         self.wand_data_filtered[f_idx] = frame_filtered
                         pts_map = {}
                         for c_idx, pair in frame_filtered.items():
-                            p1 = pair[0][:2]
-                            p2 = pair[1][:2]
+                            p1 = pair[0][:3]
+                            p2 = pair[1][:3]
                             pts_map[c_idx] = np.array([p1, p2])
                         self.wand_points[f_idx] = pts_map
                 
@@ -1343,6 +1369,7 @@ class WandCalibrator:
         Accepts **kwargs for scipy.optimize.least_squares (e.g. ftol, xtol, verbose).
         """
         self._stop_requested = False
+        self.per_frame_errors = {} # Clear cache for new calibration
         
         # Map args to internal names
         wand_length_mm = wand_length
@@ -2391,6 +2418,14 @@ class WandCalibrator:
         
         # Parse results
         self._parse_results(res.x, cam_id_map)
+        self.params_dirty = True  # Mark new results as dirty
+        
+        # Explicitly attach metrics for UI (Fixes Error Table & RMS Display)
+        res.rms_reproj_err = rms_repro
+        self.per_frame_errors = {} # Clear cache to force recalculation with new params
+        self.calculate_per_frame_errors()
+        res.per_frame_errors = self.per_frame_errors
+        
         return True, msg, res
 
     def _residuals(self, params, cam_id_map, frame_list, observations, wand_len, img_size):
@@ -2829,24 +2864,30 @@ class WandCalibrator:
             all_proj_errs = []
             all_tri_errs = []
             for fid, err in errors.items():
-                all_tri_errs.append(err['len_error'])
+                if 'tri_errors' in err:
+                    all_tri_errs.extend(err['tri_errors'])
                 for cam_id, e in err['cam_errors'].items():
                     all_proj_errs.append(e)
             
+            proj_error_mean, proj_error_std = 0.0, 0.0
+            tri_error_mean, tri_error_std = 0.0, 0.0
+            
             if all_proj_errs:
-                proj_err_3sigma = np.mean(all_proj_errs) + 3 * np.std(all_proj_errs)
+                proj_error_mean = np.mean(all_proj_errs)
+                proj_error_std = np.std(all_proj_errs)
                 
             if all_tri_errs:
-                tri_err_3sigma = np.mean(all_tri_errs) + 3 * np.std(all_tri_errs)
+                tri_error_mean = np.mean(all_tri_errs)
+                tri_error_std = np.std(all_tri_errs)
 
         # Write to file
         with open(file_path, 'w') as f:
             f.write("# Camera Model: (PINHOLE/POLYNOMIAL)\n")
             f.write("PINHOLE\n")
             f.write("# Camera Calibration Error: \n")
-            f.write(f"{proj_err_3sigma}\n")
+            f.write(f"{proj_error_mean},{proj_error_std}\n")
             f.write("# Pose Calibration Error: \n")
-            f.write(f"{tri_err_3sigma}\n")
+            f.write(f"{tri_error_mean},{tri_error_std}\n")
             f.write("# Image Size: (n_row,n_col)\n")
             f.write(f"{self.image_size[0]},{self.image_size[1]}\n") # H, W
             

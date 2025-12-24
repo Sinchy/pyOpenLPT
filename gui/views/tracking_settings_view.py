@@ -173,12 +173,13 @@ class TrackingSettingsView(QWidget):
         self.output_path.setPlaceholderText("Select output directory (default: Project/Results)...")
         output_layout.addWidget(self.output_path)
         
-        output_browse = QPushButton(" Browse")
+        output_browse = QPushButton("")
+        output_browse.setFixedWidth(40)
         output_browse.setIcon(qta.icon("fa5s.folder-open", color="white"))
         output_browse.clicked.connect(self._browse_output)
         output_layout.addWidget(output_browse)
         
-        basic_grid.addLayout(output_layout, 6, 1, 1, 2)
+        basic_grid.addLayout(output_layout, 6, 2)
         
         # Resume Settings
         resume_group = QGroupBox("Resume Settings")
@@ -534,11 +535,11 @@ class TrackingSettingsView(QWidget):
             self.output_path.setText(dir_path.replace('\\', '/'))
             
     def showEvent(self, event):
-        """Called when widget is shown. Sync paths and save parameters."""
+        """Called when widget is shown. Sync paths and data."""
         super().showEvent(event)
         self._sync_from_preprocessing()
         self._update_paths()
-        self._save_camera_params()
+        # self._save_camera_params() # Removed: handled by _on_cam_path_changed or manual triggers
         
 
     def _sync_from_preprocessing(self):
@@ -644,8 +645,8 @@ class TrackingSettingsView(QWidget):
             return
             
         calibrator = self.calibration_view.wand_calibrator
-        if not calibrator.final_params:
-            return # No calibration data
+        if not calibrator.final_params or calibrator.points_3d is None:
+            return # No calibration data or 3D points
             
         # Create directory if it doesn't exist
         if not os.path.exists(cam_dir):
@@ -680,6 +681,7 @@ class TrackingSettingsView(QWidget):
             
         if saved_count > 0:
             print(f"[TrackingSettings] Auto-saved {saved_count} camera params to {cam_dir}")
+            calibrator.params_dirty = False # Clear dirty flag after successful save
             
     def _save_configuration(self):
         """Save config.txt and [type]Config.txt to project directory."""
@@ -827,8 +829,36 @@ class TrackingSettingsView(QWidget):
             calibrator = self.calibration_view.wand_calibrator
             if calibrator and calibrator.final_params:
                 # If we have live data, we should probably update the files to ensure they are in sync
-                # This fixes the issue of "just finished calibration but settings not updated"
-                self._save_camera_params()
+                
+                # Check if sync is actually needed:
+                # 1. New results available (dirty flag)
+                # 2. OR Destination folder is missing/empty
+                is_dir_empty = not os.path.exists(cam_dir) or not os.listdir(cam_dir)
+                needs_sync = getattr(calibrator, 'params_dirty', False) or is_dir_empty
+                
+                if needs_sync:
+                    # Check if heavy calculation is needed (not in cache)
+                    needs_calc = not (hasattr(calibrator, 'per_frame_errors') and calibrator.per_frame_errors)
+                    
+                    if needs_calc:
+                        from PySide6.QtWidgets import QProgressDialog, QApplication
+                        from PySide6.QtCore import Qt
+                        
+                        progress = QProgressDialog("Calculating IPR parameters...", None, 0, 0, self)
+                        progress.setWindowTitle("Synchronizing Calibration")
+                        progress.setWindowModality(Qt.WindowModality.WindowModal)
+                        progress.setMinimumDuration(0)
+                        progress.show()
+                        QApplication.processEvents()
+                        
+                        try:
+                            self._save_camera_params()
+                        finally:
+                            progress.close()
+                    else:
+                        # Cache exists, saving is nearly instant, skip dialog
+                        self._save_camera_params()
+                
                 has_live_data = True
                 
         # 2. Find all cam*.txt files
@@ -935,14 +965,22 @@ class TrackingSettingsView(QWidget):
                  val = data["Camera Calibration Error"][0]
                  if val != "None":
                      try:
-                         params['proj_err'] = float(val)
+                         parts = [float(x) for x in val.split(",") if x.strip()]
+                         if len(parts) == 2:
+                             params['proj_err'] = (parts[0], parts[1]) # (mean, std)
+                         elif len(parts) == 1:
+                             params['proj_err'] = (parts[0], 0.0)
                      except: pass
                      
             if "Pose Calibration Error" in data:
                  val = data["Pose Calibration Error"][0]
                  if val != "None":
                      try:
-                         params['tri_err'] = float(val)
+                         parts = [float(x) for x in val.split(",") if x.strip()]
+                         if len(parts) == 2:
+                             params['tri_err'] = (parts[0], parts[1]) # (mean, std)
+                         elif len(parts) == 1:
+                             params['tri_err'] = (parts[0], 0.0)
                      except: pass
 
             return params
@@ -1004,20 +1042,22 @@ class TrackingSettingsView(QWidget):
             voxel_size = (x_max - x_min) / 1000.0
             self.voxel_spin.setValue(voxel_size)
 
-        # 5. Adaptive IPR Tolerances
-        proj_errs = [c['proj_err'] for c in cams_data if 'proj_err' in c]
-        tri_errs = [c['tri_err'] for c in cams_data if 'tri_err' in c]
+        # 5. Adaptive IPR Tolerances (Mean + 3*Std across all cameras)
+        proj_stats = [c['proj_err'] for c in cams_data if 'proj_err' in c]
+        tri_stats = [c['tri_err'] for c in cams_data if 'tri_err' in c]
         
-        if proj_errs:
-            mean_2d = np.mean(proj_errs)
-            std_2d = np.std(proj_errs)
-            tol_2d = mean_2d + 3 * std_2d
+        if proj_stats:
+            # Calculate aggregate 3-sigma across all cameras
+            # Using average of means and average of stds as a robust estimation
+            means_2d = [s[0] for s in proj_stats]
+            stds_2d = [s[1] for s in proj_stats]
+            tol_2d = np.mean(means_2d) + 3 * np.mean(stds_2d)
             self.ipr_2d_tol.setValue(round(tol_2d, 4))
             
-        if tri_errs:
-            mean_3d = np.mean(tri_errs)
-            std_3d = np.std(tri_errs)
-            self.tri_err_3sigma_mm = mean_3d + 3 * std_3d
+        if tri_stats:
+            means_3d = [s[0] for s in tri_stats]
+            stds_3d = [s[1] for s in tri_stats]
+            self.tri_err_3sigma_mm = np.mean(means_3d) + 3 * np.mean(stds_3d)
             self._update_3d_tolerance_voxel()
 
     def _on_voxel_scale_changed(self):
@@ -1148,6 +1188,9 @@ class TrackingSettingsView(QWidget):
 
     def _validate_settings(self):
         """Validate current settings by running 2D detection and 3D matching on the first frame."""
+        from PySide6.QtWidgets import QProgressDialog, QApplication
+        from PySide6.QtCore import Qt
+        
         # 1. Save configuration first to ensure files are up to date
         self._save_configuration()
         
@@ -1160,8 +1203,19 @@ class TrackingSettingsView(QWidget):
             QMessageBox.warning(self, "Error", "Config file not found. Please save configuration first.")
             return
 
+        # Setup Progress Dialog
+        progress = QProgressDialog("Verifying Settings...", "Cancel", 0, 0, self)
+        progress.setWindowTitle("Please Wait")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+        QApplication.processEvents()
+
         try:
             import pyopenlpt as lpt
+            
+            progress.setLabelText("Loading Configuration...")
+            QApplication.processEvents()
             
             # Load basic settings
             basic_settings = lpt.BasicSetting()
@@ -1177,10 +1231,14 @@ class TrackingSettingsView(QWidget):
             
             # Read object specific config
             if not basic_settings._object_config_paths:
+                progress.close()
                 QMessageBox.warning(self, "Error", "Object configuration path missing in basic settings.")
                 return
             
             obj_cfg.readConfig(basic_settings._object_config_paths[0], basic_settings)
+            
+            progress.setLabelText("Loading Images...")
+            QApplication.processEvents()
             
             # Load images for the first frame (frame_id = 0)
             imgio_list = []
@@ -1195,6 +1253,9 @@ class TrackingSettingsView(QWidget):
             for i in range(num_cams):
                 image_list.append(imgio_list[i].loadImg(frame_id))
                 
+            progress.setLabelText("Detecting 2D Objects...")
+            QApplication.processEvents()
+            
             # Detect 2D objects
             obj_finder = lpt.ObjectFinder2D()
             obj2d_list = []
@@ -1208,22 +1269,29 @@ class TrackingSettingsView(QWidget):
                 
             avg_2d_count = total_2d_count / num_cams if num_cams > 0 else 0
             
+            progress.setLabelText(f"Matching 3D Objects (2D Avg: {avg_2d_count:.1f})...")
+            QApplication.processEvents()
+            
             # Initial 3D match
             stereomath = lpt.StereoMatch(cam_list, obj2d_list, obj_cfg)
             obj3d_list = stereomath.match()
             count_3d = len(obj3d_list)
-            print(f"[Validation] Initial Match: found {count_3d} 3D objects (Average 2D: {avg_2d_count:.1f}).")
+            print(f"[Validation] Initial Match: found {count_3d} 3D objects.")
             
-            # Step 1: Iterative 2D tolerance increase if 3D count is too low (< 50% of avg 2D)
+            # Step 1: Iterative 2D tolerance increase if 3D count is too low (< 25% of avg 2D)
             orig_tol_2d = obj_cfg._sm_param.tol_2d_px
             current_tol_2d = orig_tol_2d
             max_tol_2d_increase = 5.0
             tol_2d_step = 0.5
             modified_2d = False
             
-            while count_3d < (avg_2d_count / 2.0) and (current_tol_2d - orig_tol_2d) < max_tol_2d_increase:
+            while count_3d < (avg_2d_count / 4.0) and (current_tol_2d - orig_tol_2d) < max_tol_2d_increase:
                 current_tol_2d += tol_2d_step
                 obj_cfg._sm_param.tol_2d_px = current_tol_2d
+                
+                progress.setLabelText(f"Stage 1 (2D Tol): Matching 3D (tol={current_tol_2d:.2f})...")
+                if progress.wasCanceled(): break
+                QApplication.processEvents()
                 
                 # Retry matching
                 stereomath = lpt.StereoMatch(cam_list, obj2d_list, obj_cfg)
@@ -1239,9 +1307,13 @@ class TrackingSettingsView(QWidget):
             tol_3d_step_mm = 0.2
             modified_3d = False
 
-            while count_3d < (avg_2d_count / 2.0) and (current_tol_3d_mm - orig_tol_3d_mm) < max_tol_3d_increase_mm:
+            while count_3d < (avg_2d_count / 4.0) and (current_tol_3d_mm - orig_tol_3d_mm) < max_tol_3d_increase_mm:
                 current_tol_3d_mm += tol_3d_step_mm
                 obj_cfg._sm_param.tol_3d_mm = current_tol_3d_mm
+                
+                progress.setLabelText(f"Stage 2 (3D Tol): Matching 3D (tol={current_tol_3d_mm:.2f}mm)...")
+                if progress.wasCanceled(): break
+                QApplication.processEvents()
                 
                 # Retry matching
                 stereomath = lpt.StereoMatch(cam_list, obj2d_list, obj_cfg)
@@ -1250,8 +1322,10 @@ class TrackingSettingsView(QWidget):
                 modified_3d = True
                 print(f"[Validation] Retry Match (3D tol={current_tol_3d_mm:.2f}mm): found {count_3d} 3D objects.")
             
+            progress.close()
+            
             # Check final result
-            if count_3d < (avg_2d_count / 2.0):
+            if count_3d < (avg_2d_count / 4.0):
                 error_msg = f"Validation failed.\n\n" \
                             f"Even with 2D tolerance increased by {current_tol_2d - orig_tol_2d:.1f}px " \
                             f"and 3D tolerance increased by {current_tol_3d_mm - orig_tol_3d_mm:.1f}mm, " \
@@ -1288,6 +1362,8 @@ class TrackingSettingsView(QWidget):
                 QMessageBox.information(self, "Validation Result", msg)
 
         except ImportError:
+            progress.close()
             QMessageBox.critical(self, "Error", "pyopenlpt module not found. Please ensure it is correctly installed.")
         except Exception as e:
+            progress.close()
             QMessageBox.critical(self, "Validation Error", f"An error occurred during validation:\n{str(e)}")

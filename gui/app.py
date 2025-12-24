@@ -190,7 +190,7 @@ class OpenLPTMainWindow(QMainWindow):
             calibration_view=self.calib_view,
             preprocessing_view=self.views["preprocessing"]
         )
-        self.views["tracking"] = TrackingView()
+        self.views["tracking"] = TrackingView(settings_view=self.views["settings"])
         self.views["results"] = ResultsView()
         
         # Add to stack
