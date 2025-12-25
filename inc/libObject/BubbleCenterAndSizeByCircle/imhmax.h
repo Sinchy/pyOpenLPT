@@ -12,16 +12,17 @@
 #define IMHMAX_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    void imhmax(const ::coder::array<double, 2U>& b_I, double H,
-        ::coder::array<double, 2U>& J);
+void imhmax(const ::coder::array<double, 2U> &b_I, double H,
+            ::coder::array<double, 2U> &J);
 
 }
 

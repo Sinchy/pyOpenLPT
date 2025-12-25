@@ -12,19 +12,20 @@
 #define NULLASSIGNMENT_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    namespace internal {
-        void nullAssignment(::coder::array<float, 2U>& x,
-            const ::coder::array<bool, 2U>& idx);
+namespace internal {
+void nullAssignment(::coder::array<float, 2U> &x,
+                    const ::coder::array<bool, 2U> &idx);
 
-    }
+}
 } // namespace coder
 
 #endif

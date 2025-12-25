@@ -12,22 +12,23 @@
 #define CONV2AXPYVALIDCMP_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    namespace internal {
-        void b_conv2AXPYValidCMP(const ::coder::array<double, 2U>& a,
-            ::coder::array<double, 2U>& c);
+namespace internal {
+void b_conv2AXPYValidCMP(const ::coder::array<double, 2U> &a,
+                         ::coder::array<double, 2U> &c);
 
-        void conv2AXPYValidCMP(const ::coder::array<double, 2U>& a,
-            ::coder::array<double, 2U>& c);
+void conv2AXPYValidCMP(const ::coder::array<double, 2U> &a,
+                       ::coder::array<double, 2U> &c);
 
-    } // namespace internal
+} // namespace internal
 } // namespace coder
 
 #endif

@@ -13,9 +13,10 @@
 
 // Include files
 #include "rtwtypes.h"
-#include "omp.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 extern int div_s32(int numerator, int denominator);

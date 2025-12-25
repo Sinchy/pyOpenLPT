@@ -12,23 +12,24 @@
 #define SORTIDX_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    namespace internal {
-        void merge_block(::coder::array<int, 2U>& idx, ::coder::array<float, 2U>& x,
-            int offset, int n, int preSortLevel,
-            ::coder::array<int, 1U>& iwork,
-            ::coder::array<float, 1U>& xwork);
+namespace internal {
+void merge_block(::coder::array<int, 2U> &idx, ::coder::array<float, 2U> &x,
+                 int offset, int n, int preSortLevel,
+                 ::coder::array<int, 1U> &iwork,
+                 ::coder::array<float, 1U> &xwork);
 
-        void sortIdx(::coder::array<double, 2U>& x, ::coder::array<int, 2U>& idx);
+void sortIdx(::coder::array<double, 2U> &x, ::coder::array<int, 2U> &idx);
 
-    } // namespace internal
+} // namespace internal
 } // namespace coder
 
 #endif

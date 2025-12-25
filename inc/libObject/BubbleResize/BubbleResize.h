@@ -12,17 +12,19 @@
 #define BUBBLERESIZE_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 #include "ResizeBubble_data.h"
+#include "coder_array.h"
 #include "imresize.h"
 #include "rt_nonfinite.h"
-#include "coder_array.h"
 #include <cmath>
+
 
 #include "Matrix.h"
 
@@ -35,7 +37,7 @@ class BubbleResize {
 public:
   BubbleResize();
   ~BubbleResize();
-  Image ResizeBubble(Image const& b_img, int d_b, double b_img_max = 255);
+  Image ResizeBubble(Image const &b_img, int d_b, double b_img_max = 255);
 };
 
 #endif

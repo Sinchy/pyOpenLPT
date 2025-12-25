@@ -11,13 +11,13 @@
 #ifndef RESIZEBUBBLE_DATA_H
 #define RESIZEBUBBLE_DATA_H
 
-
 // Include files
-#include "rtwtypes.h"
 #include "rt_nonfinite.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Variable Declarations
 extern omp_nest_lock_t emlrtNestLockGlobal2;

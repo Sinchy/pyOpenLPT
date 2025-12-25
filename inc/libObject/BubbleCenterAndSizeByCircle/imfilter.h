@@ -12,16 +12,17 @@
 #define IMFILTER_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    void padImage_outSize(const ::coder::array<float, 2U>& a_tmp,
-        const double pad[2], ::coder::array<float, 2U>& a);
+void padImage_outSize(const ::coder::array<float, 2U> &a_tmp,
+                      const double pad[2], ::coder::array<float, 2U> &a);
 
 }
 

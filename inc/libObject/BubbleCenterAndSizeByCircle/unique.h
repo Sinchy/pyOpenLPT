@@ -12,16 +12,17 @@
 #define UNIQUE_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    void unique_vector(const ::coder::array<float, 1U>& a,
-        ::coder::array<float, 1U>& b);
+void unique_vector(const ::coder::array<float, 1U> &a,
+                   ::coder::array<float, 1U> &b);
 
 }
 

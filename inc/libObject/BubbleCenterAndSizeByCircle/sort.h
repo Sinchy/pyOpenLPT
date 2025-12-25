@@ -12,20 +12,21 @@
 #define SORT_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-	namespace internal {
-		void sort(::coder::array<float, 2U>& x);
+namespace internal {
+void sort(::coder::array<float, 2U> &x);
 
-		void sort(::coder::array<double, 2U>& x, ::coder::array<int, 2U>& idx);
+void sort(::coder::array<double, 2U> &x, ::coder::array<int, 2U> &idx);
 
-	} // namespace internal
+} // namespace internal
 } // namespace coder
 
 #endif

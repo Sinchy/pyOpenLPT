@@ -12,16 +12,17 @@
 #define FIND_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    void eml_find(const ::coder::array<bool, 2U>& x, ::coder::array<int, 1U>& i,
-        ::coder::array<int, 1U>& j);
+void eml_find(const ::coder::array<bool, 2U> &x, ::coder::array<int, 1U> &i,
+              ::coder::array<int, 1U> &j);
 
 }
 

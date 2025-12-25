@@ -12,19 +12,20 @@
 #define BWCONNCOMP_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    void bwconncomp(const ::coder::array<bool, 2U>& varargin_1,
-        double* CC_Connectivity, double CC_ImageSize[2],
-        double* CC_NumObjects,
-        ::coder::array<double, 1U>& CC_RegionIndices,
-        ::coder::array<int, 1U>& CC_RegionLengths);
+void bwconncomp(const ::coder::array<bool, 2U> &varargin_1,
+                double *CC_Connectivity, double CC_ImageSize[2],
+                double *CC_NumObjects,
+                ::coder::array<double, 1U> &CC_RegionIndices,
+                ::coder::array<int, 1U> &CC_RegionLengths);
 
 }
 

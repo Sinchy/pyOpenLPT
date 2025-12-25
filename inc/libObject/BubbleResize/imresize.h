@@ -12,13 +12,14 @@
 #define IMRESIZE_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
 #include "rt_nonfinite.h"
-#include "omp.h"
+#include "rtwtypes.h"
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <cmath>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {

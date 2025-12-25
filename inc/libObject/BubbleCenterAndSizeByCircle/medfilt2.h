@@ -12,25 +12,26 @@
 #define MEDFILT2_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-    namespace images {
-        namespace internal {
-            namespace coder {
-                namespace optimized {
-                    void medfilt2(::coder::array<double, 2U>& inImg,
-                        ::coder::array<double, 2U>& outImg);
+namespace images {
+namespace internal {
+namespace coder {
+namespace optimized {
+void medfilt2(::coder::array<double, 2U> &inImg,
+              ::coder::array<double, 2U> &outImg);
 
-                }
-            } // namespace coder
-        } // namespace internal
-    } // namespace images
+}
+} // namespace coder
+} // namespace internal
+} // namespace images
 } // namespace coder
 
 #endif

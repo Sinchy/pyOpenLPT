@@ -12,24 +12,26 @@
 #define CIRCLEIDENTIFIER_H
 
 // Include Files
-#include "omp.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 #include "BubbleCenterAndSizeByCircle_data.h"
 #include "BubbleCenterAndSizeByCircle_internal_types.h"
 #include "NeighborhoodProcessor.h"
 #include "chaccum.h"
+#include "coder_array.h"
 #include "imhmax.h"
 #include "medfilt2.h"
 #include "regionprops.h"
+#include "rt_defines.h"
 #include "rt_nonfinite.h"
 #include "sort.h"
-#include "coder_array.h"
-#include "rt_defines.h"
 #include <cmath>
 #include <cstring>
 #include <math.h>
+
 
 #include "Matrix.h"
 #include <algorithm>
@@ -38,12 +40,15 @@
 // Type Definitions
 class CircleIdentifier {
 public:
-    CircleIdentifier(Image const& img_input);
-    ~CircleIdentifier();
-    std::vector<double> BubbleCenterAndSizeByCircle(std::vector<Pt2D>& center, std::vector<double>& radius, double rmin, double rmax, double sense);
- 
+  CircleIdentifier(Image const &img_input);
+  ~CircleIdentifier();
+  std::vector<double> BubbleCenterAndSizeByCircle(std::vector<Pt2D> &center,
+                                                  std::vector<double> &radius,
+                                                  double rmin, double rmax,
+                                                  double sense);
+
 private:
-    coder::array<unsigned char, 2U> img;
+  coder::array<unsigned char, 2U> img;
 };
 
 #endif

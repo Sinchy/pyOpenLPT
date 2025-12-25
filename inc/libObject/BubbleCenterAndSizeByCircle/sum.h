@@ -12,15 +12,16 @@
 #define SUM_H
 
 // Include files
-#include "rtwtypes.h"
 #include "coder_array.h"
-#include "omp.h"
+#include "rtwtypes.h"
 #include <cstddef>
 #include <cstdlib>
+#include <omp.h>
+
 
 // Function Declarations
 namespace coder {
-	double sum(const ::coder::array<double, 1U>& x);
+double sum(const ::coder::array<double, 1U> &x);
 
 }
 

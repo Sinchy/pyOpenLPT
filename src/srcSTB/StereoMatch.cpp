@@ -1,8 +1,7 @@
 #include "StereoMatch.h"
-#include "omp.h"
 #include <array>
 #include <iterator>
-
+#include <omp.h>
 
 static std::vector<std::vector<const Object2D *>>
 makeView(const std::vector<std::vector<std::unique_ptr<Object2D>>> &src2d) {
