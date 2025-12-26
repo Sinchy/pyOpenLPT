@@ -49,6 +49,9 @@ class OpenLPTMainWindow(QMainWindow):
         
         # Apply Windows Dark Title Bar
         self._apply_dark_title_bar()
+        
+        # Check for updates (async)
+        self._check_for_updates()
 
     def _apply_dark_title_bar(self):
         """Force Windows to use dark title bar."""
@@ -331,6 +334,46 @@ class OpenLPTMainWindow(QMainWindow):
         if total > 0:
             self.progress_bar.setValue(int((current / total) * 100))
             self.frame_label.setText(f"Frame: {current} / {total}")
+    
+    def _check_for_updates(self):
+        """Check for updates asynchronously on startup."""
+        try:
+            from utils.update_checker import check_for_updates_async
+            check_for_updates_async(self._on_update_check_complete)
+        except Exception as e:
+            print(f"Update check failed: {e}")
+    
+    def _on_update_check_complete(self, result: dict):
+        """Handle update check result (called from background thread)."""
+        if result.get("available"):
+            # Use QTimer to ensure we're on the main thread
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._show_update_dialog(result))
+    
+    def _show_update_dialog(self, result: dict):
+        """Show update available dialog."""
+        from PySide6.QtWidgets import QMessageBox, QTextEdit
+        
+        current = result.get("current", "?")
+        latest = result.get("latest", "?")
+        url = result.get("url", "")
+        notes = result.get("notes", "")
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Update Available")
+        msg.setIcon(QMessageBox.Information)
+        msg.setText(f"<h3>A new version of OpenLPT is available!</h3>")
+        msg.setInformativeText(
+            f"<p>Current version: <b>{current}</b><br>"
+            f"Latest version: <b>{latest}</b></p>"
+            f"<p>Visit the <a href='{url}'>releases page</a> to download the update.</p>"
+        )
+        
+        if notes:
+            msg.setDetailedText(f"Release Notes:\n\n{notes}")
+        
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
 
 
 def main():

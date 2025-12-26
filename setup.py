@@ -51,9 +51,11 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_temp)
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_temp)
 
+from _version import __version__
+
 setup(
     name="openlpt",
-    version="1.0.0",
+    version=__version__,
     description="OpenLPT Python bindings",
     author="Shiyong Tan, Shijie Zhong",
     author_email="szhong12@jhu.edu",
