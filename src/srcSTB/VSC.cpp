@@ -1013,13 +1013,16 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
   // ========================================================================
   for (int outer = 0; outer < n_outer_iters; ++outer) {
     // Re-center bounds on current params
-    auto [lb, ub] = buildBounds(params);
+    auto bounds = buildBounds(params);
+    std::vector<double> lb = std::get<0>(bounds);
+    std::vector<double> ub = std::get<1>(bounds);
 
     std::cout << "  [Iter " << (outer + 1) << "/" << n_outer_iters
               << "] Re-centered bounds. Running LM..." << std::endl;
 
     double lambda = 0.001;
-    auto [current_err, _, __, ___] = computeErrors(params);
+    auto init_err = computeErrors(params);
+    double current_err = std::get<0>(init_err);
 
     // ----- LM Inner Loop -----
     for (int iter = 0; iter < max_lm_iter; ++iter) {
@@ -1028,7 +1031,8 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
       Matrix<double> Jtr(total_params, 1, 0.0);
 
       // Compute residuals at current params
-      auto [f0, t0, r0, n0] = computeErrors(params);
+      auto err0 = computeErrors(params);
+      double f0 = std::get<0>(err0);
 
       // Numerical Jacobian (forward difference)
       std::vector<double> grad(total_params, 0.0);
@@ -1039,7 +1043,8 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
         params_p[p] += eps;
         // Clamp to bounds
         params_p[p] = std::max(lb[p], std::min(ub[p], params_p[p]));
-        auto [fp, tp, rp, np] = computeErrors(params_p);
+        auto err_p = computeErrors(params_p);
+        double fp = std::get<0>(err_p);
         grad[p] = (fp - f0) / eps;
       }
 

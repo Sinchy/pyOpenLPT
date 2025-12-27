@@ -390,7 +390,7 @@ class TrackingSettingsView(QWidget):
         self.shake_ghost = QDoubleSpinBox()
         self.shake_ghost.setDecimals(3)
         self.shake_ghost.setRange(0.001, 1.0)
-        self.shake_ghost.setValue(0.1) # User requested default
+        self.shake_ghost.setValue(0.01)  # Default changed to 0.01
         shake_grid.addWidget(self.shake_ghost, 2, 2)
         
         stb_layout.addWidget(shake_group)
