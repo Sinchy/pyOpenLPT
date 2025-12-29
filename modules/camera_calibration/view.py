@@ -1403,7 +1403,7 @@ class CameraCalibrationView(QWidget):
         self.cal_target_cam_combo = QComboBox()
         self._apply_input_style(self.cal_target_cam_combo)
         # Sync with the main cam combo
-        self.cal_target_cam_combo.addItems([f"Camera {i+1}" for i in range(4)]) # Initial default
+        self.cal_target_cam_combo.addItems([f"Camera {i}" for i in range(4)]) # Initial default
         cal_form.addRow("Target Camera:", self.cal_target_cam_combo)
         
         # 2. Model
@@ -1670,7 +1670,7 @@ class CameraCalibrationView(QWidget):
         self.plate_cam_combo.blockSignals(True) # Avoid triggering update while changing
         current_idx = self.plate_cam_combo.currentIndex()
         self.plate_cam_combo.clear()
-        items = [f"Camera {i+1}" for i in range(count)]
+        items = [f"Camera {i}" for i in range(count)]
         self.plate_cam_combo.addItems(items)
         if current_idx >= 0 and current_idx < count:
             self.plate_cam_combo.setCurrentIndex(current_idx)
@@ -2338,9 +2338,14 @@ class CameraCalibrationView(QWidget):
             
         for key in relevant_keys:
             data = self.saved_calibration_data[key]
+            # Filter out invalid points (None in world_coords from unvisited keypoints)
+            valid_pairs = [(kp, wc) for kp, wc in zip(data['keypoints'], data['world_coords']) if wc is not None]
+            if not valid_pairs:
+                continue
+            
             # Convert KeyPoints to numpy Nx2
-            kpts = np.array([[kp.pt[0], kp.pt[1]] for kp in data['keypoints']], dtype=np.float32)
-            world = np.array(data['world_coords'], dtype=np.float32)
+            kpts = np.array([[kp.pt[0], kp.pt[1]] for kp, _ in valid_pairs], dtype=np.float32)
+            world = np.array([wc for _, wc in valid_pairs], dtype=np.float32)
             
             if len(kpts) > 0:
                 img_points.append(kpts)
@@ -4099,15 +4104,25 @@ class CameraCalibrationView(QWidget):
             else: # Fix Z
                 self.point_indices[idx] = (n1, n2, fixed_val)
 
-        # Fill missing with dummy or handle
-        for i in range(n_pts):
-            if self.point_indices[i] is None:
-                # Still not visited? Assign huge index or ignore
-                self.point_indices[i] = (999, 999, 999)
+        # Remove unvisited points (those with None indices) from both lists
+        visited_count = sum(1 for idx in self.point_indices if idx is not None)
+        if visited_count < n_pts:
+            # Filter out unvisited points
+            new_keypoints = []
+            new_indices = []
+            for kp, idx in zip(self.detected_keypoints, self.point_indices):
+                if idx is not None:
+                    new_keypoints.append(kp)
+                    new_indices.append(idx)
+            self.detected_keypoints = new_keypoints
+            self.point_indices = new_indices
+            removed_count = n_pts - visited_count
+            print(f"Removed {removed_count} unvisited points")
 
         # 6. Visualize
         self._visualize_keypoints_with_origin()
-        QMessageBox.information(self, "Indexing Complete", f"Assigned indices using walk strategy to {len(visit_map)}/{n_pts} points.")
+        self.lbl_points_count.setText(f"Points: {len(self.detected_keypoints)}")
+        QMessageBox.information(self, "Indexing Complete", f"Assigned indices to {len(self.detected_keypoints)} points ({n_pts - len(self.detected_keypoints)} removed).")
 
     def _on_axis_check_toggled(self, axis, checked):
         """Handle axis checkbox toggle - enforce mutual exclusion and sync plane number."""

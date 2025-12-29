@@ -348,6 +348,103 @@ class WandCalibrator:
         """Reset to use original wand_points data."""
         self.wand_points_filtered = None
 
+    def _filter_radius_histogram_peaks(self, radii, cam_idx):
+        """
+        Robustly estimate Small/Large stats using Histogram Peak Finding.
+        Ignores far-field noise (e.g. 77px) by only focusing on dominant peaks.
+        Returns: (mean_s, std_s), (mean_l, std_l) or None if failed.
+        """
+        if len(radii) < 10: return None
+        
+        # 1. Build Histogram
+        min_val, max_val = min(radii), max(radii)
+        if min_val == max_val: return None
+        
+        n_bins = 60
+        bin_width = (max_val - min_val) / n_bins
+        if bin_width == 0: bin_width = 1.0
+        
+        counts = [0] * n_bins
+        bin_centers = [min_val + bin_width * (i + 0.5) for i in range(n_bins)]
+        
+        for x in radii:
+            idx = int((x - min_val) / bin_width)
+            if idx >= n_bins: idx = n_bins - 1
+            counts[idx] += 1
+            
+        # 2. Find Peaks
+        peaks = [] # (count, bin_center, bin_idx)
+        for i in range(1, n_bins - 1):
+            if counts[i] > counts[i-1] and counts[i] > counts[i+1]:
+                peaks.append((counts[i], bin_centers[i], i))
+        # Edges
+        if counts[0] > counts[1]: peaks.append((counts[0], bin_centers[0], 0))
+        if counts[-1] > counts[-2]: peaks.append((counts[-1], bin_centers[-1], n_bins-1))
+        
+        peaks.sort(key=lambda x: x[0], reverse=True)
+        
+        if len(peaks) < 1: return None
+        
+        # 3. Select Top 2 Peaks (Small & Large)
+        dominant_peaks = [peaks[0]]
+        
+        if len(peaks) >= 2:
+            p1 = peaks[0]
+            # Try to find a second distinct peak
+            found_second = False
+            for i in range(1, len(peaks)):
+                p_cand = peaks[i]
+                # Distance Check: > 3 bins away
+                dist_bins = abs(p1[2] - p_cand[2])
+                # Magnitude Check: > 10% of main peak
+                ratio = p_cand[0] / p1[0]
+                
+                if ratio > 0.1 and dist_bins > 3:
+                     dominant_peaks.append(p_cand)
+                     found_second = True
+                     break
+            
+            # If standard check failed, maybe try a looser check? 
+            # For now strict. If only 1 peak found, it will fail (which is correct for wand calib that NEEDS 2 points)
+        
+        if len(dominant_peaks) < 2:
+            print(f"Cam {cam_idx}: Could not find 2 distinct peaks. Found {len(dominant_peaks)}.")
+            return None
+            
+        # Sort by radius (Small first)
+        dominant_peaks.sort(key=lambda x: x[1])
+        peak_s = dominant_peaks[0]
+        peak_l = dominant_peaks[1]
+        
+        # 4. Define Ranges (Drop to 10%)
+        def get_range(p_idx, p_h):
+            thresh = p_h * 0.1
+            l, r = p_idx, p_idx
+            while l > 0 and counts[l] > thresh: l -= 1
+            while r < n_bins - 1 and counts[r] > thresh: r += 1
+            return bin_centers[l], bin_centers[r]
+            
+        range_s = get_range(peak_s[2], peak_s[0])
+        range_l = get_range(peak_l[2], peak_l[0])
+        
+        # 5. Extract Stats from Data in Ranges
+        data_s = [x for x in radii if range_s[0] <= x <= range_s[1]]
+        data_l = [x for x in radii if range_l[0] <= x <= range_l[1]]
+        
+        if len(data_s) < 5 or len(data_l) < 5:
+            return None
+            
+        m_s, s_s = np.mean(data_s), np.std(data_s)
+        m_l, s_l = np.mean(data_l), np.std(data_l)
+        
+        # Safety Constraint on std
+        if s_s < 0.5: s_s = 0.5
+        if s_l < 0.5: s_l = 0.5
+        
+        print(f"Cam {cam_idx} PeakFilter: S[{m_s:.1f}±{s_s:.1f}] L[{m_l:.1f}±{s_l:.1f}] (Ranges: {range_s[0]:.1f}-{range_s[1]:.1f}, {range_l[0]:.1f}-{range_l[1]:.1f})")
+        
+        return (m_s, s_s), (m_l, s_l)
+
     def detect_wand_points_generator(self, image_paths_dict, wand_type, min_radius, max_radius, sensitivity, autosave_path=None, resume=False, stop_check=None):
         """
         Generator for detecting wand points. Yields (current_frame_idx, total_frames).
@@ -471,35 +568,31 @@ class WandCalibrator:
                 
             radii = np.array(radii)
             
-            # Zoning / Clustering logic (copied from global logic)
+            # Zoning / Clustering logic (Peak Finding)
             mean_s, std_s, mean_l, std_l = 0, 1, 0, 1
             
-            try:
-                from sklearn.cluster import KMeans
-                kmeans = KMeans(n_clusters=2, random_state=0, n_init=10).fit(radii.reshape(-1, 1))
-                centers = sorted(kmeans.cluster_centers_.flatten())
-                mean_s = centers[0]
-                mean_l = centers[1]
-                
-                labels = kmeans.labels_
-                radii_s = radii[labels == 0] if centers[0] < centers[1] else radii[labels == 1]
-                radii_l = radii[labels == 1] if centers[0] < centers[1] else radii[labels == 0]
-                
-                std_s = np.std(radii_s) if len(radii_s) > 1 else 1.0
-                std_l = np.std(radii_l) if len(radii_l) > 1 else 1.0
-                
-            except ImportError:
-                median = np.median(radii)
-                radii_s = radii[radii <= median]
-                radii_l = radii[radii > median]
-                mean_s, std_s = (np.mean(radii_s), np.std(radii_s)) if len(radii_s)>0 else (0,1)
-                mean_l, std_l = (np.mean(radii_l), np.std(radii_l)) if len(radii_l)>0 else (0,1)
+            # New Robust Method: Peak Finding
+            peak_res = self._filter_radius_histogram_peaks(radii, c_idx)
+            
+            if peak_res:
+                (mean_s, std_s), (mean_l, std_l) = peak_res
+            else:
+                # Fallback to Median Method if Peak Finding fails (e.g. only 1 peak found)
+                print(f"Cam {c_idx}: Peak finding failed. Falling back to Median Zoning.")
+                try:
+                    median = np.median(radii)
+                    radii_s = radii[radii <= median]
+                    radii_l = radii[radii > median]
+                    mean_s, std_s = (np.mean(radii_s), np.std(radii_s)) if len(radii_s)>0 else (0,1)
+                    mean_l, std_l = (np.mean(radii_l), np.std(radii_l)) if len(radii_l)>0 else (0,1)
+                except Exception as e:
+                    print(f"Cam {c_idx} Stats Error: {e}")
             
             # Constraints
             if std_s < 0.5: std_s = 0.5
             if std_l < 0.5: std_l = 0.5
             
-            print(f"Cam {c_idx} Stats: Small(m={mean_s:.1f}, s={std_s:.1f}), Large(m={mean_l:.1f}, s={std_l:.1f})")
+            print(f"Cam {c_idx} Final Stats: Small(m={mean_s:.1f}, s={std_s:.1f}), Large(m={mean_l:.1f}, s={std_l:.1f})")
             cam_stats[c_idx] = {'s': (mean_s, std_s), 'l': (mean_l, std_l)}
 
         if not cam_stats:
@@ -546,8 +639,10 @@ class WandCalibrator:
                     rejection_reason = f"Cam {c_idx}: No candidates (s:{len(candidates_s)}, l:{len(candidates_l)}), pts={len(pts)}"
                     break
                 
-                # Select best Small first (closest radius to mean_s)
-                best_s = min(candidates_s, key=lambda p: abs(p[2] - mean_s))
+                # Select best Small first (Highest Metric Score)
+                # Metric is at p[3]. Higher is better (Roundness/Confidence).
+                # Previous logic: closest radius to mean_s -> best_s = min(candidates_s, key=lambda p: abs(p[2] - mean_s))
+                best_s = max(candidates_s, key=lambda p: p[3])
                 
                 # Select best Large, EXCLUDING the point selected for Small
                 candidates_l_filtered = [p for p in candidates_l if not np.array_equal(p[:2], best_s[:2])]
@@ -559,8 +654,8 @@ class WandCalibrator:
                     rejection_reason = f"Cam {c_idx}: No distinct Large after excluding Small"
                     break
                 
-                # Select Large closest to mean_l
-                best_l = min(candidates_l_filtered, key=lambda p: abs(p[2] - mean_l))
+                # Select Large with Highest Metric Score
+                best_l = max(candidates_l_filtered, key=lambda p: p[3])
 
                 frame_filtered[c_idx] = [best_s, best_l]
             
@@ -638,14 +733,14 @@ class WandCalibrator:
                             frame_valid = False
                             break
                         
-                        best_s = min(candidates_s, key=lambda p: abs(p[2] - mean_s))
+                        best_s = max(candidates_s, key=lambda p: p[3])
                         candidates_l_filtered = [p for p in candidates_l if not np.array_equal(p[:2], best_s[:2])]
                         
                         if not candidates_l_filtered:
                             frame_valid = False
                             break
                         
-                        best_l = min(candidates_l_filtered, key=lambda p: abs(p[2] - mean_l))
+                        best_l = max(candidates_l_filtered, key=lambda p: p[3])
                         frame_filtered[c_idx] = [best_s, best_l]
                     
                     if frame_valid:

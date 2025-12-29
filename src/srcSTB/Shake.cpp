@@ -125,6 +125,17 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>> &objs,
   }
   double mean_score = (cnt ? sum / cnt : 0.0);
 
+  // remove outliers
+  for (int i = 0; i < _score_list.size(); i ++)
+    {
+        if (_score_list[i] > 30 * mean_score && !is_repeated[i])
+        {
+            sum -= _score_list[i];
+            cnt --;
+        }
+    }
+    mean_score = sum / cnt;
+
   const double percent_ghost = _obj_cfg._shake_param._thred_ghost;
 
   for (size_t i = 0; i < n_obj; ++i) {

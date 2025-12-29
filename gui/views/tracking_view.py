@@ -96,19 +96,34 @@ class TrackLoaderWorker(QObject):
 
     def run(self):
         try:
-            track_dir = os.path.join(self.proj_dir, "Results", "ConvergeTrack")
-            if not os.path.exists(track_dir):
-                self.finished.emit({}, {}, "Tracer")
-                return
-
-            # Determine object type from config.txt
-            obj_type = "Tracer"
+            # Read Output Folder Path from config.txt
             config_path = os.path.join(self.proj_dir, "config.txt")
+            output_dir = os.path.join(self.proj_dir, "Results")  # Default fallback
+            obj_type = "Tracer"
+            
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
-                    content = f.read().lower()
-                    if "bubble" in content:
-                        obj_type = "Bubble"
+                    lines = f.readlines()
+                    for i, line in enumerate(lines):
+                        line_stripped = line.strip()
+                        if "Output Folder Path" in line_stripped:
+                            # Next non-empty, non-comment line should be the path
+                            if i + 1 < len(lines):
+                                path_line = lines[i+1].strip()
+                                if path_line and not path_line.startswith('#'):
+                                    output_dir = path_line
+                        elif "bubble" in line_stripped.lower():
+                            obj_type = "Bubble"
+            
+            track_dir = os.path.join(output_dir, "ConvergeTrack")
+            if not os.path.exists(track_dir):
+                # Fallback to default location
+                fallback_dir = os.path.join(self.proj_dir, "Results", "ConvergeTrack")
+                if os.path.exists(fallback_dir):
+                    track_dir = fallback_dir
+                else:
+                    self.finished.emit({}, {}, "Tracer", {})
+                    return
 
             def natsort_key(s):
                 return [int(text) if text.isdigit() else text.lower()
@@ -913,12 +928,31 @@ class TrackingView(QWidget):
             QMessageBox.warning(self, "Error", "Project directory not found. Please set it first.")
             return
         
-        # Check if tracks exist
-        track_dir = os.path.join(proj_dir, "Results", "ConvergeTrack")
+        # Check if tracks exist - read Output Folder Path from config.txt
+        config_path = os.path.join(proj_dir, "config.txt")
+        output_dir = os.path.join(proj_dir, "Results")  # Default fallback
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                lines = f.readlines()
+                for i, line in enumerate(lines):
+                    if "Output Folder Path" in line:
+                        if i + 1 < len(lines):
+                            path_line = lines[i+1].strip()
+                            if path_line and not path_line.startswith('#'):
+                                output_dir = path_line
+                                break
+        
+        track_dir = os.path.join(output_dir, "ConvergeTrack")
         if not os.path.exists(track_dir):
-            QMessageBox.warning(self, "Error", 
-                "No tracking results found.\nPlease run OpenLPT first to generate tracks.")
-            return
+            # Fallback to default location
+            fallback_dir = os.path.join(proj_dir, "Results", "ConvergeTrack")
+            if os.path.exists(fallback_dir):
+                track_dir = fallback_dir
+            else:
+                QMessageBox.warning(self, "Error", 
+                    "No tracking results found.\nPlease run OpenLPT first to generate tracks.")
+                return
         
         # Switch to execution log tab
         self.log_text.clear()
@@ -960,7 +994,7 @@ class TrackingView(QWidget):
             self._append_log(f"\n[SUCCESS] {message}\n")
             QMessageBox.information(self, "VSC Complete", 
                 f"Volume Self-Calibration completed successfully!\n\n"
-                f"Optimized cameras saved to camFile/vsc_cam*.txt\n"
+                f"Optimized cameras saved to camFile_VSC/vsc_cam*.txt\n"
                 f"Log saved to VSC_log.txt")
         else:
             self._append_log(f"\n[FAILED] {message}\n")
@@ -1021,13 +1055,33 @@ class TrackingView(QWidget):
         if self.cached_proj_path != proj_dir:
             self.ui_updated = False
 
-        track_dir = os.path.join(proj_dir, "Results", "ConvergeTrack")
+        # Read Output Folder Path from config.txt
+        config_path = os.path.join(proj_dir, "config.txt")
+        output_dir = os.path.join(proj_dir, "Results")  # Default fallback
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                lines = f.readlines()
+                for i, line in enumerate(lines):
+                    if "Output Folder Path" in line:
+                        if i + 1 < len(lines):
+                            path_line = lines[i+1].strip()
+                            if path_line and not path_line.startswith('#'):
+                                output_dir = path_line
+                                break
+        
+        track_dir = os.path.join(output_dir, "ConvergeTrack")
         if not os.path.exists(track_dir):
-            self.total_tracks_label.setText("Total Tracks: 0")
-            self.avg_len_label.setText("Avg Track Length: 0.00")
-            self.cached_proj_path = proj_dir
-            self.cached_lengths = None
-            return
+            # Fallback to default location
+            fallback_dir = os.path.join(proj_dir, "Results", "ConvergeTrack")
+            if os.path.exists(fallback_dir):
+                track_dir = fallback_dir
+            else:
+                self.total_tracks_label.setText("Total Tracks: 0")
+                self.avg_len_label.setText("Avg Track Length: 0.00")
+                self.cached_proj_path = proj_dir
+                self.cached_lengths = None
+                return
 
         self.is_loading = True
 

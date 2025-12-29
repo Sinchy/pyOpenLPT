@@ -358,9 +358,29 @@ class VSCService:
         Returns:
             dict: {track_id: [(frame_id, x, y, z, cam0_x, cam0_y, cam1_x, cam1_y, ...), ...]}
         """
-        track_dir = os.path.join(self.proj_dir, "Results", "ConvergeTrack")
+        # Read Output Folder Path from config.txt
+        config_path = os.path.join(self.proj_dir, "config.txt")
+        output_dir = os.path.join(self.proj_dir, "Results")  # Default fallback
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                lines = f.readlines()
+                for i, line in enumerate(lines):
+                    if "Output Folder Path" in line:
+                        if i + 1 < len(lines):
+                            path_line = lines[i+1].strip()
+                            if path_line and not path_line.startswith('#'):
+                                output_dir = path_line
+                                break
+        
+        track_dir = os.path.join(output_dir, "ConvergeTrack")
         if not os.path.exists(track_dir):
-            return {}
+            # Fallback to default location
+            fallback_dir = os.path.join(self.proj_dir, "Results", "ConvergeTrack")
+            if os.path.exists(fallback_dir):
+                track_dir = fallback_dir
+            else:
+                return {}
         
         def natsort_key(s):
             return [int(text) if text.isdigit() else text.lower()
@@ -1047,8 +1067,8 @@ class VSCService:
     
     def _save_cameras(self):
         """Save optimized camera parameters to vsc_cam*.txt files."""
-        # Use tracked output directory, fallback to camFile
-        cam_dir = self.cam_output_dir if self.cam_output_dir else os.path.join(self.proj_dir, "camFile")
+        # Set output directory to camFile_VSC
+        cam_dir = os.path.join(self.proj_dir, "camFile_VSC")
         
         # Ensure directory exists
         os.makedirs(cam_dir, exist_ok=True)
@@ -1077,22 +1097,52 @@ class VSCService:
             shutil.copy(config_path, backup_path)
             self._log(f"  Backup saved to config_backup.txt")
         
-        # Read and update config
+        # Read all lines
         with open(config_path, 'r') as f:
-            content = f.read()
+            lines = f.readlines()
         
-        # Replace cam{N}.txt with vsc_cam{N}.txt in filename portion
-        # Works for any path format: absolute, relative, forward/back slashes
-        for cam_idx in self.cameras.keys():
-            # Match cam{N}.txt at end of path (before comma or end of line)
-            # e.g., "G:/path/to/cam0.txt,255" -> "G:/path/to/vsc_cam0.txt,255"
-            import re
-            pattern = rf'([\\/])cam{cam_idx}\.txt'
-            replacement = rf'\1vsc_cam{cam_idx}.txt'
-            content = re.sub(pattern, replacement, content)
+        new_lines = []
+        in_camera_section = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            if '# Camera File Path' in line_stripped:
+                in_camera_section = True
+                new_lines.append(line)
+                continue
+            
+            if in_camera_section:
+                if line_stripped.startswith('#'):
+                    in_camera_section = False
+                    new_lines.append(line)
+                    continue
+                
+                # Check if this line defines a camera
+                # Look for 'camX.txt' or 'vsc_camX.txt'
+                match = re.search(r'(?:vsc_)?cam(\d+)\.txt', line_stripped)
+                if match:
+                    cam_idx = int(match.group(1))
+                    if cam_idx in self.cameras:
+                        # Construct new line
+                        # Preserve intensity part if exists (e.g. ",255")
+                        parts = line_stripped.split(',')
+                        suffix = ""
+                        if len(parts) > 1:
+                            # Reconstruct everything after the first comma
+                            suffix = "," + ",".join(parts[1:])
+                        
+                        # Construct absolute path with forward slashes
+                        abs_path = os.path.abspath(os.path.join(self.proj_dir, "camFile_VSC", f"vsc_cam{cam_idx}.txt"))
+                        abs_path = abs_path.replace(os.sep, '/')
+                        new_line = f"{abs_path}{suffix}\n"
+                        new_lines.append(new_line)
+                        continue
+            
+            new_lines.append(line)
         
         with open(config_path, 'w') as f:
-            f.write(content)
+            f.writelines(new_lines)
         
         self._log(f"  Updated config.txt with optimized camera paths")
 
@@ -1419,7 +1469,7 @@ def process_frame_task(frame_id: int, points: List[Tuple],
                     
                     # Use point_r (object radius) as the search radius/threshold
                     # If projection is within the particle radius, it's a valid match
-                    if dist_proj > point_r:
+                    if dist_proj > point_r + 1:
                         all_valid = False
                         fail_reason = "distance"
                         break
