@@ -71,11 +71,17 @@ fi
 
 echo ""
 echo "[3.5/4] Configuring Compiler Flags for macOS (OpenMP)..."
-# Help compiler find llvm-openmp headers and libs in the conda env
-# We use CMAKE_ARGS to pass these directly to the build system
+# 1. Force a clean build to ensure CMake picks up new flags
+rm -rf build/
+rm -rf _skbuild/  # just in case
+
+# 2. Set environment variables that CMake respects automatically
 export CPPFLAGS="-I$CONDA_PREFIX/include $CPPFLAGS"
+export CXXFLAGS="-I$CONDA_PREFIX/include $CXXFLAGS"
+export CFLAGS="-I$CONDA_PREFIX/include $CFLAGS"
 export LDFLAGS="-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib $LDFLAGS"
-export CMAKE_ARGS="-DCMAKE_CXX_FLAGS=-I$CONDA_PREFIX/include -DCMAKE_C_FLAGS=-I$CONDA_PREFIX/include"
+
+echo "Using Include Path: $CONDA_PREFIX/include"
 
 echo ""
 echo "[4/4] Installing OpenLPT..."
