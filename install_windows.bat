@@ -13,11 +13,10 @@ pause
 
 :: --- Visual Studio Build Tools Check ---
 echo.
-echo [0.5/4] Checking for Visual Studio Build Tools (Required for C++ compilation)...
+echo [0.5/4] Checking for Visual Studio Build Tools...
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "HAS_VS="
 
-:: Check using vswhere if available
 if exist "%VSWHERE%" (
     for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
         set "HAS_VS=%%i"
@@ -34,15 +33,15 @@ if defined HAS_VS (
     
     :: Check for Winget
     where winget >nul 2>nul
-    if %errorlevel% equ 0 (
+    if not errorlevel 1 (
         echo [INFO] Winget found. Attempting AUTO-INSTALLATION...
-        echo        (This will open a prompt asking for permission)
+        echo        ^(This will open a prompt asking for permission^)
         echo.
         echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
         
         winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive --norestart"
         
-        if %errorlevel% neq 0 (
+        if errorlevel 1 (
             echo.
             echo [FAIL] Auto-installation failed or was cancelled.
             goto :ManualInstallVS
