@@ -348,3 +348,8 @@ QMessageBox {
 QMessageBox QLabel {
     color: #eaeaea;
 }
+QMessageBox QTextEdit {
+    background-color: #1e1e1e;
+    color: #eaeaea;
+    border: 1px solid #3d4a5a;
+}
