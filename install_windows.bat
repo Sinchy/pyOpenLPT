@@ -19,7 +19,8 @@ set "HAS_VS="
 
 :: 1. Initial Check
 if not exist "%VSWHERE%" goto :CheckWinget
-for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+:: Check for EITHER Desktop development with C++ (IDE) OR C++ Build Tools (Build Tools SKU)
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
     set "HAS_VS=%%i"
 )
 
@@ -29,7 +30,7 @@ if defined HAS_VS (
 )
 
 echo.
-echo [ERROR] Visual Studio Build Tools with "Desktop development with C++" not found!
+echo [ERROR] Visual Studio Build Tools with C++ support not found!
 echo         This is REQUIRED to compile the OpenLPT C++ extensions.
 echo.
 
@@ -42,13 +43,14 @@ echo [INFO] Winget found. Attempting AUTO-INSTALLATION/UPDATE...
 echo        (This will open a prompt asking for permission)
 echo.
 echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
-    
-winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive --norestart"
+
+:: We use VCTools because it is the correct ID for the "Build Tools" SKU
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --norestart"
 
 :: 3. Re-Check after Winget
 set "HAS_VS_RECHECK="
 if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
         set "HAS_VS_RECHECK=%%i"
     )
 )
@@ -72,16 +74,17 @@ if exist "%VSWHERE%" (
 if not defined VS_PARTIAL_PATH goto :ManualInstallVS
 
 echo [INFO] Found existing VS installation at: "%VS_PARTIAL_PATH%"
-echo        Attempting to forcefully ADD the C++ workload via vs_installer.exe...
+echo        Attempting to forcefully ADD the C++ Build Tools workload via vs_installer.exe...
 echo.
     
 if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" goto :ManualInstallVS
 
-start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "%VS_PARTIAL_PATH%" --add Microsoft.VisualStudio.Workload.NativeDesktop --passive --norestart
+:: Use VCTools here as well
+start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "%VS_PARTIAL_PATH%" --add Microsoft.VisualStudio.Workload.VCTools --passive --norestart
         
 :: 5. Final Re-Check
 if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
         echo [SUCCESS] Workload added successfully!
         goto :EndVSCheck
     )
