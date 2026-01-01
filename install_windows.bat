@@ -194,7 +194,22 @@ echo [4/4] Installing OpenLPT...
 
 
 
-:: Clean previous build artifacts to prevent stale cache issues
+:: Activate Developer Command Prompt for VS
+if defined HAS_VS (
+    echo [INFO] Activating Visual Studio Environment...
+    set "VCVARS=%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat"
+)
+
+if exist "%VCVARS%" (
+    call "%VCVARS%" >nul
+    echo [INFO] Environment activated.
+    set "CMAKE_GENERATOR=NMake Makefiles"
+) else (
+    echo [WARNING] vcvars64.bat not found at expected location.
+    echo          Build *might* fail if tools are not in PATH.
+)
+
+:: Clean previous build artifacts
 if exist build (
     echo [INFO] Cleaning stale build directory...
     rmdir /s /q build

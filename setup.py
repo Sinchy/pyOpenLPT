@@ -22,28 +22,11 @@ class CMakeBuild(build_ext):
     def run(self):
         # [Windows] Robust Visual Studio Detection
         # CMake 3.x+ often fails to find "Build Tools" (vs_buildtools.exe) installations automatically.
-        # We manually find the installation path using `vswhere` and set CMAKE_GENERATOR_INSTANCE via CLI.
-        self.vs_instance_path = None
-        if platform.system() == "Windows" and "CMAKE_GENERATOR_INSTANCE" not in os.environ:
-            try:
-                # Default vswhere location
-                vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-                if os.path.exists(vswhere):
-                    # Check for VCTools (Build Tools) or NativeDesktop (IDE)
-                    cmd = [vswhere, "-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Workload.VCTools", "-property", "installationPath"]
-                    output = subprocess.check_output(cmd, encoding='utf-8').strip()
-                    
-                    if not output: # Try NativeDesktop if VCTools not found
-                        cmd[5] = "Microsoft.VisualStudio.Workload.NativeDesktop"
-                        output = subprocess.check_output(cmd, encoding='utf-8').strip()
-
-                    if output:
-                        print(f"[setup.py] Found Visual Studio at: {output}")
-                        self.vs_instance_path = output
-                    else:
-                        print("[setup.py] vswhere found no suitable Visual Studio installation.")
-            except Exception as e:
-                print(f"[setup.py] Failed to run vswhere: {e}")
+        # However, if we are running inside a Developer Command Prompt (vcvarsall.bat),
+        # we can rely on NMake or just standard CMake detection without forcing the generator.
+        if platform.system() == "Windows":
+             # Optional: Verify environment if needed, but usually vcvars handles it
+             pass
 
         subprocess.check_call(["cmake", "--version"])
         for ext in self.extensions:
@@ -64,12 +47,24 @@ class CMakeBuild(build_ext):
 
         if platform.system() == "Windows":
             cmake_args += [f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
-            # Explicitly tell CMake which generator and instance to use if we found it
-            if hasattr(self, 'vs_instance_path') and self.vs_instance_path:
-                 cmake_args += ["-G", "Visual Studio 17 2022"]
-                 cmake_args += [f"-DCMAKE_GENERATOR_INSTANCE={self.vs_instance_path}"]
+
+            # Helper for Visual Studio Generator parallel builds
+            # NMake doesn't support /m, but Ninja uses -j.
+            # We check the generator env var (set by install_windows.bat) or CMake default.
+            generator = os.environ.get("CMAKE_GENERATOR", "")
             
-            build_args += ["--", "/m"]
+            if "Visual Studio" in generator:
+                 build_args += ["--", "/m"]
+            elif "NMake" in generator:
+                 # NMake is serial, no extra flags suitable here
+                 pass 
+            elif "Ninja" in generator:
+                 build_args += ["--", "-j"]
+            else:
+                 # Fallback: Assume VS if not specified (default CMake behavior on Windows)
+                 # But safer to NOT assume parallel if unknown
+                 build_args += ["--", "/m"]
+
         else:
             cmake_args += [f"-DCMAKE_BUILD_TYPE={cfg}", "-DCMAKE_POSITION_INDEPENDENT_CODE=ON"]
             build_args += ["--", "-j"]
