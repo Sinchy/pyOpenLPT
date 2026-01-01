@@ -25,6 +25,15 @@ def _run_windows_update(root: Path):
     """
     script_path = root / "update_openlpt.bat"
     
+    # Capture relevant environment variables to preserve SSH/Git auth
+    # "start" command spawns a fresh cmd which might lose session env vars (like SSH_AUTH_SOCK)
+    env_setup = []
+    for k, v in os.environ.items():
+        if k.startswith(('SSH_', 'GIT_')):
+            env_setup.append(f'set "{k}={v}"')
+            
+    env_block = "\n".join(env_setup)
+    
     # Batch script content
     # Note: 'call conda activate' is required for batch files
     content = f"""@echo off
@@ -35,6 +44,12 @@ echo ==========================================
 echo.
 cd /d "{root}"
 
+echo [0/4] Restoring environment variables...
+{env_block}
+
+echo.
+echo NOTE: If the process pauses below, please type your password (SSH passphrase or Git account password) and press Enter.
+echo.
 echo [1/4] Pulling latest code from git...
 git pull
 if %errorlevel% neq 0 (
@@ -104,6 +119,9 @@ echo "=========================================="
 echo ""
 cd "{root}"
 
+echo ""
+echo "NOTE: If the process pauses below, please type your password (SSH passphrase or Git account password) and press Enter."
+echo ""
 echo "[1/4] Pulling latest code from git..."
 git pull
 if [ $? -ne 0 ]; then
