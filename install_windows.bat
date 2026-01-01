@@ -32,7 +32,7 @@ if defined HAS_VS (
     echo.
     
     :: Check for Winget
-    where winget >nul 2>nul
+    where winget ^>nul 2^>nul
     if not errorlevel 1 (
         echo [INFO] Winget found. Attempting AUTO-INSTALLATION/UPDATE...
         echo        ^(This will open a prompt asking for permission^)
@@ -60,7 +60,7 @@ if defined HAS_VS (
             echo [WARNING] Automatic setup finished, but C++ Tools are STILL missing.
             echo           This usually means VS is installed but the "Desktop development with C++" workload is unchecked.
             echo.
-            echo           >>> PLEASE FIX MANUALLY <<<
+            echo           ^>^>^> PLEASE FIX MANUALLY ^<^<^<
             echo.
             goto :ManualInstallVS
         )
