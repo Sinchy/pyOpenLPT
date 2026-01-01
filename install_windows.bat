@@ -72,6 +72,7 @@ if exist "%VSWHERE%" (
 
 if defined HAS_VS_RECHECK (
     echo [SUCCESS] Visual Studio Build Tools verified. Proceeding...
+    set "HAS_VS=%HAS_VS_RECHECK%"
     goto :EndVSCheck
 )
 
@@ -101,11 +102,13 @@ start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_install
 if exist "%VSWHERE%" (
     for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
         echo [SUCCESS] Workload added successfully!
+        set "HAS_VS=%%i"
         goto :EndVSCheck
     )
     
     for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
         echo [SUCCESS] Workload added successfully!
+        set "HAS_VS=%%i"
         goto :EndVSCheck
     )
 )
@@ -135,7 +138,7 @@ cd /d "%~dp0"
 
 echo.
 where conda >nul 2>nul
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [!] Conda/Mamba not found.
     echo [!] Should I automatically download and install Miniforge3?
     echo     (Includes Conda + Mamba, installs to %UserProfile%\Miniforge3)
@@ -161,7 +164,7 @@ if %errorlevel% neq 0 (
 echo.
 echo [1/3] Creating Conda Environment 'OpenLPT'...
 call conda create -n OpenLPT python=3.10 -y
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [Warning] Environment might already exist or conda failed. Trying to proceed...
 )
 
@@ -179,11 +182,11 @@ echo.
 echo [3/3] Installing Dependencies...
 :: Try mamba first, fallback to conda if missing (optional logic, sticking to user pref for mamba)
 call mamba install -c conda-forge --file requirements.txt -y
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [Error] Mamba install failed.
     echo NOTE: This project requires mamba. Please install miniforge or mambaforge.
     pause
-    exit /b %errorlevel%
+    exit /b 1
 )
 
 echo.
@@ -197,14 +200,14 @@ if defined HAS_VS (
 )
 
 pip install . --no-build-isolation
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [Error] Pip install failed.
     echo.
     echo Common fixes:
     echo 1. Close this window and try running the script again.
-    echo 2. Update to the latest version of this script (git pull).
+    echo 2. Update to the latest version of this script ^(git pull^).
     pause
-    exit /b %errorlevel%
+    exit /b 1
 )
 
 echo.
