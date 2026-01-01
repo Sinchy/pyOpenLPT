@@ -19,11 +19,20 @@ set "HAS_VS="
 
 :: 1. Initial Check
 if not exist "%VSWHERE%" goto :CheckWinget
-:: Check for EITHER Desktop development with C++ (IDE) OR C++ Build Tools (Build Tools SKU)
-for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
+
+:: Check 1: Desktop development with C++ (IDE Workload)
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
     set "HAS_VS=%%i"
 )
+if defined HAS_VS (
+    echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
+    goto :EndVSCheck
+)
 
+:: Check 2: C++ Build Tools (Build Tools Workload)
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
+    set "HAS_VS=%%i"
+)
 if defined HAS_VS (
     echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
     goto :EndVSCheck
@@ -47,11 +56,17 @@ echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
 :: We use VCTools because it is the correct ID for the "Build Tools" SKU
 winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --norestart"
 
-:: 3. Re-Check after Winget
+:: 3. Re-Check after Winget (Check 1 OR Check 2)
 set "HAS_VS_RECHECK="
 if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
         set "HAS_VS_RECHECK=%%i"
+    )
+    
+    if not defined HAS_VS_RECHECK (
+        for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
+            set "HAS_VS_RECHECK=%%i"
+        )
     )
 )
 
@@ -82,9 +97,14 @@ if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer
 :: Use VCTools here as well
 start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "%VS_PARTIAL_PATH%" --add Microsoft.VisualStudio.Workload.VCTools --passive --norestart
         
-:: 5. Final Re-Check
+:: 5. Final Re-Check (Check 1 OR Check 2)
 if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+        echo [SUCCESS] Workload added successfully!
+        goto :EndVSCheck
+    )
+    
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
         echo [SUCCESS] Workload added successfully!
         goto :EndVSCheck
     )
