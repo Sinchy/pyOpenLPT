@@ -9,7 +9,7 @@ echo 1. Create a Conda environment named 'OpenLPT'
 echo 2. Install all dependencies
 echo 3. Install the OpenLPT package
 echo.
-pause
+
 
 :: --- Visual Studio Build Tools Check ---
 echo.
@@ -199,6 +199,15 @@ if defined HAS_VS (
 	set "CMAKE_GENERATOR=Visual Studio 17 2022"
 )
 
+:: Clean previous build artifacts to prevent stale cache issues
+if exist build (
+    echo [INFO] Cleaning stale build directory...
+    rmdir /s /q build
+)
+if exist openlpt.egg-info (
+    rmdir /s /q openlpt.egg-info
+)
+
 pip install . --no-build-isolation
 if errorlevel 1 (
     echo [Error] Pip install failed.
@@ -216,4 +225,3 @@ echo       Installation Complete!
 echo       Launching OpenLPT GUI...
 echo ==========================================
 python GUI.py
-pause
