@@ -130,31 +130,122 @@ def ensure_ico_for_windows(png_path):
     return png_path
 
 def create_mac_shortcut(target_script, icon_path):
-    """Create a macOS .command file (executable script)."""
+    """
+    Create a macOS App Bundle (.app) instead of a simple .command file.
+    This allows for a native icon and better UX.
+    """
     desktop = get_desktop_path()
-    shortcut_path = desktop / "OpenLPT.command"
+    app_name = "OpenLPT.app"
+    app_path = desktop / app_name
     
-    if shortcut_path.exists():
-        return False
+    # If app bundle exists, verify or skip
+    if app_path.exists():
+        return 2 # Already exists code
         
     target_path = Path(target_script).resolve()
+    # Assume target_path is .../gui/main.py, we want project root .../
     working_dir = target_path.parent.parent
     
-    script_content = f"""#!/bin/bash
-cd "{working_dir}"
-"{sys.executable}" "{target_path}"
-"""
+    # App Bundle Structure
+    contents_dir = app_path / "Contents"
+    macos_dir = contents_dir / "MacOS"
+    resources_dir = contents_dir / "Resources"
     
     try:
-        with open(shortcut_path, "w") as f:
-            f.write(script_content)
+        os.makedirs(macos_dir, exist_ok=True)
+        os.makedirs(resources_dir, exist_ok=True)
+        
+        # 1. Info.plist
+        info_plist = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>OpenLPTLauncher</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.openlpt.gui</string>
+    <key>CFBundleName</key>
+    <string>OpenLPT</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>2.1.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.13</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>"""
+        
+        with open(contents_dir / "Info.plist", "w", encoding="utf-8") as f:
+            f.write(info_plist)
+            
+        # 2. Launcher Script
+        # We need to ensure we use the same python interpreter that is running this script
+        # and set the working directory correctly.
+        launcher_script = f"""#!/bin/bash
+EXEC="{sys.executable}"
+SCRIPT="{target_path}"
+DIR="{working_dir}"
+
+cd "$DIR"
+"$EXEC" "$SCRIPT"
+"""
+        launcher_path = macos_dir / "OpenLPTLauncher"
+        with open(launcher_path, "w", encoding="utf-8") as f:
+            f.write(launcher_script)
+        
         # Make executable
-        os.chmod(shortcut_path, 0o755)
+        os.chmod(launcher_path, 0o755)
+        
+        # 3. Handle Icon (png -> icns)
+        # We try to use standard macOS tools (sips, iconutil) to create .icns
+        if icon_path.exists():
+            try:
+                # Create a temporary iconset directory
+                iconset_dir = resources_dir / "AppIcon.iconset"
+                os.makedirs(iconset_dir, exist_ok=True)
+                
+                # We need specific sizes for iconutil
+                # 16, 32, 64, 128, 256, 512, 1024 (and 2x versions)
+                # For simplicity, we'll generate a few key sizes.
+                sizes = [16, 32, 64, 128, 256, 512, 1024]
+                
+                for s in sizes:
+                    out_name = f"icon_{s}x{s}.png"
+                    out_path = iconset_dir / out_name
+                    # sips -z H W input --out output
+                    ret = os.system(f'sips -z {s} {s} "{icon_path}" --out "{out_path}" > /dev/null 2>&1')
+                    
+                    if s > 512: continue # Skip 2x for smaller ones to save time, or do 2x logic if needed
+                    
+                    # 2x version
+                    out_name_2x = f"icon_{s}x{s}@2x.png"
+                    out_path_2x = iconset_dir / out_name_2x
+                    s2 = s * 2
+                    os.system(f'sips -z {s2} {s2} "{icon_path}" --out "{out_path_2x}" > /dev/null 2>&1')
+
+                # Convert iconset to icns
+                icns_path = resources_dir / "AppIcon.icns"
+                ret = os.system(f'iconutil -c icns "{iconset_dir}" -o "{icns_path}" > /dev/null 2>&1')
+                
+                # Cleanup iconset
+                import shutil
+                shutil.rmtree(iconset_dir, ignore_errors=True)
+                
+                if ret != 0:
+                     print("[Shortcut] Warning: Failed to convert icon using iconutil.")
+                     
+            except Exception as e:
+                print(f"[Shortcut] Icon generation failed: {e}")
+                
     except Exception as e:
-        print(f"Failed to create Mac shortcut: {e}")
+        print(f"Failed to create Mac App Bundle: {e}")
         return -1
         
-    return 1 if shortcut_path.exists() else -1
+    return 1 if app_path.exists() else -1
 
 def check_and_create_shortcut():
     """
