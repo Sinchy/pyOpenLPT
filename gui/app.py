@@ -401,6 +401,11 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Use Fusion style for better cross-platform look
     
+    # Set app icon (Critical for Mac Dock)
+    icon_path = Path(__file__).parent / "assets" / "icon.png"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
     window = OpenLPTMainWindow()
     window.showMaximized()
     
