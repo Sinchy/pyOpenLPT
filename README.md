@@ -137,7 +137,7 @@ Users who want to install the pure cpp version can refer to the file [README_CPP
 ## Support
 
 If you are having issues, please let me know.
-I have a mailing list located at: szhong12@jhu.edu 
+I have a mailing list located at: szhong12@jhu.edu or tanshiyong84@gmail.com
 
 
 ## License

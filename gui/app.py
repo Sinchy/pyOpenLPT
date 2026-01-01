@@ -409,6 +409,29 @@ def main():
     window = OpenLPTMainWindow()
     window.showMaximized()
     
+    # Check for shortcut creation (after window show so we have context, though MessageBox works independently)
+    try:
+        from create_shortcut import check_and_create_shortcut
+        from PySide6.QtWidgets import QMessageBox
+        
+        shortcut_status = check_and_create_shortcut()
+        
+        if shortcut_status == 1:
+            QMessageBox.information(
+                window,
+                "Shortcut Created",
+                "A shortcut for OpenLPT has been created on your desktop."
+            )
+        elif shortcut_status == -2:
+             QMessageBox.warning(
+                window,
+                "Shortcut Creation Failed",
+                "Failed to create desktop shortcut because your desktop path contains non-English characters.\n\n"
+                "Please check the README or create the shortcut manually."
+            )
+    except Exception as e:
+        print(f"Failed to check shortcut: {e}")
+
     sys.exit(app.exec())
 
 
