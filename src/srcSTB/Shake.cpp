@@ -125,17 +125,6 @@ Shake::runShake(std::vector<std::unique_ptr<Object3D>> &objs,
   }
   double mean_score = (cnt ? sum / cnt : 0.0);
 
-  // remove outliers
-  for (int i = 0; i < _score_list.size(); i ++)
-    {
-        if (_score_list[i] > 30 * mean_score && !is_repeated[i])
-        {
-            sum -= _score_list[i];
-            cnt --;
-        }
-    }
-    mean_score = sum / cnt;
-
   const double percent_ghost = _obj_cfg._shake_param._thred_ghost;
 
   for (size_t i = 0; i < n_obj; ++i) {
@@ -752,8 +741,8 @@ double Shake::calObjectScore(Object3D &obj, std::vector<ROIInfo> &ROI_info,
   }
 
   // calculate intensity ratio for each camera r_k = |sum_measured / sum_model|
-  double ratio = 0.0;
-  int cam_used = 0;
+  double total_numer = 0.0;
+  double total_denom = 0.0;
 
   for (int k = 0; k < n_cam; ++k) {
     if (!use_cam[k])
@@ -777,29 +766,19 @@ double Shake::calObjectScore(Object3D &obj, std::vector<ROIInfo> &ROI_info,
         denom += pred;
       }
     }
-
-    const double rk = std::abs(numer / denom); // 单相机亮度比值（≥0）
-    ratio += rk;
-    cam_used++;
-
-    // if (rk > 999) {
-    //     std::cout<<"Intenisty of prediction: "<< denom << std::endl;
-    //     std::cout<<"2D location:" << obj._obj2d_list[k]->_pt_center[0] << ","
-    //     << obj._obj2d_list[k]->_pt_center[1] << std::endl; const auto sz =
-    //     _strategy->calROISize(obj, k); const double dx = std::max(0.0,
-    //     sz.dx); const double dy = std::max(0.0, sz.dy); std::cout <<"Object
-    //     size:" << dx << "," << dy << std::endl; std::cout <<"ROI:"
-    //     <<R.row_min << "~" << R.row_max << "," << R.col_min << "~" <<
-    //     R.col_max << std::endl; THROW_FATAL(ErrorCode::Unknown, "invalid
-    //     prediciton.");
-    // }
+    total_numer += numer;
+    total_denom += denom;
   }
-  ratio = (cam_used > 0)
-              ? ratio / static_cast<double>(cam_used)
-              : 0.0; // geometric mean may not be stable if prediction is far
-                     // from measurement in the beginning
 
-  return ratio;
+  // Calculate aggregated ratio
+  double ratio = (total_denom > kTiny) ? (total_numer / total_denom) : 1.0;
+
+  // Paper: "capping the intensity ratio at 3/2 and 2/3"
+  ratio = std::max(2.0 / 3.0, std::min(1.5, ratio));
+
+  // Paper: "Taking the root of the intensity ratio proved to dampen intensity
+  // oscillations"
+  return std::sqrt(ratio);
 }
 
 // mark repeated objects

@@ -157,6 +157,7 @@ class OpenLPTMainWindow(QMainWindow):
             ("fa5s.sliders-h", "Settings", 2),
             ("fa5s.crosshairs", "Tracking", 3),
             ("fa5s.chart-line", "Results", 4),
+            ("fa5s.book", "Tutorial", 5),
         ]
         
         for icon_name, text, idx in nav_items:
@@ -221,6 +222,20 @@ class OpenLPTMainWindow(QMainWindow):
 
     def _on_nav_clicked(self, index: int):
         """Handle navigation selection change."""
+        if index == 5: # Tutorial
+            # Open tutorial URL and keep previous selection
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            
+            guide_path = Path(__file__).parent / "docs" / "index.html"
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(guide_path)))
+            
+            # Revert selection to previous valid index or keep current if valid
+            current = self.stack.currentIndex()
+            if self.nav_group.button(current):
+                self.nav_group.button(current).setChecked(True)
+            return
+
         self.stack.setCurrentIndex(index)
         
         # Auto-fill Project Path in Results View from Tracking View

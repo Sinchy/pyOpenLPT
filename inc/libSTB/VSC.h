@@ -266,8 +266,8 @@ private:
    * @param half_w Half-width of the patch to process.
    * @return OTFParams struct with a, b, c, alpha.
    */
-  OTFParams estimateOTFParams(const Image &img, const Pt2D &center,
-                              int half_w) const;
+  OTFParams estimateOTFParams(const Matrix<double> &roi, const Pt2D &center_rel,
+                              double obj_radius) const;
 };
 
 #endif // LIBSTB_VSC_H

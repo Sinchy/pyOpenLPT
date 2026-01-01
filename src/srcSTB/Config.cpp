@@ -253,7 +253,7 @@ bool TracerConfig::readConfig(const std::string &filepath,
     _radius_obj = std::stod(lines[id++]);
 
     // Initialize OTF
-    _otf.loadParam(settings._n_cam, 2, 2, 2, settings._axis_limit,
+    _otf.loadParam(settings._n_cam, 5, 5, 5, settings._axis_limit,
                    settings._cam_list);
     _otf._output_path = settings._output_path;
 

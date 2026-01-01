@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking Settings Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1e1e1e;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #00bcd4;
+            border-bottom: 2px solid #00bcd4;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #4dd0e1;
+            margin-top: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .container {
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 8px;
+        }
+
+        .step-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #00bcd4;
+        }
+
+        .important-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #ff9800;
+            background-color: #332b00;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        code {
+            background-color: #333;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #ff9800;
+        }
+
+        a.back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00bcd4;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a.back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        <h1>Tracking Settings</h1>
+        <p>Configure the parameters for the OpenLPT tracking pipeline. Proper path setup is critical for automatic
+            parameter initialization.</p>
+
+        <h2>1. Project Directory</h2>
+        <div class="step-block">
+            <p><strong>This is the first and most important step.</strong></p>
+            <ul>
+                <li><strong>Automatic Loading</strong>: Generally, the <em>Project Path</em>, <em>Image Path</em>, and
+                    <em>Camera Path</em> will be automatically populated from previous modules (Camera Calibration and
+                    Image Preprocessing).</li>
+                <li><strong>Manual Setup</strong>: If no paths are pre-loaded, you must manually select the correct
+                    directories.</li>
+                <li><strong>Requirement</strong>: The <strong>Camera Path</strong> directory must contain valid camera
+                    parameter files (e.g., <code>cam0.txt</code>, <code>cam1.txt</code>...). Without these, the system
+                    cannot automatically calculate the default Volume Size or IPR Tolerances.</li>
+            </ul>
+        </div>
+
+        <h2>2. Basic Settings</h2>
+        <div class="step-block">
+            <h3>Coordinate System & Volume</h3>
+            <ul>
+                <li><strong>Voxel to mm</strong>: Scaling factor (e.g., 0.001).</li>
+                <li><strong>View Volume (X/Y/Z)</strong>:
+                    <div class="important-block">
+                        <strong>Auto-Calculated:</strong> If the Camera Path is valid, the View Volume boundaries are
+                        automatically calculated to cover the calibrated area. You typically <u>do not</u> need to
+                        change these values manually.
+                    </div>
+                </li>
+            </ul>
+            <h3>Sequence</h3>
+            <ul>
+                <li><strong>Frame Start / End</strong>: Range of frames to process.</li>
+                <li><strong>FPS</strong>: Frame rate of the recording.</li>
+            </ul>
+        </div>
+
+        <h2>3. IPR (Iterative Particle Reconstruction)</h2>
+        <div class="step-block">
+            <p>Parameters for triangularizing 3D particles from 2D images.</p>
+            <ul>
+                <li><strong>2D Tolerance (px)</strong> & <strong>3D Tolerance (voxel)</strong>:
+                    <div class="important-block">
+                        <strong>Auto-Calculated:</strong> Like the View Volume, these tolerances are derived
+                        automatically from your camera parameters. No manual adjustment is usually required.
+                    </div>
+                </li>
+                <li><strong>IPR Loops</strong>: Total triangulation iterations (default: 4).</li>
+            </ul>
+        </div>
+
+        <h2>4. Object Settings</h2>
+        <div class="step-block" style="border-left-color: #e91e63;">
+            <p><strong>⚠️ User Attention Required</strong>: This is the primary area where you must tune parameters
+                based on your specific experiment.</p>
+
+            <h3>If tracking Tracers:</h3>
+            <ul>
+                <li><strong>Intensity Threshold</strong>: The most critical parameter. Set this high enough to eliminate
+                    background noise but low enough to detect valid particles.</li>
+                <li><strong>Tracer Radius</strong>: Expected particle radius in pixels.</li>
+            </ul>
+
+            <h3>If tracking Bubbles:</h3>
+            <ul>
+                <li><strong>Min / Max Bubble Radius</strong>: Define the size range of bubbles you want to track.
+                    Correctly setting these bounds is essential for filtering out debris or wrong-sized objects.</li>
+            </ul>
+        </div>
+
+        <h2>5. STB (Shake-The-Box)</h2>
+        <div class="step-block">
+            <p>Advanced Lagrangian tracking algorithm.</p>
+            <ul>
+                <li><strong>Initial Phase</strong>: Search radius and required frame count to start a track.</li>
+                <li><strong>Convergence Phase</strong>: Expected particle spacing.</li>
+                <li><strong>Predict Field</strong>: Grid resolution for velocity prediction.</li>
+                <li><strong>Shake</strong>: Optimization amplitude and ghost particle threshold.</li>
+            </ul>
+        </div>
+
+        <h2>Actions</h2>
+        <div class="step-block">
+            <ul>
+                <li><strong>Validate Settings</strong>: Checks consistency of paths and parameters.</li>
+                <li><strong>Save Configuration</strong>: Writes <code>config.txt</code> to the Project Directory.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenLPT User Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1e1e1e;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #00bcd4;
+            border-bottom: 2px solid #00bcd4;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+
+        .container {
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .module-card {
+            background-color: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, background-color 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            background-color: #333336;
+            border-color: #00bcd4;
+        }
+
+        .module-card h3 {
+            color: #00bcd4;
+            margin-top: 0;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .module-card p {
+            font-size: 0.9em;
+            color: #b0b0b0;
+            margin: 0;
+        }
+
+        .icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>OpenLPT User Guide</h1>
+        <p style="text-align: center; color: #b0b0b0;">Select a module below to view its detailed documentation.</p>
+
+        <div class="module-grid">
+            <a href="../../modules/camera_calibration/plate_calibration/PLATE_CALIBRATION_USER_GUIDE.html"
+                class="module-card">
+                <h3><span class="icon">📷</span>Plate Calibration</h3>
+                <p>Learn how to calibrate cameras using a calibration plate target.</p>
+            </a>
+
+            <a href="../../modules/camera_calibration/wand_calibration/WAND_CALIBRATION_USER_GUIDE.html"
+                class="module-card">
+                <h3><span class="icon">🪄</span>Wand Calibration</h3>
+                <p>Guide for calibrating cameras using a moving wand target.</p>
+            </a>
+
+            <a href="preprocessing.html" class="module-card">
+                <h3><span class="icon">🌫️</span>Image Preprocessing</h3>
+                <p>Techniques for background subtraction, masking, and image enhancement.</p>
+            </a>
+
+            <a href="settings.html" class="module-card">
+                <h3><span class="icon">⚙️</span>Tracking Settings</h3>
+                <p>Configuration guide for particle finding, stereo matching, and shaking parameters.</p>
+            </a>
+
+            <a href="tracking.html" class="module-card">
+                <h3><span class="icon">🎯</span>Tracking</h3>
+                <p>How to run the tracking pipeline and monitor progress.</p>
+            </a>
+
+            <a href="results.html" class="module-card">
+                <h3><span class="icon">📊</span>Results Analysis</h3>
+                <p>Visualizing tracks, analyzing statistics, and exporting data.</p>
+            </a>
+        </div>
+    </div>
+
+</body>
+
+</html>

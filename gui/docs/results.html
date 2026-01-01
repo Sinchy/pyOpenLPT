@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results Analysis Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1e1e1e;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #00bcd4;
+            border-bottom: 2px solid #00bcd4;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #4dd0e1;
+            margin-top: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .container {
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 8px;
+        }
+
+        .step-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #00bcd4;
+        }
+
+        .note-block {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #333;
+            border-radius: 4px;
+            font-size: 0.95em;
+            border-left: 3px solid #9c27b0;
+        }
+
+        code {
+            background-color: #333;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #ff9800;
+        }
+
+        a.back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00bcd4;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a.back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        <h1>Results Analysis</h1>
+        <p>Post-process tracking data, calculate kinematics (velocity/acceleration), analyze noise, and export results.
+        </p>
+
+        <h2>1. Loading Data</h2>
+        <div class="step-block">
+            <ul>
+                <li><strong>Project Directory</strong>: Select the root folder of your project.</li>
+                <li><strong>Load Tracks</strong>: Reads the `ConvergeTrack` output files (CSV). Large datasets may take
+                    a few seconds to load.</li>
+            </ul>
+        </div>
+
+        <h2>2. Processing & Kinematics</h2>
+        <div class="step-block">
+            <p>Compute smooth derivatives for velocity and acceleration.</p>
+            <ul>
+                <li><strong>Frame Rate</strong>: Set the recording FPS (e.g., 3000 Hz).</li>
+                <li><strong>Filter Width (Sigma)</strong>: Gaussian kernel width for position smoothing (default 1.0).
+                </li>
+                <li><strong>Acc Filter Width</strong>: Kernel width for acceleration smoothing.</li>
+                <li><strong>Calculate Kinematics</strong>: Runs the differentiation pipeline. Must be done before
+                    visualization or export.</li>
+            </ul>
+        </div>
+
+        <h2>3. Noise Analysis</h2>
+        <div class="step-block">
+            <h3>Optimize Filter Width</h3>
+            <p>Click <strong>Analyze Noise Curve</strong> to automatically determine the optimal Gaussian filter width.
+            </p>
+            <ul>
+                <li><strong>Velocity/Acc Noise Tabs</strong>: Shows the "L-curve" of noise vs. filter width.
+                    <div class="note-block">
+                        The optimal point (red dot) identifies the <strong>Inflection Point</strong>. This represents
+                        the threshold where further filtering continues to degrade the real signal without significantly
+                        reducing the noise.
+                    </div>
+                </li>
+                <li><strong>Signal Check Tabs</strong>:
+                    <ul>
+                        <li><em>Pos Check</em>: Compares Raw vs. Filtered trajectory.</li>
+                        <li><em>Vel/Acc Check</em>: Compares derived quantities against raw differencing.</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <h2>4. Visualization</h2>
+        <div class="step-block">
+            <h3>3D Plotting</h3>
+            <ul>
+                <li><strong>Color By</strong>:
+                    <ul>
+                        <li><em>Uniform</em>: Single color (fastest).</li>
+                        <li><em>Velocity/Acceleration Magnitude</em>: Colors particles by speed or force (Jet colormap).
+                        </li>
+                        <li><em>Track ID</em>: Unique color per track.</li>
+                    </ul>
+                </li>
+                <li><strong>Show Top N Tracks</strong>: Slider to limit display to the longest tracks (reduces clutter).
+                </li>
+                <li><strong>Visualize</strong>: Renders the 3D plot. Use mouse to rotate, scroll to zoom, right-click to
+                    pan.</li>
+            </ul>
+        </div>
+
+        <h2>5. Export</h2>
+        <div class="step-block">
+            <ul>
+                <li><strong>Export to .mat</strong>: Saves the processed tracks, including position, velocity, and
+                    acceleration, to a MATLAB-compatible `.mat` file in the project's Results folder.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

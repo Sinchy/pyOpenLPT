@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QProgressDialog, QSlider, QCheckBox, QSpinBox, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QButtonGroup
 )
-from PySide6.QtCore import Qt, QProcess, QIODevice, Signal, Slot, QObject, QThread, QCoreApplication, QSize, QTimer, QPointF
+from PySide6.QtCore import Qt, QProcess, QIODevice, Signal, Slot, QObject, QThread, QCoreApplication, QSize, QTimer, QPoint, QPointF, QRectF
 from PySide6.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QMouseEvent, QWheelEvent
 
 class ZoomableLabel(QLabel):
@@ -22,6 +22,7 @@ class ZoomableLabel(QLabel):
     zoomed = Signal(float)          # delta (+1 or -1)
     panned = Signal(float, float)   # dx, dy (normalized -1..1)
     resetView = Signal()            # Double click to reset
+    clicked = Signal(QPoint)        # Click on raw coordinates
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -39,6 +40,7 @@ class ZoomableLabel(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
             self.last_mouse_pos = event.pos()
+            self.press_pos = event.pos()
             
     def mouseMoveEvent(self, event: QMouseEvent):
         if event.buttons() & Qt.MouseButton.LeftButton and self.last_mouse_pos:
@@ -55,6 +57,9 @@ class ZoomableLabel(QLabel):
             
     def mouseReleaseEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
+            # If movement was small, emit clicked signal
+            if hasattr(self, 'press_pos') and (event.pos() - self.press_pos).manhattanLength() < 5:
+                self.clicked.emit(event.pos())
             self.last_mouse_pos = None
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -273,6 +278,9 @@ class TrackingView(QWidget):
         self.view_2d_center = (0.5, 0.5)
         self.active_2d_map = {} # {frame_id: {cam_idx: [(x, y, r, color), ...]}}
         
+        self.vsc_active = False
+        self.vsc_data = {}
+        
         self._setup_ui()
     
     def _setup_ui(self):
@@ -348,6 +356,7 @@ class TrackingView(QWidget):
             lbl.zoomed.connect(self._on_2d_zoom)
             lbl.panned.connect(self._on_2d_pan)
             lbl.resetView.connect(self._on_2d_reset)
+            lbl.clicked.connect(lambda p, idx=i: self._on_2d_view_clicked(idx, p))
             
             # Don't use setScaledContents - we'll scale pixmap manually to preserve aspect ratio
             self.cam_labels.append(lbl)
@@ -421,10 +430,15 @@ class TrackingView(QWidget):
              QTabBar::tab:selected { background: #000000; color: #fff; border-top: 2px solid #00d4ff; border-bottom: 0px; font-weight: bold; }
         """)
         
-        # Tab 1: Run Tracking
+        # Tab 1: Run Tracking (with scroll area)
+        self.run_tab_scroll = QScrollArea()
+        self.run_tab_scroll.setWidgetResizable(True)
+        self.run_tab_scroll.setStyleSheet("QScrollArea { background: #000; border: none; }")
+        
         self.run_tab = QWidget()
         self._setup_run_tab()
-        self.ctrl_tabs.addTab(self.run_tab, "Run Tracking")
+        self.run_tab_scroll.setWidget(self.run_tab)
+        self.ctrl_tabs.addTab(self.run_tab_scroll, "Run Tracking")
         
         # Tab 2: Check Tracking (with scroll area)
         self.check_tab_scroll = QScrollArea()
@@ -647,7 +661,9 @@ class TrackingView(QWidget):
         # Connect check_tab to scroll area and add to tabs
         self.check_tab_scroll.setWidget(self.check_tab)
         self.ctrl_tabs.addTab(self.check_tab_scroll, "Check Tracking")
-        self.ctrl_tabs.currentChanged.connect(lambda i: self._load_track_statistics() if i == 1 else None)
+        
+        self.ctrl_tabs.currentChanged.connect(self._on_ctrl_tab_changed)
+
         
         content_layout.addWidget(self.ctrl_tabs)
         main_layout.addLayout(content_layout)
@@ -744,6 +760,25 @@ class TrackingView(QWidget):
         """)
         self.vsc_btn.clicked.connect(self._run_vsc)
         vsc_layout.addWidget(self.vsc_btn, 3, 0, 1, 2)
+        
+        # Frame List Table for VSC
+        self.vsc_frame_table = QTableWidget()
+        self.vsc_frame_table.setColumnCount(2)
+        self.vsc_frame_table.setHorizontalHeaderLabels(["Frame ID", "Valid Points"])
+        self.vsc_frame_table.verticalHeader().setVisible(False)
+        self.vsc_frame_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.vsc_frame_table.setSortingEnabled(True)
+        self.vsc_frame_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.vsc_frame_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.vsc_frame_table.setMinimumHeight(150)
+        self.vsc_frame_table.setStyleSheet("""
+            QTableWidget { background-color: #111; color: #eee; gridline-color: #333; border: 1px solid #444; }
+            QHeaderView::section { background-color: #222; color: #aaa; padding: 2px; border: 1px solid #333; }
+            QTableWidget::item:selected { background-color: #005a8c; color: #fff; }
+        """)
+        self.vsc_frame_table.itemClicked.connect(self._on_vsc_frame_selected)
+        vsc_layout.addWidget(self.vsc_frame_table, 4, 0, 1, 2)
+
         
         layout.addWidget(vsc_group)
 
@@ -984,12 +1019,63 @@ class TrackingView(QWidget):
         )
         
         # Run VSC
-        success, message = service.run()
+        success, message, vsc_data = service.run()
         
         # Re-enable button
         self.vsc_btn.setEnabled(True)
         self.vsc_btn.setText(" Run VSC")
         
+        if success or vsc_data.get('valid_points'):
+            self.vsc_data = vsc_data
+            
+            # Ingest tracks into cache efficiently
+            if 'tracks' in vsc_data:
+                self.cached_coords = {}
+                self.cached_lengths = {}
+                self.cached_2d_coords = {}
+                for tid, pts in vsc_data['tracks'].items():
+                    # pts is list of (frame, x, y, z, {cam_idx: (x2d, y2d, r2d)})
+                    clean_3d = []
+                    clean_2d = []
+                    for p in pts:
+                        try:
+                            # 3D: [f, x, y, z]
+                            clean_3d.append([float(p[0]), float(p[1]), float(p[2]), float(p[3])])
+                            # 2D: (f, {cam_idx: (x2d, y2d, r2d)})
+                            if len(p) > 4 and isinstance(p[4], dict):
+                                clean_2d.append((int(p[0]), p[4]))
+                        except: continue
+                    
+                    if clean_3d:
+                        self.cached_coords[tid] = clean_3d
+                        self.cached_lengths[tid] = len(clean_3d)
+                        if clean_2d:
+                            self.cached_2d_coords[tid] = clean_2d
+                
+                self.cached_proj_path = proj_dir
+                self.cached_obj_type = "Tracer" # Default for VSC
+                
+                # Compute global axis limits
+                all_pts = []
+                for pts in self.cached_coords.values():
+                    # Take x, y, z
+                    for p in pts:
+                        all_pts.append(p[1:4])
+                
+                if all_pts:
+                    all_pts = np.array(all_pts, dtype=np.float32)
+                    margin = 0.05
+                    mi = np.min(all_pts, axis=0)
+                    ma = np.max(all_pts, axis=0)
+                    diff = ma - mi
+                    self.global_xlim = (mi[0] - diff[0]*margin, ma[0] + diff[0]*margin)
+                    self.global_ylim = (mi[1] - diff[1]*margin, ma[1] + diff[1]*margin)
+                    self.global_zlim = (mi[2] - diff[2]*margin, ma[2] + diff[2]*margin)
+            
+            # Ensure cameras are discovered so 2D view has image paths
+            self._discover_cameras()
+            self._update_vsc_visualization(vsc_data)
+            
         if success:
             self._append_log(f"\n[SUCCESS] {message}\n")
             QMessageBox.information(self, "VSC Complete", 
@@ -999,6 +1085,135 @@ class TrackingView(QWidget):
         else:
             self._append_log(f"\n[FAILED] {message}\n")
             QMessageBox.warning(self, "VSC Failed", f"Volume Self-Calibration failed:\n{message}")
+
+    def _update_vsc_visualization(self, vsc_data):
+        """Update UI with VSC results."""
+        self.vsc_active = True
+        valid_points = vsc_data.get('valid_points', [])
+        
+        # 1. Populate Frame Table
+        from collections import defaultdict
+        frame_counts = defaultdict(int)
+        for pt in valid_points:
+            if 'frame_id' in pt:
+                frame_counts[pt['frame_id']] += 1
+        
+        self.vsc_frame_table.setRowCount(0)
+        sorted_frames = sorted(frame_counts.keys())
+        self.vsc_frame_table.setRowCount(len(sorted_frames))
+        
+        for row, fid in enumerate(sorted_frames):
+            # Frame ID
+            self.vsc_frame_table.setItem(row, 0, NumericTableWidgetItem(str(fid)))
+            # Count
+            self.vsc_frame_table.setItem(row, 1, NumericTableWidgetItem(str(frame_counts[fid])))
+            
+        # 2. 3D Visualization
+        # Plot all tracks (semi-transparent blue)
+        # Plot valid points (bright green)
+        self._show_vsc_3d_plot(valid_points)
+        
+        # 3. Switch to 3D tab
+        self.vis_tabs.setCurrentIndex(0)
+
+    def _show_vsc_3d_plot(self, valid_points):
+        """Plot all tracks (sampled) and VSC effective points using standard Matplotlib calls."""
+        if not self.cached_coords: 
+            return
+            
+        # 1. Clear existing 3D plot layout completely
+        while self.vis_3d_layout.count():
+            item = self.vis_3d_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Reset pointers to avoid "Internal C++ object already deleted" error
+        # when switching back to standard view (prevents callback/closure crashes)
+        self.current_fig = None
+        self.current_ax = None
+        self.current_canvas = None
+        self.coord_label = None
+        self.scatter_tail = None
+        self.scatter_head = None
+
+        try:
+            fig = Figure(figsize=(8, 8), facecolor='black')
+            ax = fig.add_subplot(111, projection='3d')
+            ax.set_facecolor('black')
+            
+            # --- 2. Plot Trajectories (All tracks, high-performance point plotting) ---
+            all_x, all_y, all_z = [], [], []
+            for tid, pts in self.cached_coords.items():
+                pts_arr = np.array(pts)
+                if pts_arr.size > 0:
+                    all_x.extend(pts_arr[:, 1])
+                    all_y.extend(pts_arr[:, 2])
+                    all_z.extend(pts_arr[:, 3])
+
+            if all_x:
+                # markersize=1.0 and extremely low alpha=0.03 to ensure transparency even in dense areas
+                ax.plot(all_x, all_y, all_z, 'b.', markersize=1.0, alpha=0.03, zorder=1)
+            
+            # --- 3. Plot Effective Points (Size matched to track markers) ---
+            if valid_points:
+                px = [float(pt['pt3d'][0]) for pt in valid_points]
+                py = [float(pt['pt3d'][1]) for pt in valid_points]
+                pz = [float(pt['pt3d'][2]) for pt in valid_points]
+                
+                # s=2.25 matches markersize=1.5 (diameter) as requested
+                ax.scatter(px, py, pz, color='#00FF00', s=2.25, alpha=0.9, depthshade=False, zorder=100)
+                
+                # Center view on these points
+                mi_x, ma_x = min(px), max(px)
+                mi_y, ma_y = min(py), max(py)
+                mi_z, ma_z = min(pz), max(pz)
+                dx, dy, dz = ma_x - mi_x, ma_y - mi_y, ma_z - mi_z
+                
+                margin = 0.1
+                ax.set_xlim3d([mi_x - margin*dx, ma_x + margin*dx])
+                ax.set_ylim3d([mi_y - margin*dy, ma_y + margin*dy])
+                ax.set_zlim3d([mi_z - margin*dz, ma_z + margin*dz])
+
+            # Aesthetic adjustments
+            ax.set_xlabel('X (mm)', color='white')
+            ax.set_ylabel('Y (mm)', color='white')
+            ax.set_zlabel('Z (mm)', color='white')
+            ax.tick_params(colors='white', labelsize=8)
+            for pane in [ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane]:
+                pane.set_facecolor('black')
+            ax.grid(True, color='#222', alpha=0.3)
+            
+            self.current_canvas = FigureCanvas(fig)
+            self.vis_3d_layout.addWidget(self.current_canvas)
+            self.current_canvas.draw()
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"VSC 3D Plot Error: {e}")
+
+
+
+            
+    def _on_vsc_frame_selected(self, item):
+        """Handle click on VSC frame table."""
+        row = item.row()
+        fid_item = self.vsc_frame_table.item(row, 0)
+        if not fid_item: return
+        
+        frame_id = int(fid_item.text())
+        
+        # Set current 'animation' frame (for 2D view consistency)
+        self.vsc_active = True
+        self.current_anim_frame = frame_id
+        
+        # Switch to 2D view
+        self.vis_tabs.setCurrentIndex(1)
+        
+        # Force update 2D view
+        self._update_2d_view_frame()
+
+
 
     def _handle_stdout(self):
         data = self.process.readAllStandardOutput().data().decode(errors='replace')
@@ -1049,6 +1264,10 @@ class TrackingView(QWidget):
         # Use cache if already loaded for this project and not forced
         if not force and self.cached_proj_path == proj_dir and self.cached_lengths:
             self._display_statistics(self.cached_lengths, self.cached_coords)
+            # Ensure table and initial selection are populated if they were missing (e.g. after VSC)
+            if self.track_table.rowCount() == 0:
+                self._populate_track_table(self.cached_lengths)
+                self._update_active_selection()
             return
 
         # If data is different or forced, we need to clear and reload
@@ -1116,6 +1335,15 @@ class TrackingView(QWidget):
         """Update cache and UI with loaded statistics."""
         self.is_loading = False
         
+        if self.vsc_active:
+            self.cached_proj_path = self.proj_path_edit.text()
+            self.cached_lengths = track_lengths
+            self.cached_coords = track_coords
+            self.cached_2d_coords = track_2d_coords
+            # DO discover cameras even if VSC is active to ensure image paths are ready
+            self._discover_cameras()
+            return
+            
         # Update cache
         self.cached_proj_path = self.proj_path_edit.text()
         self.cached_lengths = track_lengths
@@ -1179,7 +1407,7 @@ class TrackingView(QWidget):
 
     def _display_statistics(self, track_lengths, track_coords, force_redraw=False):
         """Factorized method to update labels and plots with redundancy check."""
-        if not self.isVisible():
+        if not self.isVisible() or self.vsc_active:
             return
             
         proj_path = self.proj_path_edit.text()
@@ -1334,10 +1562,19 @@ class TrackingView(QWidget):
             if os.path.exists(txt_path):
                 try:
                     with open(txt_path, 'r') as f:
-                        # Read all lines, filtering empty ones
                         img_lines = [l.strip() for l in f if l.strip()]
-                        # Resolve absolute paths just to be safe
-                        self.cam_image_paths[cam_key] = [os.path.normpath(l) for l in img_lines]
+                        
+                        # VSC Protocol: Paths are relative to the directory containing the .txt file
+                        base_dir = os.path.dirname(txt_path)
+                        resolved_paths = []
+                        for l in img_lines:
+                             if os.path.isabs(l):
+                                 resolved_paths.append(os.path.normpath(l))
+                             else:
+                                 # Correctly join filename with its parent directory
+                                 resolved_paths.append(os.path.normpath(os.path.join(base_dir, l)))
+                        
+                        self.cam_image_paths[cam_key] = resolved_paths
                 except Exception as e:
                     print(f"Error loading images list {txt_path}: {e}")
             else:
@@ -1477,8 +1714,8 @@ class TrackingView(QWidget):
                     for c_idx, coords in cam_data.items():
                         if c_idx not in self.active_2d_map[frame_id]:
                             self.active_2d_map[frame_id][c_idx] = []
-                        # coords is (x, y, r)
-                        self.active_2d_map[frame_id][c_idx].append(coords)
+                        # coords is (x, y, r), store alongside tid
+                        self.active_2d_map[frame_id][c_idx].append((*coords, tid))
 
         # Recalculate animation frame range based on selection
         if self.anim_active_data:
@@ -1552,7 +1789,10 @@ class TrackingView(QWidget):
 
     def _on_plot_clicked(self):
         """Update 3D view based on selected tracks (Static Plot)."""
+        if self.vsc_active: return # Don't clobber VSC view
+        self.vsc_active = False # Explicitly reset VSC mode on plot
         if not self.cached_coords: return
+
         
         # Prepare loading indicator
         from PySide6.QtWidgets import QProgressDialog
@@ -1585,7 +1825,9 @@ class TrackingView(QWidget):
 
     def _toggle_animation(self):
         """Start or stop the 3D trajectory animation."""
+        self.vsc_active = False # Explicitly reset VSC mode on animation
         if self.is_animating:
+
             # STOP
             self.anim_timer.stop()
             self.is_animating = False
@@ -1818,6 +2060,12 @@ class TrackingView(QWidget):
     def _update_2d_view_frame(self):
         """Load and display camera frames for current animation frame."""
         try:
+            # VSC Visualization Mode Check
+            # Only trigger VSC overlay if we are explicitly on the "Run Tracking" tab (Index 0)
+            if self.ctrl_tabs.currentIndex() == 0 and getattr(self, 'vsc_active', False):
+                return self._render_vsc_2d_overlay()
+
+
             if not self.selected_cams or not self.cam_image_paths:
                 return
             
@@ -1826,6 +2074,7 @@ class TrackingView(QWidget):
                 return
             
             curr_f = self.current_anim_frame
+
             # No longer shifting by anim_frame_range[0] for images, 
             # assuming list index == frame number as per user requirement.
             
@@ -1891,7 +2140,7 @@ class TrackingView(QWidget):
                             
                             cam_points = self.active_2d_map[f].get(cam_idx, [])
                             
-                            for (x2d, y2d, r2d) in cam_points:
+                            for (x2d, y2d, r2d, tid) in cam_points:
                                 if f == curr_f:
                                     # Head
                                     color = (0, 255, 255) # Cyan
@@ -1900,7 +2149,7 @@ class TrackingView(QWidget):
                                         radius = float(r2d)
                                     else:
                                         radius = 0 
-                                    points_to_draw.append((x2d, y2d, radius, color, True))
+                                    points_to_draw.append((x2d, y2d, radius, color, True, tid))
                                 else:
                                     # Trail
                                     age = curr_f - f
@@ -1908,7 +2157,7 @@ class TrackingView(QWidget):
                                     alpha = max(0.0, (1.0 - norm_age) ** 2)
                                     g_val = int(255 * alpha)
                                     color = (0, g_val, 0)
-                                    points_to_draw.append((x2d, y2d, 0, color, False))
+                                    points_to_draw.append((x2d, y2d, 0, color, False, tid))
                     
                     
                     if not img.flags['C_CONTIGUOUS']:
@@ -1930,7 +2179,7 @@ class TrackingView(QWidget):
                          cam_points = self.active_2d_map[curr_f].get(cam_idx, [])
                          if cam_points:
                              # Assume first point is the target (since only 1 track)
-                             target_x, target_y, target_r = cam_points[0]
+                             target_x, target_y, target_r, target_tid = cam_points[0]
                              is_follow_mode = True
                              
                              # Determine Window Size
@@ -2052,10 +2301,16 @@ class TrackingView(QWidget):
                         sx_factor = target_w / src_w if src_w > 0 else 0
                         sy_factor = target_h / src_h if src_h > 0 else 0
                         
-                        for (ox, oy, orad, ocol, is_head) in points_to_draw:
-                            # Project to screen
-                            screen_x = (ox - src_x) * sx_factor
-                            screen_y = (oy - src_y) * sy_factor
+                        # Cache params for click-to-ID
+                        self.cam_labels[i].render_params = {
+                            'src_x': src_x, 'src_y': src_y,
+                            'sx_factor': sx_factor, 'sy_factor': sy_factor
+                        }
+                        
+                        for (ox, oy, orad, ocol, is_head, tid) in points_to_draw:
+                            # Project to screen (+0.5 offset to align pixel center with Qt corner codes)
+                            screen_x = (ox + 0.5 - src_x) * sx_factor
+                            screen_y = (oy + 0.5 - src_y) * sy_factor
                             
                             # Skip if out of view
                             if screen_x < 0 or screen_x > target_w or screen_y < 0 or screen_y > target_h:
@@ -2095,29 +2350,279 @@ class TrackingView(QWidget):
         except Exception as e:
             print(f"2D Update Error: {e}")
 
-    # --- 2D View Zoom/Pan Logic ---
-    
+    def _render_vsc_2d_overlay(self):
+        """Render 2D view for VSC results (Red/Yellow/Green markers)."""
+        vsc_data = self.vsc_data
+        valid_points = vsc_data.get('valid_points', [])
+        cameras_init = vsc_data.get('cameras_init', {})
+        cameras_optim = vsc_data.get('cameras_optim', {})
+        
+        curr_f = self.current_anim_frame
+        
+        # Filter points for current frame
+        frame_points = [p for p in valid_points if p.get('frame_id') == curr_f]
+        
+        if not self.selected_cams or not self.cam_image_paths:
+            return
+
+        from modules.vsc.camera_io import project_point
+        
+        for i, cam_name in enumerate(self.selected_cams):
+            if i >= 4: break
+            
+            # Extract cam index (e.g. cam0 -> 0)
+            try:
+                cam_idx = self.cam_name_to_idx.get(cam_name, i)
+            except:
+                cam_idx = i
+            
+            # Load Image
+            cam_key = cam_name.lower()
+            paths = self.cam_image_paths.get(cam_key, [])
+            if not paths or curr_f < 0 or curr_f >= len(paths):
+                self.cam_labels[i].setText(f"{cam_name} (Frame {curr_f} N/A)")
+                self.cam_labels[i].setPixmap(QPixmap()) 
+                continue
+            
+            img_path = paths[curr_f]
+            
+            try:
+                # OpenCV Read
+                import cv2
+                img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+                if img is None: continue
+                
+                if img.dtype == np.uint16:
+                     img = ((img.astype(np.float32) - img.min()) / (img.max() - img.min() + 1e-6) * 255).astype(np.uint8)
+                
+                if len(img.shape) == 2:
+                    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+                elif img.shape[2] == 4:
+                    img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
+                else:
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                
+                if not img.flags['C_CONTIGUOUS']:
+                    img = np.ascontiguousarray(img)
+                    
+                h_full, w_full, ch = img.shape
+                
+                # --- Collect Markers ---
+                # Red: Detected True Position
+                # Yellow: Projected (Before VSC)
+                # Green: Projected (After VSC)
+                
+                markers = [] # (x, y, color, size_px)
+                
+                for pt in frame_points:
+                     # 1. Red (True) -> Circle
+                     if cam_idx in pt['2d_per_cam']:
+                         det_2d = pt['2d_per_cam'][cam_idx]
+                         markers.append((det_2d[0], det_2d[1], QColor(255, 0, 0), "circle"))
+                     
+                     pt3d = pt['pt3d']
+                     
+                     # 2. Yellow (Before VSC) -> 'x'
+                     if cam_idx in cameras_init:
+                         params = cameras_init[cam_idx]
+                         proj_2d = project_point(pt3d, params['K'], params['R'], params['tvec'], params.get('dist'))
+                         markers.append((proj_2d[0], proj_2d[1], QColor(255, 255, 0), "x"))
+                         
+                     # 3. Green (After VSC) -> Plus '+'
+                     if cam_idx in cameras_optim:
+                         params = cameras_optim[cam_idx]
+                         proj_2d = project_point(pt3d, params['K'], params['R'], params['tvec'], params.get('dist'))
+                         markers.append((proj_2d[0], proj_2d[1], QColor(0, 255, 0), "plus"))
+
+            
+                # --- Rendering (Copy-Paste Logic from Standard View with VSC mods) ---
+                
+                # Manual Zoom/Pan Handling
+                src_x, src_y = 0, 0
+                src_w, src_h = w_full, h_full
+                
+                if self.view_2d_zoom > 1.0:
+                     uv_w = 1.0 / self.view_2d_zoom
+                     uv_h = 1.0 / self.view_2d_zoom
+                     cx, cy = self.view_2d_center
+                     _sx = int((cx - uv_w / 2) * w_full)
+                     _sy = int((cy - uv_h / 2) * h_full)
+                     src_x = max(0, _sx)
+                     src_y = max(0, _sy)
+                     x2 = min(w_full, src_x + int(uv_w * w_full))
+                     y2 = min(h_full, src_y + int(uv_h * h_full))
+                     src_w = x2 - src_x
+                     src_h = y2 - src_y
+                     
+                     img = img[src_y:y2, src_x:x2]
+                
+                if not img.flags['C_CONTIGUOUS']: img = np.ascontiguousarray(img)
+                h, w, ch = img.shape
+                bytes_per_line = ch * w
+                qimg = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888).copy()
+                pixmap = QPixmap.fromImage(qimg)
+                
+                if not pixmap.isNull():
+                    label_size = self.cam_labels[i].size()
+                    scaled = pixmap.scaled(label_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation)
+                    
+                    painter = QPainter(scaled)
+                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    
+                    target_w = scaled.width()
+                    target_h = scaled.height()
+                    
+                    # The original image dimensions (before cropping for zoom)
+                    # are w_full, h_full. The current 'img' has dimensions w, h.
+                    # The scaled pixmap has dimensions target_w, target_h.
+                    # We need to scale from the *original* image coordinates to the *scaled* pixmap coordinates.
+                    # The scaling factor should be based on the full image dimensions,
+                    # as the markers are in full image coordinates.
+                    
+                    # Calculate scaling factors from crop to scaled pixmap
+                    sx_factor = target_w / src_w if src_w > 0 else 0
+                    sy_factor = target_h / src_h if src_h > 0 else 0
+                    
+                    # Cache params for click-to-ID
+                    # For VSC, src_x and src_y are the top-left of the *cropped* view in original image coords.
+                    # The sx_factor and sy_factor are for scaling from original image coords to scaled pixmap.
+                    self.cam_labels[i].render_params = {
+                        'src_x': src_x, 'src_y': src_y,
+                        'sx_factor': sx_factor, 'sy_factor': sy_factor
+                    }
+                    
+                    # Draw Markers
+                    for ( mx, my, mcolor, mtype ) in markers:
+                        # Project to screen space (+0.5 offset to align center of pixel with Qt corner-coords)
+                        # mx, my are in original image coordinates.
+                        # We need to adjust for the cropped view (src_x, src_y) and then scale.
+                        sx = (mx + 0.5 - src_x) * sx_factor
+                        sy = (my + 0.5 - src_y) * sy_factor
+                        
+                        # Check bounds
+                        if sx < -10 or sx > target_w + 10 or sy < -10 or sy > target_h + 10:
+                            continue
+                            
+                        # --- Refined Markers (User Specified: Red-Circle, Yellow-X, Green-Plus) ---
+                        r = 3.5 # Consistent small size
+                        
+                        if mtype == "circle": # Red (Detected) -> Circle
+                             painter.setPen(QPen(mcolor, 1))
+                             painter.drawEllipse(QPointF(sx, sy), r, r)
+                        elif mtype == "x": # Yellow (Initial) -> 'x'
+                             painter.setPen(QPen(mcolor, 1))
+                             d = r * 0.707
+                             painter.drawLine(QPointF(sx - d, sy - d), QPointF(sx + d, sy + d))
+                             painter.drawLine(QPointF(sx - d, sy + d), QPointF(sx + d, sy - d))
+                        elif mtype == "plus": # Green (Optimized) -> '+'
+                             painter.setPen(QPen(mcolor, 2)) # Thicker plus
+                             rp = r * 1.5 # Make plus slightly larger than others
+                             painter.drawLine(QPointF(sx - rp, sy), QPointF(sx + rp, sy))
+                             painter.drawLine(QPointF(sx, sy - rp), QPointF(sx, sy + rp))
+
+
+
+
+
+
+
+                        
+                    painter.end()
+                    self.cam_labels[i].setPixmap(scaled)
+                    
+            except Exception as e:
+                self.cam_labels[i].setText(f"{cam_name} Error: {e}")
+
+
+    def _on_ctrl_tab_changed(self, index):
+        """Handle control tab switch (Run vs Check)."""
+        if index == 1:
+            # Switched to Check Tracking: Reset everything to allow standard plotting
+            self.vsc_active = False
+            self.ui_updated = False # Force redraw
+            
+            # CRITICAL: Reset figure state so _update_3d_view re-initializes correctly
+            # This prevents the VSC canvas from sticking around.
+            self.current_fig = None
+            self.current_ax = None
+            self.current_canvas = None
+            self.scatter_tail = None
+            self.scatter_head = None
+            
+            self._load_track_statistics()
+            
     def _on_2d_zoom(self, delta):
-        step = 0.1 * self.view_2d_zoom 
-        if delta > 0:
-            self.view_2d_zoom = min(10.0, self.view_2d_zoom + step)
-        else:
-            self.view_2d_zoom = max(1.0, self.view_2d_zoom - step)
+        """Increase zoom factor, capped at 200x for pixel-level inspection."""
+        factor = 1.2 if delta > 0 else 0.8 # Slightly more aggressive zoom
+        new_zoom = self.view_2d_zoom * factor
+        # Cap at 200.0 as requested ("再放大一点")
+        self.view_2d_zoom = max(1.0, min(200.0, new_zoom))
         if self.view_2d_zoom == 1.0:
             self.view_2d_center = (0.5, 0.5)
         self._update_2d_view_frame() 
         
     def _on_2d_pan(self, norm_dx, norm_dy):
-        if self.view_2d_zoom <= 1.0: return
-        uv_w, uv_h = 1.0 / self.view_2d_zoom, 1.0 / self.view_2d_zoom
-        shift_x, shift_y = norm_dx * uv_w, norm_dy * uv_h
+        # Update center 
+        # For pan, we shift relative to current zoom level
+        mv = 1.0 / self.view_2d_zoom
         cx, cy = self.view_2d_center
-        new_cx, new_cy = cx - shift_x, cy - shift_y
-        half_w, half_h = uv_w / 2, uv_h / 2
+        
+        # Calculate new center
+        new_cx = cx - norm_dx * mv
+        new_cy = cy - norm_dy * mv
+        
+        # Clamp to bounds to prevent panning out of view
+        half_w = 0.5 * mv
+        half_h = 0.5 * mv
         new_cx = max(half_w, min(1.0 - half_w, new_cx))
         new_cy = max(half_h, min(1.0 - half_h, new_cy))
+        
         self.view_2d_center = (new_cx, new_cy)
         self._update_2d_view_frame()
+
+    def _on_2d_view_clicked(self, label_idx, pos):
+        """Map screen click to image coordinates and identify closest track."""
+        if not self.selected_cams or label_idx >= len(self.selected_cams):
+            return
+            
+        label = self.cam_labels[label_idx]
+        params = getattr(label, 'render_params', None)
+        if not params or params['sx_factor'] == 0 or params['sy_factor'] == 0:
+            return
+            
+        # Map screen pos to image coords
+        # sx = (mx + 0.5 - src_x) * sx_factor  => mx = sx / sx_factor + src_x - 0.5
+        ix = pos.x() / params['sx_factor'] + params['src_x'] - 0.5
+        iy = pos.y() / params['sy_factor'] + params['src_y'] - 0.5
+        
+        # Identification Logic (Tracks in Check Tracking tab)
+        if self.ctrl_tabs.currentIndex() == 1 and hasattr(self, 'active_2d_map'):
+            curr_f = self.current_anim_frame
+            tail_len = self.anim_tail_spin.value()
+            cam_name = self.selected_cams[label_idx]
+            cam_idx = self.cam_name_to_idx.get(cam_name, -1)
+            
+            if cam_idx != -1:
+                # Search range: [curr_f - tail_len, curr_f]
+                best_tid = None
+                min_dist = 10.0 # 10px search radius in image space
+                
+                start_f = max(0, curr_f - tail_len)
+                for f in range(start_f, curr_f + 1):
+                    if f not in self.active_2d_map: continue
+                    points = self.active_2d_map[f].get(cam_idx, [])
+                    for (tx, ty, tr, tid) in points:
+                        dist = ((ix - tx)**2 + (iy - ty)**2)**0.5
+                        if dist < min_dist:
+                            min_dist = dist
+                            best_tid = tid
+                
+                if best_tid is not None:
+                    from PySide6.QtWidgets import QToolTip
+                    QToolTip.showText(label.mapToGlobal(pos), 
+                                     f"Track ID: {best_tid}", 
+                                     label)
+                    return
         
     def _on_2d_reset(self):
         self.view_2d_zoom = 1.0
@@ -2145,6 +2650,7 @@ class TrackingView(QWidget):
 
     def _on_anim_enable_changed(self, state):
         """Handle 'Enable Animation' toggle."""
+        # Removed self.vsc_active = False reset to prevent unwanted mode loss
         is_enabled = (state == Qt.CheckState.Checked.value)
         self.anim_btn.setEnabled(is_enabled)
         
@@ -2198,12 +2704,24 @@ class TrackingView(QWidget):
             err_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.hist_layout.addWidget(err_label)
 
-    def _update_3d_view(self, track_coords):
+    def _update_3d_view(self, track_coords, alpha=0.5):
         """Plot 3D trajectories in the left panel."""
-        # Clear previous widget
-        for i in reversed(range(self.vis_3d_layout.count())): 
-            widget = self.vis_3d_layout.itemAt(i).widget()
-            if widget: widget.setParent(None)
+        self.vsc_active = False # Ensure standard mode
+        
+        # 1. Robust Clear: Use while-takeAt to ensure everything is removed
+        while self.vis_3d_layout.count():
+            item = self.vis_3d_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Reset pointers to avoid "RuntimeError: Internal C++ object already deleted"
+        # This is critical if we recreate the layout (callbacks capture these members)
+        self.current_fig = None
+        self.current_ax = None
+        self.current_canvas = None
+        self.coord_label = None 
+        self.scatter_tail = None
+        self.scatter_head = None
 
         try:
             from mpl_toolkits.mplot3d import Axes3D
@@ -2277,10 +2795,9 @@ class TrackingView(QWidget):
                     # Extract numbers using regex
                     parts = re.findall(r"[-+]?\d*\.\d+|\d+", coord_str)
                     if len(parts) >= 3:
-                        # 4 Significant figures: 小数点前后共有 4 个数字
-                        # Example: 10.5367 -> 10.54, 5.2541 -> 5.254, 0.2043 -> 0.2043
                         formatted = f"X: {float(parts[0]):.4g}, Y: {float(parts[1]):.4g}, Z: {float(parts[2]):.4g}"
-                        self.coord_label.setText(formatted)
+                        if self.coord_label:
+                            self.coord_label.setText(formatted)
                 except: pass
 
             fig.canvas.mpl_connect('motion_notify_event', on_mouse_move)
@@ -2298,8 +2815,8 @@ class TrackingView(QWidget):
                 all_z.extend(pts[:, 3])
 
             if all_x:
-                # Use '.' markers and blue color
-                ax.plot(all_x, all_y, all_z, 'b.', markersize=0.5, alpha=0.5)
+                # markersize=1.5 is a clean, medium size for standard tracking check
+                ax.plot(all_x, all_y, all_z, 'b.', markersize=1.5, alpha=alpha)
             
             # Aesthetic adjustments
             ax.set_xlabel('X (mm)', color='white', fontsize=10)

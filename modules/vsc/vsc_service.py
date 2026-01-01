@@ -73,19 +73,25 @@ class VSCService:
             self.log_file.flush()
         print(msg)
     
-    def run(self) -> Tuple[bool, str]:
+    def run(self) -> Tuple[bool, str, Dict]:
         """
         Run the complete VSC workflow.
         
         Returns:
-            (success, message)
+            (success, message, data_dict)
+            data_dict contains:
+            - 'valid_points': List of correspondences
+            - 'cameras_init': Initial camera parameters
+            - 'cameras_optim': Optimized camera parameters
         """
         # Open log file
         log_path = os.path.join(self.proj_dir, "VSC_log.txt")
         try:
             self.log_file = open(log_path, 'w')
         except Exception as e:
-            return False, f"Failed to create log file: {e}"
+            return False, f"Failed to create log file: {e}", {}
+        
+        vsc_data = {}
         
         try:
             self._log("=" * 60)
@@ -97,26 +103,32 @@ class VSCService:
             self._log("\n[Step 1] Loading camera parameters...")
             success, msg = self._load_cameras()
             if not success:
-                return False, msg
+                return False, msg, {}
+            
+            # Save initial state using deep copy avoids reference issues
+            import copy
+            vsc_data['cameras_init'] = copy.deepcopy(self.cameras)
             
             # Step 2: Load object config
             self._log("\n[Step 2] Loading object configuration...")
             success, msg = self._load_object_config()
             if not success:
-                return False, msg
+                return False, msg, {}
             
             # Step 3: Load and filter tracks
             self._log("\n[Step 3] Loading and filtering tracks...")
             tracks = self._load_tracks()
+            self.tracks = tracks # Store for GUI return
+            
             if not tracks:
-                return False, "No tracks found in Results/ConvergeTrack"
+                return False, "No tracks found in Results/ConvergeTrack", {}
             
             good_tracks = self._filter_good_tracks(tracks)
             self._log(f"  Total tracks: {len(tracks)}")
             self._log(f"  Good tracks (length >= {self.min_track_len}): {len(good_tracks)}")
             
             if len(good_tracks) == 0:
-                return False, f"No tracks with length >= {self.min_track_len}"
+                return False, f"No tracks with length >= {self.min_track_len}", {}
             
             # Step 4: Sample 3D points uniformly
             self._log("\n[Step 4] Sampling 3D points uniformly...")
@@ -128,31 +140,36 @@ class VSCService:
             correspondences = self._find_correspondences(sampled_points)
             self._log(f"  Valid correspondences: {len(correspondences)}")
             
+            vsc_data['valid_points'] = correspondences
+            
             if len(correspondences) < self.min_valid_points:
-                return False, f"Only {len(correspondences)} valid points found, need {self.min_valid_points}"
+                return False, f"Only {len(correspondences)} valid points found, need {self.min_valid_points}", vsc_data
             
             # Step 6: Run optimization per camera
             self._log("\n[Step 6] Running TRF optimization (triangulation error)...")
             success, msg = self._run_optimization(correspondences)
             if not success:
-                return False, msg
+                return False, msg, vsc_data
             
             # Step 7: Save cameras and update config
             self._log("\n[Step 7] Saving optimized cameras...")
             self._save_cameras()
             self._update_config()
             
+            vsc_data['cameras_optim'] = copy.deepcopy(self.cameras)
+            vsc_data['tracks'] = self.tracks # Add tracks for GUI return
+            
             self._log("\n" + "=" * 60)
             self._log("VSC Completed Successfully!")
             self._log("=" * 60)
             
-            return True, "VSC completed successfully"
+            return True, "VSC completed successfully", vsc_data
             
         except Exception as e:
             import traceback
             self._log(f"\nERROR: {e}")
             self._log(traceback.format_exc())
-            return False, f"VSC failed: {e}"
+            return False, f"VSC failed: {e}", vsc_data
         finally:
             if self.log_file:
                 self.log_file.close()
@@ -1483,6 +1500,7 @@ def process_frame_task(frame_id: int, points: List[Tuple],
             
             if all_valid:
                 valid_corrs.append({
+                    'frame_id': frame_id,
                     'pt3d': np.array([x, y, z]),
                     '2d_per_cam': pts_2d_detected
                 })

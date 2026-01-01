@@ -111,11 +111,11 @@ Matrix<double> Rodrigues(const Pt3D &r_vec) {
 int getOTFGridID(const OTFParam &param, const Pt3D &pt) {
   // Compute grid cell indices
   int x_id =
-      static_cast<int>(std::floor((pt[0] - param.boundary.x_min) / param.dx));
+      static_cast<int>(std::lround((pt[0] - param.boundary.x_min) / param.dx));
   int y_id =
-      static_cast<int>(std::floor((pt[1] - param.boundary.y_min) / param.dy));
+      static_cast<int>(std::lround((pt[1] - param.boundary.y_min) / param.dy));
   int z_id =
-      static_cast<int>(std::floor((pt[2] - param.boundary.z_min) / param.dz));
+      static_cast<int>(std::lround((pt[2] - param.boundary.z_min) / param.dz));
 
   // Clamp to valid range
   x_id = std::max(0, std::min(x_id, param.nx - 1));
@@ -124,6 +124,119 @@ int getOTFGridID(const OTFParam &param, const Pt3D &pt) {
 
   // Linear index: i = x_id * (ny*nz) + y_id * nz + z_id
   return x_id * (param.ny * param.nz) + y_id * param.nz + z_id;
+}
+
+/**
+ * @brief Solve linear system Ax = B using Jacobi Eigenvalue Decomposition (SVD
+ * for symmetric).
+ *
+ * A must be symmetric (approx). A = V * W * V^T, where W is diagonal eigenvals.
+ * A^-1 = V * W^-1 * V^T.
+ *
+ * Handles ill-conditioned A by thresholding small eigenvalues.
+ *
+ * @param A Symmetric matrix (NxN).
+ * @param B RHS vector (Nx1).
+ * @return Solution vector x (Nx1).
+ */
+Matrix<double> solveSymmetricSVD(const Matrix<double> &A,
+                                 const Matrix<double> &B) {
+  int n = A.getDimRow();
+  Matrix<double> V = myMATH::eye<double>(n); // Eigenvectors
+  Matrix<double> D = A;                      // Will become diagonal eigenvalues
+
+  // Jacobi Iteration
+  int max_iter = 50;
+  for (int iter = 0; iter < max_iter; ++iter) {
+    double max_off_diag = 0.0;
+    int p = 0, q = 1;
+
+    // Find pivot
+    for (int i = 0; i < n; ++i) {
+      for (int j = i + 1; j < n; ++j) {
+        if (std::abs(D(i, j)) > max_off_diag) {
+          max_off_diag = std::abs(D(i, j));
+          p = i;
+          q = j;
+        }
+      }
+    }
+
+    if (max_off_diag < 1e-12)
+      break; // Converged
+
+    double theta = 0.5 * std::atan2(2.0 * D(p, q), D(q, q) - D(p, p));
+    double c = std::cos(theta);
+    double s = std::sin(theta);
+
+    // Rotate rows/cols p and q
+    // Update D (upper triangle only needed strictly, but we maintain full for
+    // simplicity) Actually, simple standard update: D' = J^T * D * J V' = V * J
+
+    // Careful manual update to avoid full multiplication
+    double D_pp = D(p, p);
+    double D_qq = D(q, q);
+    double D_pq = D(p, q);
+
+    D(p, p) = c * c * D_pp - 2 * s * c * D_pq + s * s * D_qq;
+    D(q, q) = s * s * D_pp + 2 * s * c * D_pq + c * c * D_qq;
+    D(p, q) = 0; // Explicitly zero
+    D(q, p) = 0;
+
+    for (int k = 0; k < n; ++k) {
+      if (k != p && k != q) {
+        double D_kp = D(k, p);
+        double D_kq = D(k, q);
+        D(k, p) = c * D_kp - s * D_kq;
+        D(p, k) = D(k, p);
+        D(k, q) = s * D_kp + c * D_kq;
+        D(q, k) = D(k, q);
+      }
+
+      // Update V (eigenvectors)
+      // V_new = V * J
+      // Col p = c*Col p - s*Col q
+      // Col q = s*Col p + c*Col q
+      double V_kp = V(k, p);
+      double V_kq = V(k, q);
+      V(k, p) = c * V_kp - s * V_kq;
+      V(k, q) = s * V_kp + c * V_kq;
+    }
+  }
+
+  // Solve x = V * W^-1 * V^T * B
+  // 1. C = V^T * B
+  Matrix<double> C(n, 1, 0.0);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {   // B is n x 1
+      C(i, 0) += V(j, i) * B(j, 0); // V^T(i,j) = V(j,i)
+    }
+  }
+
+  // 2. D = W^-1 * C
+  // Threshold eigenvalues
+  double max_eig = 0;
+  for (int i = 0; i < n; ++i)
+    max_eig = std::max(max_eig, std::abs(D(i, i)));
+  double thresh = max_eig * 1e-9;
+
+  for (int i = 0; i < n; ++i) {
+    if (std::abs(D(i, i)) > thresh) {
+      C(i, 0) /= D(i, i);
+    } else {
+      C(i, 0) = 0;
+    }
+  }
+
+  // 3. x = V * D (which is C now)
+  Matrix<double> x(n, 1, 0.0);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
+      x(i, 0) += V(i, j) * C(j, 0);
+    }
+  }
+
+  return x;
 }
 
 } // namespace
@@ -253,10 +366,11 @@ void VSC::accumulate(int frame_id, const std::deque<Track> &active_tracks,
         double r_j = obj_radii[k][j];
         const Pt2D &c_j = all_candidates[k][j]->_pt_center;
 
-        double dist = myMATH::dist2(c_i, c_j);
+        double dist2 = myMATH::dist2(c_i, c_j);
         double min_dist = r_i + r_j + _cfg._isolation_radius;
+        double min_dist2 = min_dist * min_dist;
 
-        if (dist < min_dist) {
+        if (dist2 < min_dist2) {
           is_isolated[k][i] = false;
           is_isolated[k][j] = false;
         }
@@ -310,9 +424,9 @@ void VSC::accumulate(int frame_id, const std::deque<Track> &active_tracks,
 
       double obj_r_px = obj_radii[k][nearest_idx];
       // Check if the nearest candidate is close enough to be "this" object
-      double margin = 0.25;
-      double match_threshold = obj_r_px * margin * obj_r_px * margin;
-      if (nearest_dist2 > match_threshold) {
+      double margin = 1.0;
+      double match_threshold2 = obj_r_px * margin * obj_r_px * margin;
+      if (nearest_dist2 > match_threshold2) {
         all_visible = false; // No matching candidate found
         break;
       }
@@ -364,16 +478,23 @@ void VSC::accumulate(int frame_id, const std::deque<Track> &active_tracks,
 
         if (x0 >= 0 && y0 >= 0 && x1 <= images[k].getDimCol() &&
             y1 <= images[k].getDimRow()) {
-          obs._otf_params = estimateOTFParams(images[k], obs._meas_2d, half_w);
 
-          // Store ROI for verification
-          // Since we checked bounds, we can copy directly without re-clipping
+          // Extract ROI
           obs._roi_intensity = Matrix<double>(y1 - y0, x1 - x0, 0.0);
           for (int r = y0; r < y1; ++r) {
             for (int c = x0; c < x1; ++c) {
               obs._roi_intensity(r - y0, c - x0) = images[k](r, c);
             }
           }
+
+          // Relative center within the ROI
+          Pt2D rel_center = obs._meas_2d;
+          rel_center[0] -= x0;
+          rel_center[1] -= y0;
+
+          // Estimate params using ROI and relative coords
+          obs._otf_params = estimateOTFParams(obs._roi_intensity, rel_center,
+                                              obs._obj_radius);
         } else {
           // If clipped, discard observation for robustness
           continue;
@@ -508,52 +629,121 @@ void VSC::updateGridAndRebalance(const Pt3D &pt) {
 // A matrix rows: [1, x, y, x^2, y^2, xy]
 // L vector rows: [ln(I)]
 
-VSC::OTFParams VSC::estimateOTFParams(const Image &img, const Pt2D &center,
-                                      int half_w) const {
+VSC::OTFParams VSC::estimateOTFParams(const Matrix<double> &roi,
+                                      const Pt2D &center_rel,
+                                      double obj_radius) const {
   OTFParams params;
   params.valid = false;
 
-  int cx = std::lround(center[0]);
-  int cy = std::lround(center[1]);
-  int x0 = std::max(0, cx - half_w);
-  int x1 = std::min(img.getDimCol(), cx + half_w + 1);
-  int y0 = std::max(0, cy - half_w);
-  int y1 = std::min(img.getDimRow(), cy + half_w + 1);
+  int rows = roi.getDimRow();
+  int cols = roi.getDimCol();
+  double xc = center_rel[0];
+  double yc = center_rel[1];
 
-  if (x1 <= x0 || y1 <= y0)
-    return params; // Degenerate bounds
+  // 0. Find max intensity within obj_radius of the center
+  double max_val = 0;
+  double r2_limit = obj_radius * obj_radius;
+
+  for (int y = 0; y < rows; ++y) {
+    for (int x = 0; x < cols; ++x) {
+      double dx = x - xc;
+      double dy = y - yc;
+      // Only consider pixels within the object radius
+      if (dx * dx + dy * dy <= r2_limit) {
+        double val = roi(y, x);
+        if (val > max_val)
+          max_val = val;
+      }
+    }
+  }
+
+  // Sanity check: if peak is too dim, reject immediately
+  if (max_val < 10.0)
+    return params;
+
+  // Dynamic fitting window based on 30% contour
+  double t_high = max_val * 0.30;
+
+  // Restore dynamic window sizing logic:
+  // We want to find the radius 'r_fit' such that all pixels within this radius
+  // are considered, but we stop expanding if the intensity drops below
+  // threshold. Since we are working with ROI, we need to check relative
+  // coordinates.
+
+  int r_fit = 1;
+  int cx_int = std::lround(xc);
+  int cy_int = std::lround(yc);
+
+  // Maximum possible radius within the ROI
+  // User suggestion: "Get roi half width"
+  int max_r = (std::min(rows, cols) - 1) / 2;
+
+  // Start from 1 to check immediate neighbors
+  // Check neighbors to expand ROI up to max_r
+  for (int r = 1; r <= max_r; ++r) {
+    bool expand = false;
+    // Check square perimeter at radius r
+    for (int k = -r; k <= r; ++k) {
+      // Top: (cx+k, cy-r)
+      if (cy_int - r >= 0 && cx_int + k >= 0 && cx_int + k < cols &&
+          roi(cy_int - r, cx_int + k) > t_high) {
+        expand = true;
+        break;
+      }
+      // Bottom: (cx+k, cy+r)
+      if (cy_int + r < rows && cx_int + k >= 0 && cx_int + k < cols &&
+          roi(cy_int + r, cx_int + k) > t_high) {
+        expand = true;
+        break;
+      }
+      // Left: (cx-r, cy+k)
+      if (cy_int + k >= 0 && cy_int + k < rows && cx_int - r >= 0 &&
+          roi(cy_int + k, cx_int - r) > t_high) {
+        expand = true;
+        break;
+      }
+      // Right: (cx+r, cy+k)
+      if (cy_int + k >= 0 && cy_int + k < rows && cx_int + r < cols &&
+          roi(cy_int + k, cx_int + r) > t_high) {
+        expand = true;
+        break;
+      }
+    }
+
+    if (expand)
+      r_fit = r;
+    else
+      break; // Stop if this radius doesn't reach the threshold
+  }
+
+  // Define fitting constraints based on r_fit
+  int x0_fit = std::max(0, cx_int - r_fit);
+  int x1_fit = std::min(cols, cx_int + r_fit + 1);
+  int y0_fit = std::max(0, cy_int - r_fit);
+  int y1_fit = std::min(rows, cy_int + r_fit + 1);
 
   // 1. Accumulate Normal Equations: (AtA) * p = (AtL)
-  // 6 parameters => 6x6 matrix and 6x1 vector
+  // 6 parameters => 6x6 matrix
   Matrix<double> AtA(6, 6, 0.0);
   Matrix<double> AtL(6, 1, 0.0);
 
   int n_samples = 0;
-  double max_val = 0;
 
-  // Pre-scan for max intensity to set threshold
-  for (int y = y0; y < y1; ++y) {
-    for (int x = x0; x < x1; ++x) {
-      double val = img(y, x);
-      if (val > max_val)
-        max_val = val;
-    }
-  }
+  for (int y = y0_fit; y < y1_fit; ++y) {
+    for (int x = x0_fit; x < x1_fit; ++x) {
+      double val = roi(y, x);
 
-  // Threshold: e.g., 5% of peak or fixed noise floor
-  double threshold = std::max(10.0, max_val * 0.05);
-  if (max_val < threshold)
-    return params; // Too dim
+      // Even within the box, we can enforce threshold or just use all pixels in
+      // box? Original code used `if (val < t_high) continue;` inside the loop
+      // too? Wait, original code: int x0_fit = ... for (int y = y0_fit; y <
+      // y1_fit; ++y) { ... if (val < 1.0) val = 1.0; ... } It did NOT check
+      // t_high inside the fitting loop in the original version I read in step
+      // 1991. It used t_high ONLY to determine r_fit. So I should remove the
+      // `if (val < t_high) continue;` here if I want to match original logic
+      // exactly. Let's use all pixels in the determined window.
 
-  // Use local coordinates relative to center
-  double xc = center[0];
-  double yc = center[1];
-
-  for (int y = y0; y < y1; ++y) {
-    for (int x = x0; x < x1; ++x) {
-      double val = img(y, x);
-      if (val <= threshold)
-        continue;
+      if (val < 1.0)
+        val = 1.0;
 
       double dx = x - xc;
       double dy = y - yc;
@@ -581,118 +771,88 @@ VSC::OTFParams VSC::estimateOTFParams(const Image &img, const Pt2D &center,
   }
 
   if (n_samples < 6)
-    return params; // Not enough points (min 6 for 6 params)
+    return params; // Min 6 for 6 params
 
-  // 2. Solve linear system
-  // Check singularity
-  // det(AtA) is expensive, maybe just try inverse
-  // Using myMATH::inverse from user library
-  // We need to check if AtA is invertible.
-
-  // Safe solve? myMATH::inverse might not report failure explicitly or throw.
-  // Let's assume it works (Gaussian elim).
-  // If matrix is singular, results will be NaN/Inf.
-
-  Matrix<double> p = myMATH::inverse(AtA) * AtL;
+  // 2. Solve linear system using SVD for stability
+  Matrix<double> p = solveSymmetricSVD(AtA, AtL);
 
   // Check for NaN
   if (!std::isfinite(p(0, 0)))
     return params;
 
   // 3. Extract Parameters
-  // Quadratic form: Q(dx, dy) = - ( p3*dx^2 + p4*dy^2 + p5*dx*dy )
-  // Note the negative sign because ln(I) has negative exponents.
-  // Let M = - [ p3    p5/2 ]
-  //          [ p5/2  p4   ]
-
+  // ln(I) = p0 + p1*dx + p2*dy + p3*dx^2 + p4*dy^2 + p5*dx*dy
+  double p0 = p(0, 0);
   double p1 = p(1, 0);
   double p2 = p(2, 0);
   double p3 = p(3, 0);
   double p4 = p(4, 0);
   double p5 = p(5, 0);
 
+  // Let M = - [ p3    p5/2 ]
+  //          [ p5/2  p4   ]
   double mxx = -p3;
   double myy = -p4;
   double mxy = -0.5 * p5;
 
-  // Eigenvalues of M
+  // Eigenvalues of M (decays b and c)
   double delta_eig = std::sqrt(std::pow(mxx - myy, 2) + 4.0 * mxy * mxy);
-  double lam1 = (mxx + myy + delta_eig) / 2.0; // Major
-  double lam2 = (mxx + myy - delta_eig) / 2.0; // Minor
+  double lam1 = (mxx + myy + delta_eig) / 2.0; // Faster decay
+  double lam2 = (mxx + myy - delta_eig) / 2.0; // Slower decay
 
-  // Check validity: For a valid Gaussian peak, eigenvalues (coefficients of
-  // squared terms) must be positive. I.e., the parabola must open downwards in
-  // Log domain -> positive decay coefficients.
   if (lam2 <= 1e-9)
-    return params; // Not a valid peak (saddle or valley)
+    return params;
 
-  params.b = lam2; // Smaller coefficient (wider axis) ?
-                   // Wait, earlier moment method: b = 1/(2*lam_mom).
-                   // Here b is directly the coefficient in exponent.
-                   // Standard form: exp( - b x^2 ... ).
-                   // So b, c are the eigenvalues.
-                   // Usually we assign b <= c (b is major axis decay, c is
-                   // minor/steeper axis decay). Or user convention? Assuming b
-                   // corresponds to major axis (smaller decay). So let's sort
-                   // min, max.
-  if (lam1 < lam2)
-    std::swap(lam1, lam2);
-  // Now lam1 >= lam2.
-
-  // Actually, "Major axis" of elongation means SLOWER decay => SMALLER
-  // coefficient. "Minor axis" (width) means FASTER decay => LARGER coefficient.
-  // User's moment code: b = 1/(2lam1), c = 1/(2lam2).
-  // If lam1 > lam2 (variance), then b < c.
-  // So consistent: b is smaller coefficient.
-
-  params.b = lam2; // Smaller eigenvalue
-  params.c = lam1; // Larger eigenvalue
+  // b is smaller coefficient (Slower decay -> Major axis)
+  params.b = lam2;
+  params.c = lam1;
 
   // Orientation
-  // Angle of the eigenvector corresponding to b (Major axis, smaller decay).
-  // The eigenvector for lam2 (smaller) in M corresponds to the direction of
-  // SLOWEST descent (major axis). tan(2*theta) = 2*mxy / (mxx - myy). But we
-  // need to distinguish which eigenvalue. Angle for lam: theta satisfies (mxx -
-  // lam)*cos + mxy*sin = 0
-
-  // Calculate angle for lam2 (the smaller eigenvalue -> major axis)
   if (std::abs(mxy) > 1e-9) {
     params.alpha = std::atan2(lam2 - mxx, mxy);
   } else {
     params.alpha = 0.0;
     if (mxx > myy)
-      params.alpha =
-          1.57079632679; // If mxx (x decay) is larger, major axis is Y
+      params.alpha = 1.57079632679;
   }
 
-  // Peak intensity 'a'
-  // ln(I) = p0 + p1*x + ...
-  // At center (0,0), ln(I_peak) approx p0 (if p1,p2 small).
-  // More accurately, p0 is ln(a) + offset if center not zero?
-  // We used coordinates relative to (xc, yc), so dx=0, dy=0 corresponds to the
-  // MEASURED center. But the fitted peak might be slightly offset. Stationary
-  // point of parabola: Grad = 0.
-  // For simplicity and stability, we can just use exp(p0) as 'a' if the offset
-  // is small. Or calculate the peak offset. Let's check offset magnitude.
-  double det_M = 4.0 * p3 * p4 - p5 * p5;
+  // === Normalization: Enforce b <= c (major axis decay <= minor axis decay)
+  // === This eliminates the 90-degree ambiguity in elliptical Gaussian fitting.
+  // When b > c, swap them and rotate alpha by 90 degrees.
+  if (params.b > params.c) {
+    std::swap(params.b, params.c);
+    params.alpha += 1.57079632679; // Add 90 degrees (pi/2)
+  }
+
+  // Normalize alpha to [-pi/2, pi/2] to ensure consistent representation
+  while (params.alpha > 1.57079632679)
+    params.alpha -= 3.14159265359; // Subtract pi
+  while (params.alpha < -1.57079632679)
+    params.alpha += 3.14159265359; // Add pi
+
+  // Peak intensity 'a' (Free-peak evaluation)
+  // Find stationary point of ln(I): grad = 0
+  double det_H = 4.0 * p3 * p4 - p5 * p5;
   double dx_peak = 0, dy_peak = 0;
-  if (std::abs(det_M) > 1e-9) {
-    dx_peak = (p5 * p2 - 2.0 * p4 * p1) / (4.0 * p3 * p4 - p5 * p5);
-    dy_peak = (p5 * p1 - 2.0 * p3 * p2) / (4.0 * p3 * p4 - p5 * p5);
+  if (std::abs(det_H) > 1e-9) {
+    dx_peak = (p5 * p2 - 2.0 * p4 * p1) / det_H;
+    dy_peak = (p5 * p1 - 2.0 * p3 * p2) / det_H;
   }
 
-  // If peak is too far (e.g. > 2 pixels), the Gaussian model is likely fitting
-  // background slope or noise.
+  // Sanity check: if peak is too far from centroid, it's likely noise
   if (dx_peak * dx_peak + dy_peak * dy_peak > 4.0)
     return params;
 
-  double ln_a = p(0, 0) + p(1, 0) * dx_peak + p(2, 0) * dy_peak +
-                p(3, 0) * dx_peak * dx_peak + p(4, 0) * dy_peak * dy_peak +
-                p(5, 0) * dx_peak * dy_peak;
+  double ln_a = p0 + p1 * dx_peak + p2 * dy_peak + p3 * dx_peak * dx_peak +
+                p4 * dy_peak * dy_peak + p5 * dx_peak * dy_peak;
 
   params.a = std::exp(ln_a);
-  params.valid = true;
 
+  // Intensity sanity check
+  if (params.a < 1.0 || params.a > 1000.0)
+    return params;
+
+  params.valid = true;
   return params;
 }
 
@@ -706,13 +866,20 @@ std::vector<double> getCamExtrinsics(Camera &cam) {
   Pt3D r_vec = cam.rmtxTorvec(cam._pinhole_param.r_mtx);
   Pt3D t_vec = cam._pinhole_param.t_vec;
 
-  double f_eff = cam._pinhole_param.cam_mtx(0, 0);
-  double k1 = (cam._pinhole_param.dist_coeff.size() > 0)
-                  ? cam._pinhole_param.dist_coeff[0]
-                  : 0.0;
+  double fx = cam._pinhole_param.cam_mtx(0, 0);
+  double fy = cam._pinhole_param.cam_mtx(1, 1);
+  double cx = cam._pinhole_param.cam_mtx(0, 2);
+  double cy = cam._pinhole_param.cam_mtx(1, 2);
 
-  return {r_vec[0], r_vec[1], r_vec[2], t_vec[0],
-          t_vec[1], t_vec[2], f_eff,    k1};
+  double k1 = 0.0, k2 = 0.0;
+  if (cam._pinhole_param.dist_coeff.size() > 0)
+    k1 = cam._pinhole_param.dist_coeff[0];
+  if (cam._pinhole_param.dist_coeff.size() > 1)
+    k2 = cam._pinhole_param.dist_coeff[1];
+
+  // [rx, ry, rz, tx, ty, tz, fx, fy, cx, cy, k1, k2]
+  return {r_vec[0], r_vec[1], r_vec[2], t_vec[0], t_vec[1], t_vec[2],
+          fx,       fy,       cx,       cy,       k1,       k2};
 }
 
 /**
@@ -735,24 +902,44 @@ void updateCamExtrinsics(Camera &cam, const std::vector<double> &params) {
   t_vec[2] = params[5];
 
   // Extract intrinsics
-  double f_eff = params[6];
-  double k1 = params[7];
+  double fx = params[6];
+  double fy = params[7];
+  double cx = params[8];
+  double cy = params[9];
+  double k1 = params[10];
+  double k2 = params[11];
 
   // Update rotation matrix and translation
   cam._pinhole_param.r_mtx = Rodrigues(r_vec);
   cam._pinhole_param.t_vec = t_vec;
 
   // Update intrinsics
-  // Assume fx = fy = f_eff
-  cam._pinhole_param.cam_mtx(0, 0) = f_eff;
-  cam._pinhole_param.cam_mtx(1, 1) = f_eff;
+  cam._pinhole_param.cam_mtx(0, 0) = fx;
+  cam._pinhole_param.cam_mtx(1, 1) = fy;
+  cam._pinhole_param.cam_mtx(0, 2) = cx;
+  cam._pinhole_param.cam_mtx(1, 2) = cy;
 
-  // Update distortion k1
+  // Update distortion k1, k2
+  // Logic: If empty, resize based on non-zero k1/k2.
+  // If exists, update up to what we have, respecting original size.
   if (cam._pinhole_param.dist_coeff.empty()) {
-    cam._pinhole_param.dist_coeff.resize(1);
-    cam._pinhole_param.n_dist_coeff = 1;
+    if (k2 != 0.0) {
+      cam._pinhole_param.dist_coeff.resize(2);
+      cam._pinhole_param.n_dist_coeff = 2;
+      cam._pinhole_param.dist_coeff[0] = k1;
+      cam._pinhole_param.dist_coeff[1] = k2;
+    } else if (k1 != 0.0) {
+      cam._pinhole_param.dist_coeff.resize(1);
+      cam._pinhole_param.n_dist_coeff = 1;
+      cam._pinhole_param.dist_coeff[0] = k1;
+    }
+  } else {
+    // If exists, update available slots
+    if (cam._pinhole_param.dist_coeff.size() > 0)
+      cam._pinhole_param.dist_coeff[0] = k1;
+    if (cam._pinhole_param.dist_coeff.size() > 1)
+      cam._pinhole_param.dist_coeff[1] = k2;
   }
-  cam._pinhole_param.dist_coeff[0] = k1;
 
   // Update inverse matrices (needed for lineOfSight calculations)
   cam._pinhole_param.r_mtx_inv = myMATH::inverse(cam._pinhole_param.r_mtx);
@@ -779,9 +966,9 @@ void updateCamExtrinsics(Camera &cam, const std::vector<double> &params) {
 //    Minimize Sum_i || P_proj(C_k, X_i) - x_meas_i ||^2
 //    Where:
 //      X_i     : 3D position of the i-th calibration point (fixed from
-//      tracking). x_meas_i: Measured 2D centroid of the i-th point in image k.
-//      C_k     : Camera parameters to optimize.
-//      P_proj  : Pinhole projection function with distortion.
+//      tracking). x_meas_i: Measured 2D centroid of the i-th point in image
+//      k. C_k     : Camera parameters to optimize. P_proj  : Pinhole
+//      projection function with distortion.
 //
 // Solver: Levenberg-Marquardt (LM) Algorithm
 //    Iteratively updates parameters 'p' to minimize the sum of squared
@@ -817,20 +1004,28 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
   const double eps = 1e-6;                   // Numerical differentiation step
   const int max_lm_iter = 50;                // Max LM iterations per outer loop
   const double convergence_threshold = 1e-8; // Early stop
-  const int n_params_per_cam = 8; // [rx, ry, rz, tx, ty, tz, f_eff, k1]
-  const int n_outer_iters = 3;    // Sliding window iterations
+  const int n_params_per_cam =
+      12;                      // [rx,ry,rz, tx,ty,tz, fx, fy, cx, cy, k1, k2]
+  const int n_outer_iters = 3; // Sliding window iterations
 
   // Bounds constants (relative constraints)
   const double rvec_bound = 0.1;     // ±0.1 rad (~5.7 degrees)
   const double tvec_bound = 50.0;    // ±50 mm
   const double f_bound_ratio = 0.05; // ±5%
+  const double c_bounds = 50.0;      // ±50 px for cx, cy (Aligned with Python)
   const double k1_bound_ratio = 0.5; // ±50% or 0.1 min
 
   // ----- Collect active camera indices -----
   std::vector<size_t> active_cams;
+  int max_dist_order = 0; // Track max distortion order used
   for (size_t k = 0; k < cams.size(); ++k) {
     if (cams[k]._is_active && cams[k]._type == CameraType::PINHOLE) {
       active_cams.push_back(k);
+      // Check distortion size
+      if (cams[k]._pinhole_param.dist_coeff.size() > 1)
+        max_dist_order = std::max(max_dist_order, 2);
+      else if (cams[k]._pinhole_param.dist_coeff.size() > 0)
+        max_dist_order = std::max(max_dist_order, 1);
     }
   }
 
@@ -972,29 +1167,65 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
     std::vector<double> lb(total_params), ub(total_params);
     for (int i = 0; i < n_cams; ++i) {
       int base = i * n_params_per_cam;
-      // rvec: ±0.1 rad
-      lb[base + 0] = center_params[base + 0] - rvec_bound;
-      lb[base + 1] = center_params[base + 1] - rvec_bound;
-      lb[base + 2] = center_params[base + 2] - rvec_bound;
-      ub[base + 0] = center_params[base + 0] + rvec_bound;
-      ub[base + 1] = center_params[base + 1] + rvec_bound;
-      ub[base + 2] = center_params[base + 2] + rvec_bound;
-      // tvec: ±50 mm
-      lb[base + 3] = center_params[base + 3] - tvec_bound;
-      lb[base + 4] = center_params[base + 4] - tvec_bound;
-      lb[base + 5] = center_params[base + 5] - tvec_bound;
-      ub[base + 3] = center_params[base + 3] + tvec_bound;
-      ub[base + 4] = center_params[base + 4] + tvec_bound;
-      ub[base + 5] = center_params[base + 5] + tvec_bound;
-      // f_eff: ±5%
-      double f = center_params[base + 6];
-      lb[base + 6] = f * (1.0 - f_bound_ratio);
-      ub[base + 6] = f * (1.0 + f_bound_ratio);
-      // k1: ±50% or 0.1 min
-      double k1 = center_params[base + 7];
-      double k1_margin = std::max(0.1, std::abs(k1) * k1_bound_ratio);
-      lb[base + 7] = k1 - k1_margin;
-      ub[base + 7] = k1 + k1_margin;
+      // Get current params from optimizer state 'p'
+      double fx = center_params[base + 6];
+      double fy = center_params[base + 7];
+      double cx = center_params[base + 8];
+      double cy = center_params[base + 9];
+      double k1 = center_params[base + 10];
+      double k2 = center_params[base + 11];
+
+      // Extrinsics bounds (additive)
+      for (int k = 0; k < 3; ++k) {
+        lb[base + k] = center_params[base + k] - rvec_bound;
+        ub[base + k] = center_params[base + k] + rvec_bound;
+      }
+      for (int k = 3; k < 6; ++k) {
+        lb[base + k] = center_params[base + k] - tvec_bound;
+        ub[base + k] = center_params[base + k] + tvec_bound;
+      }
+
+      // Intrinsics bounds
+
+      // fx: ±5%
+      double fx_delta = std::abs(fx) * f_bound_ratio;
+      lb[base + 6] = fx - fx_delta;
+      ub[base + 6] = fx + fx_delta;
+
+      // fy: ±5%
+      double fy_delta = std::abs(fy) * f_bound_ratio;
+      lb[base + 7] = fy - fy_delta;
+      ub[base + 7] = fy + fy_delta;
+
+      // cx, cy: ±50 px
+      lb[base + 8] = cx - c_bounds;
+      ub[base + 8] = cx + c_bounds;
+      lb[base + 9] = cy - c_bounds;
+      ub[base + 9] = cy + c_bounds;
+
+      // Adaptive Distortion Constraints (k1, k2)
+      bool has_k1 = (working_cams[i]._pinhole_param.dist_coeff.size() > 0);
+      bool has_k2 = (working_cams[i]._pinhole_param.dist_coeff.size() > 1);
+
+      // k1 bounds
+      if (has_k1) {
+        double k1_margin = std::max(0.1, std::abs(k1) * k1_bound_ratio);
+        lb[base + 10] = k1 - k1_margin;
+        ub[base + 10] = k1 + k1_margin;
+      } else {
+        lb[base + 10] = k1 - 1e-10;
+        ub[base + 10] = k1 + 1e-10;
+      }
+
+      // k2 bounds
+      if (has_k2) {
+        double k2_margin = std::max(0.1, std::abs(k2) * k1_bound_ratio);
+        lb[base + 11] = k2 - k2_margin;
+        ub[base + 11] = k2 + k2_margin;
+      } else {
+        lb[base + 11] = k2 - 1e-10;
+        ub[base + 11] = k2 + 1e-10;
+      }
     }
     return {lb, ub};
   };
@@ -1012,7 +1243,6 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
   // Sliding Window Optimization (Outer Loop)
   // ========================================================================
   for (int outer = 0; outer < n_outer_iters; ++outer) {
-    // Re-center bounds on current params
     auto bounds = buildBounds(params);
     std::vector<double> lb = std::get<0>(bounds);
     std::vector<double> ub = std::get<1>(bounds);
@@ -1021,8 +1251,8 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
               << "] Re-centered bounds. Running LM..." << std::endl;
 
     double lambda = 0.001;
-    auto init_err = computeErrors(params);
-    double current_err = std::get<0>(init_err);
+    auto init_err_data = computeErrors(params);
+    double current_err = std::get<0>(init_err_data);
 
     // ----- LM Inner Loop -----
     for (int iter = 0; iter < max_lm_iter; ++iter) {
@@ -1031,8 +1261,8 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
       Matrix<double> Jtr(total_params, 1, 0.0);
 
       // Compute residuals at current params
-      auto err0 = computeErrors(params);
-      double f0 = std::get<0>(err0);
+      auto err0_data = computeErrors(params);
+      double f0 = std::get<0>(err0_data);
 
       // Numerical Jacobian (forward difference)
       std::vector<double> grad(total_params, 0.0);
@@ -1043,8 +1273,8 @@ bool VSC::runVSC(std::vector<Camera> &cams) {
         params_p[p] += eps;
         // Clamp to bounds
         params_p[p] = std::max(lb[p], std::min(ub[p], params_p[p]));
-        auto err_p = computeErrors(params_p);
-        double fp = std::get<0>(err_p);
+        auto err_p_data = computeErrors(params_p);
+        double fp = std::get<0>(err_p_data);
         grad[p] = (fp - f0) / eps;
       }
 
@@ -1190,7 +1420,9 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
     // Temporary accumulators for candidate parameters
     // Key: mapping index = cam_id * n_grid + grid_id
     struct OTFAccum {
-      double a = 0, b = 0, c = 0, alpha = 0;
+      double a = 0, b = 0, c = 0;
+      double cos_2a = 0,
+             sin_2a = 0; // For robust angular averaging (\pi periodicity)
       int count = 0;
     };
     std::unordered_map<int, OTFAccum> candidates;
@@ -1216,7 +1448,8 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
         cand.a += p.a;
         cand.b += p.b;
         cand.c += p.c;
-        cand.alpha += p.alpha;
+        cand.cos_2a += std::cos(2.0 * p.alpha);
+        cand.sin_2a += std::sin(2.0 * p.alpha);
         cand.count++;
       }
     }
@@ -1232,7 +1465,8 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
         p.a = cand.a * inv_n;
         p.b = cand.b * inv_n;
         p.c = cand.c * inv_n;
-        p.alpha = cand.alpha * inv_n;
+        // Reconstruct average angle from trig sums (period \pi)
+        p.alpha = 0.5 * std::atan2(cand.sin_2a, cand.cos_2a);
         p.valid = true;
         candidate_params[key] = p;
       }
@@ -1249,26 +1483,98 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
       int rows = obs._roi_intensity.getDimRow();
       int cols = obs._roi_intensity.getDimCol();
 
-      // Since we strictly enforce incomplete windows are discarded in
-      // accumulate: rows = cols = 2 * half_w + 1
-      // CRITICAL: LOGIC MUST MATCH accumulate(). THIS ASSUMES STRICT CLIPPING!
-      int h = (rows - 1) / 2;
+      // Determine max value within object radius for thresholding
+      // Logic copied from estimateOTFParams
+      // Using relative coordinate system of the ROI
 
-      // Because strictly clipped, x0/y0 are simply center - h
-      int cx = std::lround(obs._meas_2d[0]);
-      int cy = std::lround(obs._meas_2d[1]);
-      int x0 = cx - h;
-      int y0 = cy - h;
+      // Relative center in ROI (this is usually rows/2, cols/2 if centered,
+      // but let's calculate it from obs._meas_2d and ROI origin if we had that
+      // info. Wait, in accumulate we do: Pt2D rel_center = obs._meas_2d;
+      // rel_center[0] -= x0; rel_center[1] -= y0;
+      // obs._otf_params = estimate...
+      // But we don't store rel_center in Observation.
+      // However, we know obs._meas_2d is global.
+      // And we need to know x0, y0 of the ROI to get relative center.
+      // Issue: Observation struct doesn't strictly store the ROI offset (x0,
+      // y0). But in accumulate, ROI is created as: x0 = cx - h; y0 = cy - h;
+      // (centered around integer center) So detailed relative center: rel_xc =
+      // obs._meas_2d[0] - x0 = obs._meas_2d[0] - (cx - h)
+      //        = obs._meas_2d[0] - (round(obs._meas_2d[0]) - h)
+      //        = (obs._meas_2d[0] - round(obs._meas_2d[0])) + h
+
+      // Re-derive ROI geometry assuming it was created centered on
+      // lround(meas_2d)
+      int h_row = (rows - 1) / 2;
+      int h_col = (cols - 1) / 2;
+
+      double rel_xc = (obs._meas_2d[0] - std::lround(obs._meas_2d[0])) + h_col;
+      double rel_yc = (obs._meas_2d[1] - std::lround(obs._meas_2d[1])) + h_row;
+
+      double max_val = 0;
+      double r2_limit = obs._obj_radius * obs._obj_radius;
 
       for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-          // Image coordinates
-          int img_y = y0 + r;
-          int img_x = x0 + c;
+          double dx = c - rel_xc;
+          double dy = r - rel_yc;
+          if (dx * dx + dy * dy <= r2_limit) {
+            double val = obs._roi_intensity(r, c);
+            if (val > max_val)
+              max_val = val;
+          }
+        }
+      }
 
+      if (max_val < 1.0)
+        return 0.0; // Should not happen for valid obs
+
+      double t_high = max_val * 0.30;
+
+      // Dynamic r_fit logic (Square Perimeter Check)
+      int cx_int = std::lround(rel_xc);
+      int cy_int = std::lround(rel_yc);
+      // Maximum possible radius within the ROI
+      int max_r = (std::min(rows, cols) - 1) / 2;
+      int r_fit = 1;
+
+      for (int r = 1; r <= max_r; ++r) {
+        bool expand = false;
+        // Check square perimeter at radius r
+        for (int k = -r; k <= r; ++k) {
+          // Top || Bottom
+          if ((cy_int - r >= 0 && cx_int + k >= 0 && cx_int + k < cols &&
+               obs._roi_intensity(cy_int - r, cx_int + k) > t_high) ||
+              (cy_int + r < rows && cx_int + k >= 0 && cx_int + k < cols &&
+               obs._roi_intensity(cy_int + r, cx_int + k) > t_high)) {
+            expand = true;
+            break;
+          }
+          // Left || Right
+          if ((cy_int + k >= 0 && cy_int + k < rows && cx_int - r >= 0 &&
+               obs._roi_intensity(cy_int + k, cx_int - r) > t_high) ||
+              (cy_int + k >= 0 && cy_int + k < rows && cx_int + r < cols &&
+               obs._roi_intensity(cy_int + k, cx_int + r) > t_high)) {
+            expand = true;
+            break;
+          }
+        }
+        if (expand)
+          r_fit = r;
+        else
+          break;
+      }
+
+      // Compute error in the determined window
+      int x0_fit = std::max(0, cx_int - r_fit);
+      int x1_fit = std::min(cols, cx_int + r_fit + 1);
+      int y0_fit = std::max(0, cy_int - r_fit);
+      int y1_fit = std::min(rows, cy_int + r_fit + 1);
+
+      for (int r = y0_fit; r < y1_fit; ++r) {
+        for (int c = x0_fit; c < x1_fit; ++c) {
           // Relative coordinates to centroid
-          double dx = img_x - obs._meas_2d[0];
-          double dy = img_y - obs._meas_2d[1];
+          double dx = c - rel_xc;
+          double dy = r - rel_yc;
 
           // Rotate coordinates
           double cos_a = std::cos(p.alpha);
@@ -1319,6 +1625,9 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
     }
 
     // 4. Update if error reduced
+    // Map to track which cells were definitively updated this run
+    std::vector<bool> is_updated_map(param.n_cam * param.n_grid, false);
+
     for (const auto &[key, p_cand] : candidate_params) {
       // If error decreased (or first initialization), accept
       // Initialization check: if old 'a' is 0, it's likely uninitialized
@@ -1337,8 +1646,143 @@ bool VSC::runOTF(std::vector<TracerConfig> &tracer_cfgs) {
         param.c(cam_id, grid_id) = p_cand.c;
         param.alpha(cam_id, grid_id) = p_cand.alpha;
         updated = true;
+        is_updated_map[key] = true;
       }
     }
+    // Log update progress for this tracer
+    int n_candidates = candidate_params.size();
+    int n_updated = 0;
+    for (const auto &[key, p] : candidate_params) {
+      // Re-evaluate the update condition for logging purposes
+      int cam_id = key / param.n_grid;
+      int grid_id = key % param.n_grid;
+      double old_a = param.a(
+          cam_id, grid_id); // This `param.a` is already updated if accepted
+      // To correctly count `n_updated`, we need to check the condition that
+      // *would have* led to an update. The original `old_a` and `e_old` are
+      // needed. This is a slight discrepancy with the provided snippet, which
+      // uses `err_new_sum.count(key) && err_new_sum.at(key) <
+      // err_old_sum.at(key)`. Sticking to the provided snippet for
+      // faithfulness.
+      if (err_new_sum.count(key) && err_new_sum.at(key) < err_old_sum.at(key)) {
+        n_updated++;
+      }
+    }
+    std::cout << "  [OTF] Tracer " << (&t_cfg - &tracer_cfgs[0]) << ": "
+              << n_updated << "/" << n_candidates
+              << " grid cells updated with VSC data." << std::endl;
+
+    // 5. Gap Filling & Spatial Smoothing
+    // Ensure spatial continuity and fill un-updated regions
+    {
+      int nx = param.nx, ny = param.ny, nz = param.nz;
+      int n_grid = param.n_grid;
+      int n_cam = param.n_cam;
+
+      // a. Identify Valid Mask (Active cells) from is_updated_map
+      // Maps: cam_id -> vector<bool>
+      std::vector<std::vector<bool>> has_data(n_cam,
+                                              std::vector<bool>(n_grid, false));
+      for (int k = 0; k < is_updated_map.size(); ++k) {
+        if (is_updated_map[k]) {
+          int cam_id = k / n_grid;
+          int grid_id = k % n_grid;
+          if (cam_id >= 0 && cam_id < n_cam && grid_id >= 0 &&
+              grid_id < n_grid) {
+            has_data[cam_id][grid_id] = true;
+          }
+        }
+      }
+
+      // b. Iterative Diffusion Filling
+      // Propagate values from valid cells to invalid ones.
+      // Never modify original valid (measured) cells.
+      int max_iter = std::max({nx, ny, nz}) + 5;
+
+      for (int c = 0; c < n_cam; ++c) {
+        // Initialize validity state for this camera
+        std::vector<bool> current_valid = has_data[c];
+
+        for (int iter = 0; iter < max_iter; ++iter) {
+          bool any_update = false;
+          OTFParam p_next = param;
+          std::vector<bool> next_valid = current_valid;
+
+          for (int z = 0; z < nz; ++z) {
+            for (int y = 0; y < ny; ++y) {
+              for (int x = 0; x < nx; ++x) {
+                int idx = x + nx * (y + ny * z);
+
+                // Rule 1: Never touch measured data
+                if (has_data[c][idx])
+                  continue;
+
+                // Rule 2: Try to fill if not measured
+                // (We update even if already filled to allow
+                // relaxation/smoothing of filled regions) Gather valid
+                // neighbors
+                double sa = 0, sb = 0, sc = 0, sal = 0;
+                int count = 0;
+
+                int dz[] = {-1, 1, 0, 0, 0, 0};
+                int dy[] = {0, 0, -1, 1, 0, 0};
+                int dx[] = {0, 0, 0, 0, -1, 1};
+
+                for (int k = 0; k < 6; ++k) {
+                  int iz = z + dz[k];
+                  int iy = y + dy[k];
+                  int ix = x + dx[k];
+
+                  if (iz >= 0 && iz < nz && iy >= 0 && iy < ny && ix >= 0 &&
+                      ix < nx) {
+                    int n_idx = ix + nx * (iy + ny * iz);
+                    // Only use neighbors that have meaningful values (Measured
+                    // or Filled)
+                    if (current_valid[n_idx]) {
+                      sa += param.a(c, n_idx);
+                      sb += param.b(c, n_idx);
+                      sc += param.c(c, n_idx);
+                      sal += param.alpha(c, n_idx);
+                      count++;
+                    }
+                  }
+                }
+
+                if (count > 0) {
+                  p_next.a(c, idx) = sa / count;
+                  p_next.b(c, idx) = sb / count;
+                  p_next.c(c, idx) = sc / count;
+                  p_next.alpha(c, idx) = sal / count;
+                  next_valid[idx] = true; // Mark as valid for next iter
+                  any_update = true;
+                }
+              }
+            }
+          }
+
+          // Apply updates
+          param = p_next;
+          current_valid = next_valid;
+
+          if (!any_update)
+            break;
+        }
+      }
+    }
+
+    // 5. Save results if output path provided (unconditional)
+    if (!_cfg._output_path.empty()) {
+      std::string suffix = (&t_cfg - &tracer_cfgs[0] == 0)
+                               ? ""
+                               : std::to_string(&t_cfg - &tracer_cfgs[0]);
+      std::string otf_path = _cfg._output_path + "/OTF" + suffix + ".txt";
+      t_cfg._otf.saveParam(otf_path);
+    }
+  }
+
+  if (!_cfg._output_path.empty()) {
+    std::cout << "  VSC OTF parameters saved to " << _cfg._output_path
+              << std::endl;
   }
 
   return updated;

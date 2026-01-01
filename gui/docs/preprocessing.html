@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Preprocessing Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1e1e1e;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #00bcd4;
+            border-bottom: 2px solid #00bcd4;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #4dd0e1;
+            margin-top: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .container {
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 8px;
+        }
+
+        .step-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #00bcd4;
+        }
+
+        code {
+            background-color: #333;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #ff9800;
+        }
+
+        a.back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00bcd4;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a.back-link:hover {
+            text-decoration: underline;
+        }
+
+        img {
+            max-width: 100%;
+            border: 1px solid #444;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        <h1>Image Preprocessing</h1>
+        <p>Prepare raw experimental images by removing background noise and enhancing particle contrast.</p>
+
+        <h2>1. Image Source</h2>
+        <div class="step-block">
+            <h3>Loading Images</h3>
+            <ol>
+                <li>Set the <strong>Num Cameras</strong> (e.g., 4).</li>
+                <li>Set the <strong>Project Path</strong> for output.</li>
+                <li>Click <strong>Load Images from Folder</strong> and select the parent directory containing your
+                    camera subfolders (e.g., <code>cam1</code>, <code>cam2</code>...).</li>
+                <li>Use the <strong>Frame List</strong> table to select a specific frame for preview.</li>
+                <li>Click on the image preview to inspect pixel intensity values.</li>
+            </ol>
+        </div>
+
+        <h2>2. Processing Steps</h2>
+        <div class="step-block">
+            <h3>Background Subtraction</h3>
+            <p>Removes static background features.</p>
+            <ul>
+                <li><strong>Calculate</strong>: Computes the average background image from the dataset.
+                    <ul>
+                        <li><em>Skip Frames</em>: Interval between sampled frames.</li>
+                        <li><em>Avg Count</em>: Total number of frames to average.</li>
+                    </ul>
+                </li>
+                <li><strong>Enable</strong>: Check this box to apply the calculated background subtraction to the
+                    preview and final export.</li>
+            </ul>
+        </div>
+
+        <div class="step-block">
+            <h3>Intensity Adjustment</h3>
+            <p>Enhance particle visibility.</p>
+            <ul>
+                <li><strong>Input Range</strong>: Use the dual-handle slider to clip low intensities (noise) and
+                    saturate high intensities.</li>
+                <li><strong>Enhanced Denoise</strong>: Applies a LaVision-style denoising filter to smooth graininess
+                    while preserving particle edges.</li>
+            </ul>
+        </div>
+
+        <h2>3. Preview & Export</h2>
+        <div class="step-block">
+            <h3>View Modes</h3>
+            <p>Toggle the buttons above the image to switch views:</p>
+            <ul>
+                <li><strong>Original</strong>: Raw input image.</li>
+                <li><strong>Processed</strong>: Result after background subtraction and intensity adjustment.</li>
+                <li><strong>Background</strong>: The computed static background image.</li>
+            </ul>
+        </div>
+
+        <div class="step-block">
+            <h3>Batch Processing</h3>
+            <ol>
+                <li>Click <strong>Preview</strong> to verify settings on the current frame.</li>
+                <li>Click <strong>Process Image (Batch Export)</strong> to apply these operations to all images in the
+                    sequence and save them to the Project directory.</li>
+            </ol>
+        </div>
+    </div>
+</body>
+
+</html>

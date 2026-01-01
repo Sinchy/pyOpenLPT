@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking Execution Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1e1e1e;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #00bcd4;
+            border-bottom: 2px solid #00bcd4;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #4dd0e1;
+            margin-top: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .container {
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 8px;
+        }
+
+        .step-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #00bcd4;
+        }
+
+        .warning-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #f44336;
+            background-color: #3e2723;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .tip-block {
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #4caf50;
+            background-color: #1b5e20;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        code {
+            background-color: #333;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #ff9800;
+        }
+
+        a.back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00bcd4;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a.back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        <h1>Tracking Execution</h1>
+        <p>Run the tracking pipeline, perform Volume Self-Calibration, and validate results in real-time.</p>
+
+        <h2>1. Run Tracking Tab</h2>
+        <div class="step-block">
+            <h3>Execution Control</h3>
+            <ul>
+                <li><strong>Project Environment</strong>: Verify the correct project path is set.</li>
+                <li><strong>Run OpenLPT</strong>: Starts the main C++ tracking engine. The <strong>Execution
+                        Log</strong> tab on the left will stream real-time output.</li>
+                <li><strong>Stop Execution</strong>: Aborts the current process.</li>
+            </ul>
+        </div>
+
+        <div class="step-block">
+            <h3>Volume Self-Calibration (VSC)</h3>
+            <p>Optimize camera parameters using tracked particles to correct for vibrations or setup shifts.</p>
+
+            <div class="tip-block">
+                <strong>Best Practice:</strong> VSC works best with <strong>low concentration</strong> tracer images.
+                Sparse data ensures reliable particle matches for calibration.
+            </div>
+
+            <div class="warning-block">
+                <strong>Workflow Loop:</strong>
+                <ol>
+                    <li><strong>Required:</strong> You must complete a full <strong>OpenLPT</strong> tracking run first
+                        to generate the tracks needed for VSC.</li>
+                    <li><strong>Calibrate:</strong> Run VSC to update camera parameters.</li>
+                    <li><strong>Verify & Refine:</strong> Run <strong>OpenLPT</strong> again to apply the new
+                        parameters. You can repeat this loop (OpenLPT → VSC → OpenLPT) to further refine the
+                        calibration.</li>
+                </ol>
+            </div>
+
+            <ul>
+                <li><strong>Min Track Length</strong>: Only use tracks longer than this (e.g., 15 frames) for
+                    calibration.</li>
+                <li><strong>Sample Points</strong>: Total number of particle positions to use for optimization.</li>
+                <li><strong>Run VSC</strong>: Executes the self-calibration routine. Results are shown in the table
+                    below.</li>
+            </ul>
+        </div>
+
+        <h2>2. Visualization & Monitoring</h2>
+        <div class="step-block">
+            <h3>Left Panel Views</h3>
+            <ul>
+                <li><strong>3D View</strong>: Interactive 3D plot of particle trajectories.</li>
+                <li><strong>2D View</strong>: Shows camera images with reprojected particle positions. Use the
+                    checkboxes to toggle specific cameras.</li>
+                <li><strong>Execution Log</strong>: Displays stdout/stderr from the tracking engine.</li>
+                <li><strong>Timeline Slider</strong>: Scrub through the processed frames to inspect tracking evolution.
+                </li>
+            </ul>
+        </div>
+
+        <h2>3. Check Tracking Tab</h2>
+        <div class="step-block">
+            <h3>Validation Tools</h3>
+            <ul>
+                <li><strong>Track Statistics</strong>: Displays "Total Tracks" and "Avg Track Length". Click refresh
+                    icon to update.</li>
+                <li><strong>Visualization Settings</strong>:
+                    <ul>
+                        <li><em>Display tracks slider</em>: Control how many tracks are shown in the 3D view (e.g., top
+                            500 longest).</li>
+                        <li><em>Table Selection</em>: View tracks in a table and select specific IDs to highlight.</li>
+                    </ul>
+                </li>
+                <li><strong>Animation Settings</strong>:
+                    <ul>
+                        <li><em>Enable Animation</em>: Animate particle movement over time.</li>
+                        <li><em>Tail Length</em>: Number of past frames to show as a trail.</li>
+                        <li><em>Start Animation</em>: Begins playback in the 3D/2D views.</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>
