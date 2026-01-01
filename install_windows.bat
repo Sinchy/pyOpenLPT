@@ -11,6 +11,73 @@ echo 3. Install the OpenLPT package
 echo.
 pause
 
+:: --- Visual Studio Build Tools Check ---
+echo.
+echo [0.5/4] Checking for Visual Studio Build Tools (Required for C++ compilation)...
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "HAS_VS="
+
+:: Check using vswhere if available
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+        set "HAS_VS=%%i"
+    )
+)
+
+if defined HAS_VS (
+    echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
+) else (
+    echo.
+    echo [ERROR] Visual Studio Build Tools with "Desktop development with C++" not found!
+    echo         This is REQUIRED to compile the OpenLPT C++ extensions.
+    echo.
+    
+    :: Check for Winget
+    where winget >nul 2>nul
+    if %errorlevel% equ 0 (
+        echo [INFO] Winget found. Attempting AUTO-INSTALLATION...
+        echo        (This will open a prompt asking for permission)
+        echo.
+        echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
+        
+        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive --norestart"
+        
+        if %errorlevel% neq 0 (
+            echo.
+            echo [FAIL] Auto-installation failed or was cancelled.
+            goto :ManualInstallVS
+        )
+        echo.
+        echo [SUCCESS] Visual Studio Build Tools installed.
+        echo [IMPORTANT] You MUST restart this script for changes to take effect.
+        echo.
+        pause
+        exit /b 0
+    ) else (
+        goto :ManualInstallVS
+    )
+)
+goto :EndVSCheck
+
+:ManualInstallVS
+echo.
+echo ================================================================
+echo                   MANUAL ACTION REQUIRED
+echo ================================================================
+echo Please download and install "Visual Studio Build Tools":
+echo URL: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+echo.
+echo 1. Run the installer.
+echo 2. Check "Desktop development with C++" workload.
+echo 3. Click Keep/Install.
+echo 4. After installation, RUN THIS SCRIPT AGAIN.
+echo ================================================================
+pause
+exit /b 1
+
+:EndVSCheck
+:: ---------------------------------------
+
 cd /d "%~dp0"
 
 echo.
@@ -78,10 +145,7 @@ if %errorlevel% neq 0 (
 echo.
 echo ==========================================
 echo       Installation Complete!
+echo       Launching OpenLPT GUI...
 echo ==========================================
-echo You can now run the GUI using:
-echo conda activate OpenLPT
-echo python gui/main.py
-echo.
-echo (Or double-click the generated shortcut on your desktop after first run)
+python GUI.py
 pause

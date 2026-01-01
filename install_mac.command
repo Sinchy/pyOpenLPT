@@ -95,9 +95,6 @@ fi
 echo ""
 echo "=========================================="
 echo "      Installation Complete!"
+echo "      Launching OpenLPT GUI..."
 echo "=========================================="
-echo "You can now run the GUI using:"
-echo "conda activate OpenLPT"
-echo "python gui/main.py"
-echo ""
-read -p "Press enter to close..."
+python GUI.py
