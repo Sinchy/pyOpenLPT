@@ -58,8 +58,37 @@ if defined HAS_VS (
         ) else (
             echo.
             echo [WARNING] Automatic setup finished, but C++ Tools are STILL missing.
-            echo           This usually means VS is installed but the "Desktop development with C++" workload is unchecked.
+            
+            :: LAST RESORT: Check if we can just "Modify" the existing installation directly
+            :: (Winget sometimes refuses to update if the base package is present)
+            set "VS_PARTIAL_PATH="
+            if exist "%VSWHERE%" (
+                 for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -property installationPath`) do (
+                    set "VS_PARTIAL_PATH=%%i"
+                )
+            )
+            
+            if defined VS_PARTIAL_PATH (
+                echo [INFO] Found existing VS installation at: "%VS_PARTIAL_PATH%"
+                echo        Attempting to forcefully ADD the C++ workload via vs_installer.exe...
+                echo.
+                
+                :: Try to find the installer executable (standard location)
+                if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" (
+                    start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "%VS_PARTIAL_PATH%" --add Microsoft.VisualStudio.Workload.NativeDesktop --passive --norestart
+                    
+                    :: One final check...
+                    if exist "%VSWHERE%" (
+                        for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+                           echo [SUCCESS] Workload added successfully!
+                           goto :EndVSCheck
+                        )
+                    )
+                )
+            )
+            
             echo.
+            echo [ERROR] Could not auto-repair. Please fix manually.
             echo           ^>^>^> PLEASE FIX MANUALLY ^<^<^<
             echo.
             goto :ManualInstallVS
