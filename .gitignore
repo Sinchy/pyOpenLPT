@@ -26,3 +26,10 @@ __pycache__/
 
 # ignore all __pycache__ directories
 /**/__pycache__/
+
+# Auto-generated update scripts
+update_openlpt.bat
+update_openlpt.command
+
+# Temporary repair scripts
+repair_environment.bat
