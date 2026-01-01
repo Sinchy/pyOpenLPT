@@ -223,9 +223,30 @@ cd "$DIR"
                     (1024, "icon_512x512@2x.png")
                 ]
                 
+                # Try using PIL first for better transparency handling
+                has_pil = False
+                try:
+                    from PIL import Image
+                    src_img = Image.open(icon_path)
+                    has_pil = True
+                except ImportError:
+                    pass
+
                 for size, name in icon_definitions:
                     out_path = iconset_dir / name
-                    # sips -z H W input --out output
+                    
+                    if has_pil:
+                        # Resize with ANTIALIAS/LANCZOS and save preserving alpha
+                        try:
+                            # Use LANCZOS if available (Pillow 2.7+), else ANTIALIAS
+                            resample = getattr(Image, 'Resampling', Image).LANCZOS
+                            resized = src_img.resize((size, size), resample=resample)
+                            resized.save(out_path, format="PNG")
+                            continue
+                        except Exception as e:
+                            print(f"[Shortcut] PIL resize failed for {name}: {e}, falling back to sips")
+                    
+                    # Fallback to sips if PIL missing or failed
                     os.system(f'sips -z {size} {size} "{icon_path}" --out "{out_path}" > /dev/null 2>&1')
 
                 # Convert iconset to icns
