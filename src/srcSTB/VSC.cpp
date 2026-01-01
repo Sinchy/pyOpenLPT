@@ -733,15 +733,6 @@ VSC::OTFParams VSC::estimateOTFParams(const Matrix<double> &roi,
     for (int x = x0_fit; x < x1_fit; ++x) {
       double val = roi(y, x);
 
-      // Even within the box, we can enforce threshold or just use all pixels in
-      // box? Original code used `if (val < t_high) continue;` inside the loop
-      // too? Wait, original code: int x0_fit = ... for (int y = y0_fit; y <
-      // y1_fit; ++y) { ... if (val < 1.0) val = 1.0; ... } It did NOT check
-      // t_high inside the fitting loop in the original version I read in step
-      // 1991. It used t_high ONLY to determine r_fit. So I should remove the
-      // `if (val < t_high) continue;` here if I want to match original logic
-      // exactly. Let's use all pixels in the determined window.
-
       if (val < 1.0)
         val = 1.0;
 

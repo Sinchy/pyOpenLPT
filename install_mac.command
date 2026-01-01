@@ -70,6 +70,13 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
+echo "[3.5/4] Configuring Compiler Flags for macOS (OpenMP)..."
+# Help compiler find llvm-openmp headers and libs in the conda env
+export CPPFLAGS="-I$CONDA_PREFIX/include"
+export CFLAGS="-I$CONDA_PREFIX/include"
+export LDFLAGS="-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"
+
+echo ""
 echo "[4/4] Installing OpenLPT..."
 pip install . --no-build-isolation
 if [ $? -ne 0 ]; then
