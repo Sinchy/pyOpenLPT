@@ -34,24 +34,36 @@ if defined HAS_VS (
     :: Check for Winget
     where winget >nul 2>nul
     if not errorlevel 1 (
-        echo [INFO] Winget found. Attempting AUTO-INSTALLATION...
+        echo [INFO] Winget found. Attempting AUTO-INSTALLATION/UPDATE...
         echo        ^(This will open a prompt asking for permission^)
         echo.
         echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
         
         winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive --norestart"
         
-        if errorlevel 1 (
+        echo.
+        echo [INFO] Winget finished. Re-checking installation...
+        
+        :: RE-CHECK: Did it actually work?
+        set "HAS_VS_RECHECK="
+        if exist "%VSWHERE%" (
+            for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
+                set "HAS_VS_RECHECK=%%i"
+            )
+        )
+        
+        if defined HAS_VS_RECHECK (
+            echo [SUCCESS] Visual Studio Build Tools verified. Proceeding...
+            goto :EndVSCheck
+        ) else (
             echo.
-            echo [FAIL] Auto-installation failed or was cancelled.
+            echo [WARNING] Automatic setup finished, but C++ Tools are STILL missing.
+            echo           This usually means VS is installed but the "Desktop development with C++" workload is unchecked.
+            echo.
+            echo           >>> PLEASE FIX MANUALLY <<<
+            echo.
             goto :ManualInstallVS
         )
-        echo.
-        echo [SUCCESS] Visual Studio Build Tools installed.
-        echo [IMPORTANT] You MUST restart this script for changes to take effect.
-        echo.
-        pause
-        exit /b 0
     ) else (
         goto :ManualInstallVS
     )
