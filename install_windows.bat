@@ -194,85 +194,40 @@ echo [4/4] Installing OpenLPT...
 
 
 
-:: Reset CMAKE_GENERATOR to avoid picking up stale user variables
-set "CMAKE_GENERATOR="
-set "CMAKE_GENERATOR_INSTANCE="
+:: Fresh terminal will handle VS environment detection automatically
 
-:: Activate Developer Command Prompt for VS
-echo [INFO] Locating vcvars64.bat...
-set "VCVARS="
+:: Create a helper script to run pip install in a fresh environment
+set "PIP_SCRIPT=%TEMP%\openlpt_pip_install_%RANDOM%.bat"
+echo @echo off > "%PIP_SCRIPT%"
+echo cd /d "%~dp0" >> "%PIP_SCRIPT%"
+echo call conda activate OpenLPT >> "%PIP_SCRIPT%"
+echo echo. >> "%PIP_SCRIPT%"
+echo echo [INFO] Running pip install in fresh environment... >> "%PIP_SCRIPT%"
+echo if exist build rmdir /s /q build >> "%PIP_SCRIPT%"
+echo if exist openlpt.egg-info rmdir /s /q openlpt.egg-info >> "%PIP_SCRIPT%"
+echo pip install . --no-build-isolation >> "%PIP_SCRIPT%"
+echo if errorlevel 1 ( >> "%PIP_SCRIPT%"
+echo     echo [Error] Pip install failed. >> "%PIP_SCRIPT%"
+echo     pause >> "%PIP_SCRIPT%"
+echo     exit /b 1 >> "%PIP_SCRIPT%"
+echo ) >> "%PIP_SCRIPT%"
+echo echo. >> "%PIP_SCRIPT%"
+echo echo ========================================== >> "%PIP_SCRIPT%"
+echo echo       Installation Complete! >> "%PIP_SCRIPT%"
+echo echo       Launching OpenLPT GUI... >> "%PIP_SCRIPT%"
+echo echo ========================================== >> "%PIP_SCRIPT%"
+echo python GUI.py >> "%PIP_SCRIPT%"
+echo del "%%~f0" >> "%PIP_SCRIPT%"
 
-if defined HAS_VS (
-    :: Method 1: Standard Build Tools Path
-    if exist "%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat" (
-        set "VCVARS=%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat"
-    ) else if exist "%HAS_VS%\VC\Auxiliary\Build\vcvarsall.bat" (
-        set "VCVARS=%HAS_VS%\VC\Auxiliary\Build\vcvarsall.bat"
-    )
-)
-
-:: Method 2: vswhere fallback (if Method 1 failed)
-if defined VCVARS goto :FoundVCVars
-if not exist "%VSWHERE%" goto :FoundVCVars
-
-:: Use temp file to avoid "Program Files (x86)" nesting syntax errors in FOR loops
-set "VCVARS_TMP=%TEMP%\openlpt_vcvars_%RANDOM%.txt"
-"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -find VC\Auxiliary\Build\vcvars64.bat > "%VCVARS_TMP%"
-
-if not exist "%VCVARS_TMP%" goto :SkipTempRead
-for /f "usebackq tokens=*" %%i in ("%VCVARS_TMP%") do (
-    set "VCVARS=%%i"
-)
-del "%VCVARS_TMP%"
-
-:SkipTempRead
-
-
-:FoundVCVars
-if not defined VCVARS goto :NoVCVars
-
-echo [INFO] Found vcvars script at: "%VCVARS%"
-echo [INFO] Activating Visual Studio Environment (x64)...
-
-:: Call vcvars64.bat directly (most common case for Build Tools)
-call "%VCVARS%" >nul
-
-echo [INFO] Environment activated.
-set "CMAKE_GENERATOR=NMake Makefiles"
-goto :AfterVCVars
-
-:NoVCVars
 echo.
-echo [ERROR] Could not find vcvars64.bat or vcvarsall.bat!
-echo         We found VS at "%HAS_VS%" but the VC tools seem missing.
+echo [INFO] Spawning fresh terminal for compilation...
+echo       (This ensures a clean environment with latest VS paths)
 echo.
-echo         Please open Visual Studio Installer and ensure:
-echo         "MSVC v143 - VS 2022 C++ x64/x86 build tools" is checked.
-echo.
-pause
-exit /b 1
+start "" cmd /c "%PIP_SCRIPT%"
 
-:AfterVCVars
-
-:: Clean previous build artifacts
-if exist build (
-    echo [INFO] Cleaning stale build directory...
-    rmdir /s /q build
-)
-if exist openlpt.egg-info (
-    rmdir /s /q openlpt.egg-info
-)
-
-pip install . --no-build-isolation
-if errorlevel 1 (
-    echo [Error] Pip install failed.
-    echo.
-    echo Common fixes:
-    echo 1. Close this window and try running the script again.
-    echo 2. Update to the latest version of this script ^(git pull^).
-    pause
-    exit /b 1
-)
+echo [INFO] Installation continues in the new window.
+echo       You can close this window.
+exit /b 0
 
 echo.
 echo ==========================================
