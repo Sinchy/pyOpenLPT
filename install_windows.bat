@@ -69,10 +69,10 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3.5/4] Installing Windows C++ Compiler (clang)...
-call mamba install -c conda-forge clang clangxx llvm-tools -y
+echo [3.5/4] Installing Windows C++ Compiler (MinGW-w64)...
+call mamba install -c conda-forge m2w64-toolchain -y
 if errorlevel 1 (
-    echo [Warning] Failed to install clang compiler. Build might fail.
+    echo [Warning] Failed to install MinGW compiler. Build might fail.
 )
 
 echo.
@@ -91,8 +91,8 @@ echo set "CMAKE_GENERATOR=Ninja" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_INSTANCE=" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_PLATFORM=" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_TOOLSET=" >> "%PIP_SCRIPT%"
-echo set "CC=clang" >> "%PIP_SCRIPT%"
-echo set "CXX=clang++" >> "%PIP_SCRIPT%"
+echo set "CC=gcc" >> "%PIP_SCRIPT%"
+echo set "CXX=g++" >> "%PIP_SCRIPT%"
 echo echo. >> "%PIP_SCRIPT%"
 echo echo [INFO] Running pip install in fresh environment... >> "%PIP_SCRIPT%"
 echo if exist build rmdir /s /q build >> "%PIP_SCRIPT%"
