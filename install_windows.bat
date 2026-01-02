@@ -11,140 +11,7 @@ echo 3. Install the OpenLPT package
 echo.
 
 
-:: --- Visual Studio Build Tools Check ---
-echo.
-echo [0.5/4] Checking for Visual Studio Build Tools...
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-set "HAS_VS="
-
-:: 1. Initial Check
-if not exist "%VSWHERE%" goto :CheckWinget
-
-:: Check 1: Desktop development with C++ (IDE Workload)
-for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
-    set "HAS_VS=%%i"
-)
-if defined HAS_VS (
-    :: Verify actual compiler files exist
-    if exist "%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat" (
-        echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
-        goto :EndVSCheck
-    ) else (
-        echo [WARNING] VS registered but vcvars64.bat missing. Triggering repair...
-        set "HAS_VS="
-    )
-)
-
-:: Check 2: C++ Build Tools (Build Tools Workload)
-for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
-    set "HAS_VS=%%i"
-)
-if defined HAS_VS (
-    :: Verify actual compiler files exist
-    if exist "%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat" (
-        echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
-        goto :EndVSCheck
-    ) else (
-        echo [WARNING] VS registered but vcvars64.bat missing. Triggering repair...
-        set "HAS_VS="
-    )
-)
-
-echo.
-echo [ERROR] Visual Studio Build Tools with C++ support not found!
-echo         This is REQUIRED to compile the OpenLPT C++ extensions.
-echo.
-
-:CheckWinget
-:: 2. Try Winget Auto-Install
-where winget >nul 2>nul
-if errorlevel 1 goto :ManualInstallVS
-
-echo [INFO] Winget found. Attempting AUTO-INSTALLATION/UPDATE...
-echo        (This will open a prompt asking for permission)
-echo.
-echo Running: winget install Microsoft.VisualStudio.2022.BuildTools...
-
-:: Install with specific components: MSVC v143 + Windows SDK
-winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --scope machine --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --includeRecommended --passive --norestart"
-
-:: 3. Re-Check after Winget (Check 1 OR Check 2)
-set "HAS_VS_RECHECK="
-if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
-        set "HAS_VS_RECHECK=%%i"
-    )
-    
-    if not defined HAS_VS_RECHECK (
-        for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
-            set "HAS_VS_RECHECK=%%i"
-        )
-    )
-)
-
-if defined HAS_VS_RECHECK (
-    echo [SUCCESS] Visual Studio Build Tools verified. Proceeding...
-    set "HAS_VS=%HAS_VS_RECHECK%"
-    goto :EndVSCheck
-)
-
-echo.
-echo [WARNING] Automatic setup finished, but C++ Tools are STILL missing.
-
-:: 4. Smart Fix: Try to Modify Existing Install
-set "VS_PARTIAL_PATH="
-if exist "%VSWHERE%" (
-        for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -property installationPath`) do (
-        set "VS_PARTIAL_PATH=%%i"
-    )
-)
-
-if not defined VS_PARTIAL_PATH goto :ManualInstallVS
-
-echo [INFO] Found existing VS installation at: "%VS_PARTIAL_PATH%"
-echo        Attempting to forcefully ADD the C++ Build Tools workload via vs_installer.exe...
-echo.
-    
-if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" goto :ManualInstallVS
-
-:: Add VCTools workload plus specific components
-start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "%VS_PARTIAL_PATH%" --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --passive --norestart
-        
-:: 5. Final Re-Check (Check 1 OR Check 2)
-if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath`) do (
-        echo [SUCCESS] Workload added successfully!
-        set "HAS_VS=%%i"
-        goto :EndVSCheck
-    )
-    
-    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath`) do (
-        echo [SUCCESS] Workload added successfully!
-        set "HAS_VS=%%i"
-        goto :EndVSCheck
-    )
-)
-
-goto :ManualInstallVS
-
-:ManualInstallVS
-echo.
-echo ================================================================
-echo                   MANUAL ACTION REQUIRED
-echo ================================================================
-echo Please download and install "Visual Studio Build Tools":
-echo URL: https://visualstudio.microsoft.com/visual-cpp-build-tools/
-echo.
-echo 1. Run the installer.
-echo 2. Check "Desktop development with C++" workload.
-echo 3. Click Keep/Install.
-echo 4. After installation, RUN THIS SCRIPT AGAIN.
-echo ================================================================
-pause
-exit /b 1
-
-:EndVSCheck
-:: ---------------------------------------
+:: Using clang compiler from conda-forge, no Visual Studio needed!
 
 cd /d "%~dp0"
 
@@ -217,6 +84,8 @@ echo set "CMAKE_GENERATOR=Ninja" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_INSTANCE=" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_PLATFORM=" >> "%PIP_SCRIPT%"
 echo set "CMAKE_GENERATOR_TOOLSET=" >> "%PIP_SCRIPT%"
+echo set "CC=clang" >> "%PIP_SCRIPT%"
+echo set "CXX=clang++" >> "%PIP_SCRIPT%"
 echo echo. >> "%PIP_SCRIPT%"
 echo echo [INFO] Running pip install in fresh environment... >> "%PIP_SCRIPT%"
 echo if exist build rmdir /s /q build >> "%PIP_SCRIPT%"
