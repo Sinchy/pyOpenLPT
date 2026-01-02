@@ -70,7 +70,7 @@ target_link_libraries(${OPENLPT_PYMODULE_NAME} PRIVATE
 )
 
 # Compile options
-target_compile_features(${OPENLPT_PYMODULE_NAME} PRIVATE cxx_std_20)
+target_compile_features(${OPENLPT_PYMODULE_NAME} PRIVATE cxx_std_17)
 target_compile_definitions(${OPENLPT_PYMODULE_NAME} PRIVATE
     NOMINMAX
     OPENLPT_EXPOSE_PRIVATE # Expose private members for debugging 
