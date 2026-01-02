@@ -43,8 +43,8 @@ We provide automated scripts that set up everything for you (including Conda, en
 
 1.  **Download the code**:
     ```bash
-    git clone https://github.com/Sinchy/pyOpenLPT.git
-    cd pyOpenLPT
+    git clone https://github.com/JHU-NI-LAB/OpenLPT_GUI.git
+    cd OpenLPT_GUI
     ```
 
 2.  **Run the Installer**:
