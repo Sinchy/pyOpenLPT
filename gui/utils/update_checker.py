@@ -19,7 +19,7 @@ try:
 except ImportError:
     CURRENT_VERSION = "1.0.0"  # Fallback
 
-GITHUB_REPO = "Sinchy/pyOpenLPT"
+GITHUB_REPO = "JHU-NI-LAB/OpenLPT_GUI"
 
 
 def parse_version(version_str: str) -> tuple:
