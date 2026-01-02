@@ -69,7 +69,7 @@ class CMakeBuild(build_ext):
 
         else:
             cmake_args += [f"-DCMAKE_BUILD_TYPE={cfg}", "-DCMAKE_POSITION_INDEPENDENT_CODE=ON"]
-            build_args += ["--", "-j"]
+            # Don't pass bare -j, ninja will auto-detect parallelism
 
         build_temp = Path(self.build_temp).resolve()
         build_temp.mkdir(parents=True, exist_ok=True)
