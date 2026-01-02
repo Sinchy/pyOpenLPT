@@ -45,16 +45,22 @@ def create_windows_shortcut(target_script, icon_path):
         print(f"Shortcut already exists at {shortcut_path}")
         return 2
     
-    # Use win32com for Unicode path support
+    # Use win32com for shortcut creation
     try:
         import win32com.client
+        import win32api
     except ImportError:
         print("[Shortcut] ERROR: pywin32 not installed. Please run: pip install pywin32")
         return -1
     
     try:
+        # Convert to short path (8.3 format) to handle non-ASCII characters
+        # This works for any language (Chinese, Japanese, Korean, Russian, etc.)
+        desktop_short = win32api.GetShortPathName(str(desktop))
+        shortcut_path_short = desktop_short + "\\OpenLPT.lnk"
+        
         shell = win32com.client.Dispatch("WScript.Shell")
-        shortcut = shell.CreateShortcut(str(shortcut_path))
+        shortcut = shell.CreateShortcut(shortcut_path_short)
         shortcut.TargetPath = python_exe
         shortcut.Arguments = f'"{target_path}"'
         shortcut.WorkingDirectory = str(working_dir)
