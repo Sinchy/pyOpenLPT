@@ -1,0 +1,28 @@
+name: Sync to Lab Repository
+
+on:
+  push:
+    branches:
+      - main  # 只有向 main 分支推送时才同步
+
+jobs:
+  repo-sync:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 下载代码到 Actions 服务器
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史
+
+      # 2. 推送到实验室仓库
+      - name: Push to Lab Repo
+        run: |
+          # 这里的 LAB_REPO_TOKEN 是你刚才在个人仓库配置的 Secret
+          # JHU-NI-LAB/OpenLPT_GUI 是实验室的仓库路径
+          REMOTE_URL="https://x-access-token:${{ secrets.LAB_REPO_TOKEN }}@github.com/JHU-NI-LAB/OpenLPT_GUI.git"
+          
+          git remote add lab "$REMOTE_URL"
+          
+          # 推送所有内容，强制覆盖实验室仓库以保持完全镜像
+          git push lab main --force
