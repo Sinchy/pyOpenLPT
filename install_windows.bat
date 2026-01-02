@@ -205,6 +205,7 @@ set "CMAKE_GENERATOR=NMake Makefiles"
 set "CMAKE_GENERATOR_INSTANCE="
 set "CMAKE_GENERATOR_PLATFORM="
 set "CMAKE_GENERATOR_TOOLSET="
+set "CMAKE_BUILD_TYPE=Release"
 
 :: Clean previous build
 if exist build rmdir /s /q build
