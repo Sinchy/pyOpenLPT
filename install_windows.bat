@@ -25,8 +25,14 @@ for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Mi
     set "HAS_VS=%%i"
 )
 if defined HAS_VS (
-    echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
-    goto :EndVSCheck
+    :: Verify actual compiler files exist
+    if exist "%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat" (
+        echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
+        goto :EndVSCheck
+    ) else (
+        echo [WARNING] VS registered but vcvars64.bat missing. Triggering repair...
+        set "HAS_VS="
+    )
 )
 
 :: Check 2: C++ Build Tools (Build Tools Workload)
@@ -34,8 +40,14 @@ for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Mi
     set "HAS_VS=%%i"
 )
 if defined HAS_VS (
-    echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
-    goto :EndVSCheck
+    :: Verify actual compiler files exist
+    if exist "%HAS_VS%\VC\Auxiliary\Build\vcvars64.bat" (
+        echo [OK] Visual Studio C++ Tools found at: "%HAS_VS%"
+        goto :EndVSCheck
+    ) else (
+        echo [WARNING] VS registered but vcvars64.bat missing. Triggering repair...
+        set "HAS_VS="
+    )
 )
 
 echo.
