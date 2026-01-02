@@ -25,6 +25,23 @@ def _run_windows_update(root: Path):
     """
     script_path = root / "update_openlpt.bat"
     
+    # Try to find vcvarsall.bat like install_windows.bat does
+    vcvars = ""
+    vswhere = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)") + "\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+    if os.path.exists(vswhere):
+        try:
+            res = subprocess.check_output([
+                vswhere, "-latest", "-products", "*", 
+                "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", 
+                "-property", "installationPath"
+            ], encoding='utf-8').strip()
+            if res:
+                vcvars_path = Path(res) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat"
+                if vcvars_path.exists():
+                    vcvars = str(vcvars_path)
+        except:
+            pass
+
     # Capture relevant environment variables to preserve SSH/Git auth
     # "start" command spawns a fresh cmd which might lose session env vars (like SSH_AUTH_SOCK)
     env_setup = []
@@ -34,6 +51,9 @@ def _run_windows_update(root: Path):
             
     env_block = "\n".join(env_setup)
     
+    # Windows activation logic for VS
+    vs_activation = f'call "{vcvars}" x64' if vcvars else "echo [Warning] vcvarsall.bat not found. Build might fail."
+
     # Batch script content
     # Note: 'call conda activate' is required for batch files
     content = f"""@echo off
@@ -65,6 +85,17 @@ if %errorlevel% neq 0 (
     echo [Warning] Failed to activate 'OpenLPT'. Trying to proceed with current env...
 )
 
+:: Set consistent build environment for Windows
+set "CMAKE_GENERATOR=NMake Makefiles"
+set "CMAKE_BUILD_TYPE=Release"
+set "CMAKE_GENERATOR_INSTANCE="
+set "CMAKE_GENERATOR_PLATFORM="
+set "CMAKE_GENERATOR_TOOLSET="
+
+:: Activate VS environment
+echo [INFO] Activating Visual Studio environment...
+{vs_activation}
+
 echo.
 echo [3/4] Update dependencies with Mamba...
 call mamba install -c conda-forge --file requirements.txt -y
@@ -73,6 +104,10 @@ if %errorlevel% neq 0 (
     pause
     exit /b %errorlevel%
 )
+
+:: Clean previous build to avoid generator mismatch
+if exist build rmdir /s /q build
+if exist openlpt.egg-info rmdir /s /q openlpt.egg-info
 
 echo.
 echo [4/4] Re-installing OpenLPT package...
