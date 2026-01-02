@@ -23,13 +23,11 @@ def get_desktop_path():
         return Path.home() / "Desktop"
 
 def create_windows_shortcut(target_script, icon_path):
-    """Create a Windows .lnk shortcut using PowerShell."""
-    # We will let PowerShell resolve the Desktop path dynamically to avoid unicode/path issues
-    # passed from Python.
+    """Create a Windows .lnk shortcut using win32com (preferred) or PowerShell fallback."""
     
     python_exe = sys.executable
     target_path = Path(target_script).resolve()
-    working_dir = target_path.parent.parent # Project root
+    working_dir = target_path.parent.parent  # Project root
     
     # Verify icon and ensure it's .ico for Windows
     if not isinstance(icon_path, Path):
@@ -37,59 +35,78 @@ def create_windows_shortcut(target_script, icon_path):
     
     # Try to get/convert to .ico
     icon_path = ensure_ico_for_windows(icon_path)
-    
     icon_str = str(icon_path.resolve()) if icon_path.exists() else ""
     
-    # PowerShell script content
-    # Use .NET to get desktop path (handles Unicode/OneDrive correctly)
-    ps_script = f"""
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    # Get desktop path
+    desktop = get_desktop_path()
+    shortcut_path = desktop / "OpenLPT.lnk"
     
-    # Get Desktop path using .NET (handles OneDrive redirection)
-    $DesktopPath = [Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop)
-    $ShortcutPath = Join-Path $DesktopPath "OpenLPT.lnk"
+    if shortcut_path.exists():
+        print(f"Shortcut already exists at {shortcut_path}")
+        return 2
     
-    if (Test-Path $ShortcutPath) {{
-        Write-Host "Shortcut already exists at $ShortcutPath"
-        exit 2
-    }}
+    # Try win32com first (best Unicode support)
+    try:
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortcut(str(shortcut_path))
+        shortcut.TargetPath = python_exe
+        shortcut.Arguments = f'"{target_path}"'
+        shortcut.WorkingDirectory = str(working_dir)
+        shortcut.Description = "OpenLPT 3D Particle Tracking"
+        if icon_str:
+            shortcut.IconLocation = icon_str
+        shortcut.Save()
+        print(f"Shortcut created at {shortcut_path}")
+        return 1
+    except ImportError:
+        print("[Shortcut] win32com not available, trying PowerShell fallback...")
+    except Exception as e:
+        print(f"[Shortcut] win32com failed: {e}, trying PowerShell fallback...")
     
-    $WshShell = New-Object -ComObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = "{python_exe}"
-    $Shortcut.Arguments = '"{target_path}"'
-    $Shortcut.WorkingDirectory = "{working_dir}"
-    $Shortcut.Description = "OpenLPT 3D Particle Tracking"
-    """
+    # PowerShell fallback with UTF-8 BOM and proper encoding
+    ps_script = f'''
+# Ensure UTF-8 encoding
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+$ShortcutPath = "{shortcut_path}"
+
+if (Test-Path $ShortcutPath) {{
+    Write-Host "Shortcut already exists at $ShortcutPath"
+    exit 2
+}}
+
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = "{python_exe}"
+$Shortcut.Arguments = '"{target_path}"'
+$Shortcut.WorkingDirectory = "{working_dir}"
+$Shortcut.Description = "OpenLPT 3D Particle Tracking"
+'''
     
     if icon_str:
         ps_script += f'$Shortcut.IconLocation = "{icon_str}"\n'
         
-    ps_script += """
-    $Shortcut.Save()
-    Write-Host "Shortcut created at $ShortcutPath"
-    """
+    ps_script += '''
+$Shortcut.Save()
+Write-Host "Shortcut created at $ShortcutPath"
+'''
     
     ps_file = working_dir / "create_shortcut.ps1"
     try:
-        # PowerShell likes UTF-8 with BOM
+        # Write with UTF-8 BOM for PowerShell
         with open(ps_file, "w", encoding="utf-8-sig") as f:
             f.write(ps_script)
         
-        cmd = f'powershell -NoProfile -ExecutionPolicy Bypass -File "{ps_file}"'
-        
-        # We can't easily check for existence in Python since we don't know the exact path resolved by PS
-        # So we trust the PS exit code.
+        # Run PowerShell with UTF-8 code page
+        cmd = f'chcp 65001 >nul && powershell -NoProfile -ExecutionPolicy Bypass -File "{ps_file}"'
         ret = os.system(cmd)
         
         if ret == 2:
-             # Exit code 2 means shortcut exists (as we defined in PS script)
-             return 2
+            return 2
         elif ret != 0:
             print(f"[Shortcut] PowerShell execution failed with code {ret}")
-            # Check for non-ascii path
-            if not str(desktop).isascii():
-                return -2
             return -1
             
     except Exception as e:

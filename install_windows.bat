@@ -185,6 +185,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+:: Install Windows-specific packages
+call mamba install -c conda-forge pywin32 -y
+
 :: ============================================
 :: STEP 4: Build and Install OpenLPT
 :: ============================================
