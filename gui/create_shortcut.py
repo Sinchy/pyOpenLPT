@@ -41,10 +41,12 @@ def create_windows_shortcut(target_script, icon_path):
     icon_str = str(icon_path.resolve()) if icon_path.exists() else ""
     
     # PowerShell script content
-    # We use WScript.Shell SpecialFolders to get the true Desktop path (handles OneDrive etc)
+    # Use .NET to get desktop path (handles Unicode/OneDrive correctly)
     ps_script = f"""
-    $WshShell = New-Object -ComObject WScript.Shell
-    $DesktopPath = $WshShell.SpecialFolders("Desktop")
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    
+    # Get Desktop path using .NET (handles OneDrive redirection)
+    $DesktopPath = [Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop)
     $ShortcutPath = Join-Path $DesktopPath "OpenLPT.lnk"
     
     if (Test-Path $ShortcutPath) {{
@@ -52,6 +54,7 @@ def create_windows_shortcut(target_script, icon_path):
         exit 2
     }}
     
+    $WshShell = New-Object -ComObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
     $Shortcut.TargetPath = "{python_exe}"
     $Shortcut.Arguments = '"{target_path}"'
