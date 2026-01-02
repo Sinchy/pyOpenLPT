@@ -46,6 +46,14 @@ config_file = 'path/to/config.txt'
 lpt.run(config_file)
 ```
 
+---
+
+## Demo
+
+<video src="gui/OpenLPT%20-%203D%20particle%20tracking%20system%202026-01-02%2014-58-30.mp4" width="100%" controls autoplay loop muted></video>
+
+---
+
 ## Features
 - User-friendly interface in python
 - Lagrangian particle tracking for multiple objects (point-like particles, spherical particles, etc.)
