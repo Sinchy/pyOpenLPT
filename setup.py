@@ -61,7 +61,8 @@ class CMakeBuild(build_ext):
                  # NMake is serial
                  pass 
             elif "Ninja" in generator:
-                 build_args += ["--", "-j"]
+                 # Ninja auto-detects parallelism, no need for -j
+                 pass
             else:
                  # Fallback: Assume VS if not specified (default CMake behavior on Windows)
                  if not generator:
