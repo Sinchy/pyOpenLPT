@@ -73,6 +73,28 @@ class CMakeBuild(build_ext):
             # Don't pass bare -j, ninja will auto-detect parallelism
 
         build_temp = Path(self.build_temp).resolve()
+        
+        # [NEW] Auto-clean on generator mismatch
+        if (build_temp / "CMakeCache.txt").exists():
+            try:
+                with open(build_temp / "CMakeCache.txt", 'r') as f:
+                    cache_content = f.read()
+                
+                # Check for cached generator (e.g., CMAKE_GENERATOR:INTERNAL=NMake Makefiles)
+                import re
+                m = re.search(r'CMAKE_GENERATOR:INTERNAL=(.*)', cache_content)
+                cached_gen = m.group(1).strip() if m else None
+                
+                # Compare with current generator
+                current_gen = os.environ.get("CMAKE_GENERATOR", "")
+                
+                if cached_gen and current_gen and cached_gen != current_gen:
+                    print(f"[setup.py] Generator mismatch detected ({cached_gen} != {current_gen}). Cleaning {build_temp}...")
+                    import shutil
+                    shutil.rmtree(build_temp)
+            except Exception as e:
+                print(f"[setup.py] Warning: Failed to check CMakeCache.txt: {e}")
+
         build_temp.mkdir(parents=True, exist_ok=True)
 
         print(f"[setup.py] CMake Args: {cmake_args}")
