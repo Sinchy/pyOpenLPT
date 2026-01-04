@@ -30,7 +30,7 @@ jobs:
         run: |
           # 1. 配置远程并同步分支/标签
           git remote add lab https://x-access-token:${MY_TOKEN}@github.com/JHU-NI-LAB/OpenLPT_GUI.git
-          git push lab main:main --force
+          git push lab origin/main:main --force
           git push lab --tags --force
 
           # 2. 如果是标签推送或手动触发，则镜像 Release 及其附件
