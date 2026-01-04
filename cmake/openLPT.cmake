@@ -236,22 +236,6 @@ openlpt_public_includes(PredField)
 target_link_libraries(PredField PUBLIC myMath Matrix OpenMP::OpenMP_CXX)
 openlpt_apply_warnings(PredField)
 
-# Track (.cpp)
-add_library(Track STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/Track.cpp")
-openlpt_public_includes(Track)
-target_link_libraries(Track PUBLIC ObjectInfo myMath Matrix)
-openlpt_apply_warnings(Track)
-
-# STB (orchestrator)
-add_library(STB STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/STB.cpp")
-openlpt_public_includes(STB)
-target_link_libraries(STB PUBLIC
-  IPR Shake PredField VSC Track
-  ObjectInfo ObjectFinder Camera myMath Matrix
-  OpenMP::OpenMP_CXX
-)
-openlpt_apply_warnings(STB)
-
 # ---- Config module ---------------------------------------------------
 add_library(Config STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/Config.cpp")
 openlpt_public_includes(Config)
@@ -264,6 +248,26 @@ target_link_libraries(Config PUBLIC
   ImageIO Camera OTF ObjectInfo BubbleResize myMath Matrix OpenMP::OpenMP_CXX
 )
 openlpt_apply_warnings(Config)
+
+# Track (.cpp)
+add_library(Track STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/Track.cpp")
+openlpt_public_includes(Track)
+target_link_libraries(Track PUBLIC 
+  Config ObjectInfo myMath Matrix OpenMP::OpenMP_CXX
+)
+openlpt_apply_warnings(Track)
+
+# STB (orchestrator)
+add_library(STB STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/STB.cpp")
+openlpt_public_includes(STB)
+target_link_libraries(STB PUBLIC
+  IPR Shake PredField VSC Track
+  ObjectInfo ObjectFinder Camera myMath Matrix
+  OpenMP::OpenMP_CXX
+)
+openlpt_apply_warnings(STB)
+
+
 
 # ---- Final executable ------------------------------------------------
 add_executable(OpenLPT "${PROJECT_SOURCE_DIR}/src/main.cpp")
