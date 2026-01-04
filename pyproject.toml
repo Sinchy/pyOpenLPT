@@ -26,9 +26,13 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "numba>=0.60.0",
     "matplotlib>=3.7.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+gui = [
     "PySide6>=6.6.0",
     "qtawesome>=1.3.0",
-    "requests>=2.31.0",
 ]
 
 [project.urls]
@@ -42,9 +46,14 @@ openlpt-gui = "openlpt:launch_gui"
 where = ["."]
 include = ["modules*", "gui*", "utils*"]
 
+[tool.setuptools.py-modules]
+modules = ["openlpt", "_version"]
+
 [tool.cibuildwheel]
 # Build only 64-bit platforms
 skip = ["*-win32", "*-manylinux_i686", "*-musllinux_*", "pp*"]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
 test-requires = "pytest"
 test-command = "python -c \"import openlpt; print('OpenLPT imported successfully')\""
 

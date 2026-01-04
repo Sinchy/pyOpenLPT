@@ -98,8 +98,8 @@ echo "This will compile the C++ core. This may take a minute..."
 rm -rf build/
 rm -rf *.egg-info
 
-# Install the package
-pip install . --no-build-isolation
+# Install the package with GUI extras by default
+pip install ".[gui]" --no-build-isolation
 
 echo ""
 echo "=========================================="

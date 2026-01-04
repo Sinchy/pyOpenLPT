@@ -122,46 +122,6 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="openlpt",
-    version=__version__,
-    description="Open-source Lagrangian Particle Tracking (LPT) with GUI and CLI",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    author="JHU Ni Research Lab",
-    author_email="szhong12@jhu.edu",
-    url="https://github.com/Sinchy/pyOpenLPT",
-    license="MIT",
     ext_modules=[CMakeExtension("pyopenlpt", sourcedir=".")],
     cmdclass={"build_ext": CMakeBuild},
-    zip_safe=False,
-    install_requires=[
-        "numpy>=1.16.0",
-        "pandas>=1.0.0",
-        "pybind11>=2.10",
-        "PySide6>=6.6.0",
-        "qtawesome>=1.3.0",
-        "scipy>=1.11.0",
-        "opencv-python>=4.8.0",
-        "scikit-learn>=1.0.0",
-        "numba>=0.60.0",
-        "matplotlib>=3.7.0",
-        "requests>=2.31.0",
-    ],
-    py_modules=["openlpt", "_version"],
-    packages=find_packages(),
-    include_package_data=True,
-    entry_points={
-        "console_scripts": [
-            "openlpt = openlpt:main",
-            "openlpt-gui = openlpt:launch_gui",
-        ],
-    },
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: C++",
-        "Operating System :: OS Independent",
-        "Topic :: Scientific/Engineering :: Physics",
-        "Topic :: Scientific/Engineering :: Visualization",
-    ],
-    python_requires=">=3.10",
 )
