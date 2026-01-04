@@ -1,10 +1,10 @@
 #ifndef SHAKE_H
 #define SHAKE_H
 
+#include <cstdint>
 #include <string>
 #include <type_traits> // ★ for std::underlying_type_t
 #include <vector>
-
 
 #include "Camera.h"
 #include "Config.h"
