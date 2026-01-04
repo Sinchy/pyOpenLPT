@@ -27,9 +27,9 @@ jobs:
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        # 修正 pip 包名并排除编译工具
+        # 修正 pip 包名并排除 Conda 专供工具 (cxx-compiler, llvm-openmp) 以及系统已有的 cmake
         sed -i 's/^opencv>=/opencv-python>=/' requirements.txt
-        grep -vE "cxx-compiler|llvm-openmp" requirements.txt > req_pip.txt
+        grep -vE "cxx-compiler|llvm-openmp|cmake" requirements.txt > req_pip.txt
         pip install -r req_pip.txt
         pip install pybind11 setuptools wheel
 
