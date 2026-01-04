@@ -31,7 +31,7 @@ jobs:
         sed -i 's/^opencv>=/opencv-python>=/' requirements.txt
         grep -vE "cxx-compiler|llvm-openmp" requirements.txt > req_pip.txt
         pip install -r req_pip.txt
-        pip install pybind11
+        pip install pybind11 setuptools wheel
 
     - name: Build and Install OpenLPT
       run: |
