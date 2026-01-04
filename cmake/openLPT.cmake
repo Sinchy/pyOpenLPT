@@ -176,7 +176,7 @@ openlpt_apply_warnings(BubbleRefImg)
 add_library(ObjectFinder STATIC "${PROJECT_SOURCE_DIR}/src/srcObject/ObjectFinder.cpp")
 openlpt_public_includes(ObjectFinder)
 target_link_libraries(ObjectFinder
-  PUBLIC Matrix myMath
+  PUBLIC Matrix myMath CircleIdentifier
   PUBLIC OpenMP::OpenMP_CXX
   PRIVATE OpenLPT::nanoflann
 )
@@ -212,7 +212,7 @@ openlpt_apply_warnings(VSC)
 add_library(Shake STATIC "${PROJECT_SOURCE_DIR}/src/srcSTB/Shake.cpp")
 openlpt_public_includes(Shake)
 target_link_libraries(Shake PUBLIC
-  BubbleRefImg
+  BubbleRefImg CircleIdentifier
   StereoMatch OTF ObjectInfo Camera myMath Matrix
   OpenMP::OpenMP_CXX
   OpenLPT::nanoflann            
@@ -283,9 +283,6 @@ add_custom_command(TARGET OpenLPT POST_BUILD
 target_include_directories(OpenLPT PRIVATE ${OPENLPT_INC_ROOTS})
 target_link_libraries(OpenLPT PRIVATE
   STB Config
-  BubbleResize CircleIdentifier BubbleRefImg ImageIO
-  ObjectInfo ObjectFinder Camera myMath Matrix
-  StereoMatch OTF VSC Shake IPR PredField Track
   OpenLPT::nanoflann OpenMP::OpenMP_CXX
 )
 openlpt_apply_warnings(OpenLPT)

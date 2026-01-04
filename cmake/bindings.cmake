@@ -50,22 +50,8 @@ target_include_directories(${OPENLPT_PYMODULE_NAME} PRIVATE
 
 # Link against your existing C++ targets (adjust to your actual libs)
 target_link_libraries(${OPENLPT_PYMODULE_NAME} PRIVATE
+  STB 
   Config
-  myMath
-  ImageIO
-  Camera
-  ObjectInfo
-  ObjectFinder
-  PredField
-  StereoMatch
-  BubbleRefImg
-  BubbleResize
-  CircleIdentifier
-  OTF
-  IPR
-  Shake
-  Track
-  STB
   $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
 )
 
