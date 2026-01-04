@@ -1,0 +1,43 @@
+name: Linux Compatibility Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libomp-dev
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # 排除 conda 特有的包（已经在系统层面安装或由 pip 另行处理）
+        grep -vE "cxx-compiler|llvm-openmp" requirements.txt > req_pip.txt
+        pip install -r req_pip.txt
+        pip install pybind11  # 确保编译工具已就绪
+
+    - name: Build and Install OpenLPT
+      run: |
+        # 运行 pip 安装并开启详细输出 (-v)，方便查看编译日志
+        pip install . -v --no-build-isolation
+
+    - name: Verify Import
+      run: |
+        # 验证 C++ 扩展是否能被 Python 正确引用
+        python -c "import pyopenlpt; print('Successfully imported pyopenlpt on Linux!')"
