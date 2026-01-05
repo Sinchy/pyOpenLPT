@@ -643,26 +643,32 @@ VSC::OTFParams VSC::estimateOTFParams(const Matrix<double> &roi,
   // 0. Find max intensity within obj_radius of the center
   double max_val = 0;
   double r2_limit = obj_radius * obj_radius;
+  int argmax_x = -1, argmax_y = -1;
 
   for (int y = 0; y < rows; ++y) {
     for (int x = 0; x < cols; ++x) {
-      double dx = x - xc;
-      double dy = y - yc;
-      // Only consider pixels within the object radius
+      double dx = x - xc, dy = y - yc;
       if (dx * dx + dy * dy <= r2_limit) {
         double val = roi(y, x);
-        if (val > max_val)
+        if (val > max_val) {
           max_val = val;
+          argmax_x = x;
+          argmax_y = y;
+        }
       }
     }
   }
 
-  // Sanity check: if peak is too dim, reject immediately
-  if (max_val < 10.0)
+  // Sanity check: Peak argmax drift check
+  if (argmax_x == -1 || max_val < 10.0)
+    return params;
+  double dist_to_peak =
+      std::sqrt(std::pow(argmax_x - xc, 2) + std::pow(argmax_y - yc, 2));
+  if (dist_to_peak > obj_radius + 0.5 && dist_to_peak > 1.5)
     return params;
 
-  // Dynamic fitting window based on 30% contour
-  double t_high = max_val * 0.30;
+  // Dynamic fitting window based on 10% contour
+  double t_high = max_val * 0.10;
 
   // Restore dynamic window sizing logic:
   // We want to find the radius 'r_fit' such that all pixels within this radius
@@ -721,129 +727,250 @@ VSC::OTFParams VSC::estimateOTFParams(const Matrix<double> &roi,
   int x1_fit = std::min(cols, cx_int + r_fit + 1);
   int y0_fit = std::max(0, cy_int - r_fit);
   int y1_fit = std::min(rows, cy_int + r_fit + 1);
+  int w_fit = x1_fit - x0_fit, h_fit = y1_fit - y0_fit;
+  bool is_tiny = (w_fit <= 3 && h_fit <= 3);
 
-  // 1. Accumulate Normal Equations: (AtA) * p = (AtL)
-  // 6 parameters => 6x6 matrix
+  // 1. Stage 1: Linear Seed (Log-domain)
+  // Adaptive threshold: 0% for tiny (use all Info), 10% for normal
+  double seed_threshold = is_tiny ? 0.0 : (max_val * 0.10);
+
   Matrix<double> AtA(6, 6, 0.0);
   Matrix<double> AtL(6, 1, 0.0);
-
-  int n_samples = 0;
+  int n_samples_seed = 0;
 
   for (int y = y0_fit; y < y1_fit; ++y) {
     for (int x = x0_fit; x < x1_fit; ++x) {
       double val = roi(y, x);
+      if (val <= seed_threshold)
+        continue;
 
-      if (val < 1.0)
-        val = 1.0;
-
-      double dx = x - xc;
-      double dy = y - yc;
-      double log_v = std::log(val);
-
-      // Basis functions: 1, dx, dy, dx^2, dy^2, dx*dy
+      double dx = x - xc, dy = y - yc;
+      double log_v = std::log(std::max(val, 1e-6 * max_val));
       double basis[6] = {1.0, dx, dy, dx * dx, dy * dy, dx * dy};
 
-      // Update Normal Equations (Upper triangular)
       for (int i = 0; i < 6; ++i) {
-        for (int j = i; j < 6; ++j) {
+        for (int j = i; j < 6; ++j)
           AtA(i, j) += basis[i] * basis[j];
-        }
         AtL(i, 0) += basis[i] * log_v;
       }
-      n_samples++;
+      n_samples_seed++;
     }
   }
 
-  // Fill lower triangle
-  for (int i = 0; i < 6; ++i) {
-    for (int j = 0; j < i; ++j) {
-      AtA(i, j) = AtA(j, i);
-    }
-  }
-
-  if (n_samples < 6)
-    return params; // Min 6 for 6 params
-
-  // 2. Solve linear system using SVD for stability
-  Matrix<double> p = solveSymmetricSVD(AtA, AtL);
-
-  // Check for NaN
-  if (!std::isfinite(p(0, 0)))
-    return params;
-
-  // 3. Extract Parameters
-  // ln(I) = p0 + p1*dx + p2*dy + p3*dx^2 + p4*dy^2 + p5*dx*dy
-  double p0 = p(0, 0);
-  double p1 = p(1, 0);
-  double p2 = p(2, 0);
-  double p3 = p(3, 0);
-  double p4 = p(4, 0);
-  double p5 = p(5, 0);
-
-  // Let M = - [ p3    p5/2 ]
-  //          [ p5/2  p4   ]
-  double mxx = -p3;
-  double myy = -p4;
-  double mxy = -0.5 * p5;
-
-  // Eigenvalues of M (decays b and c)
-  double delta_eig = std::sqrt(std::pow(mxx - myy, 2) + 4.0 * mxy * mxy);
-  double lam1 = (mxx + myy + delta_eig) / 2.0; // Faster decay
-  double lam2 = (mxx + myy - delta_eig) / 2.0; // Slower decay
-
-  if (lam2 <= 1e-9)
-    return params;
-
-  // b is smaller coefficient (Slower decay -> Major axis)
-  params.b = lam2;
-  params.c = lam1;
-
-  // Orientation
-  if (std::abs(mxy) > 1e-9) {
-    params.alpha = std::atan2(lam2 - mxx, mxy);
-  } else {
-    params.alpha = 0.0;
-    if (mxx > myy)
-      params.alpha = 1.57079632679;
-  }
-
-  // === Normalization: Enforce b <= c (major axis decay <= minor axis decay)
-  // === This eliminates the 90-degree ambiguity in elliptical Gaussian fitting.
-  // When b > c, swap them and rotate alpha by 90 degrees.
-  if (params.b > params.c) {
-    std::swap(params.b, params.c);
-    params.alpha += 1.57079632679; // Add 90 degrees (pi/2)
-  }
-
-  // Normalize alpha to [-pi/2, pi/2] to ensure consistent representation
-  while (params.alpha > 1.57079632679)
-    params.alpha -= 3.14159265359; // Subtract pi
-  while (params.alpha < -1.57079632679)
-    params.alpha += 3.14159265359; // Add pi
-
-  // Peak intensity 'a' (Free-peak evaluation)
-  // Find stationary point of ln(I): grad = 0
-  double det_H = 4.0 * p3 * p4 - p5 * p5;
+  // 2. Extract Seeds
   double dx_peak = 0, dy_peak = 0;
-  if (std::abs(det_H) > 1e-9) {
-    dx_peak = (p5 * p2 - 2.0 * p4 * p1) / det_H;
-    dy_peak = (p5 * p1 - 2.0 * p3 * p2) / det_H;
+  bool seed_ok = false;
+
+  if (n_samples_seed >= 6) {
+    for (int i = 0; i < 6; ++i)
+      for (int j = 0; j < i; ++j)
+        AtA(i, j) = AtA(j, i);
+
+    Matrix<double> p = solveSymmetricSVD(AtA, AtL);
+    if (std::isfinite(p(0, 0))) {
+      double p0 = p(0, 0), p1 = p(1, 0), p2 = p(2, 0);
+      double p3 = p(3, 0), p4 = p(4, 0), p5 = p(5, 0);
+      double det_H = 4.0 * p3 * p4 - p5 * p5;
+      double mxx = -p3, myy = -p4, mxy = -0.5 * p5;
+      double delta_eig = std::sqrt(std::pow(mxx - myy, 2) + 4.0 * mxy * mxy);
+      double lam1 = (mxx + myy + delta_eig) / 2.0;
+      double lam2 = (mxx + myy - delta_eig) / 2.0;
+
+      if (std::abs(det_H) > 1e-15) {
+        dx_peak = (p5 * p2 - 2.0 * p4 * p1) / det_H;
+        dy_peak = (p5 * p1 - 2.0 * p3 * p2) / det_H;
+      }
+
+      if (lam2 > 1e-10 && lam1 > 0 && p3 < 0 && p4 < 0 &&
+          (dx_peak * dx_peak + dy_peak * dy_peak < 4.1)) {
+        params.a =
+            std::exp(p0 + p1 * dx_peak + p2 * dy_peak + p3 * dx_peak * dx_peak +
+                     p4 * dy_peak * dy_peak + p5 * dx_peak * dy_peak);
+        params.b = lam2; // Major axis
+        params.c = lam1; // Minor axis
+        params.alpha = (std::abs(mxy) > 1e-12 || std::abs(mxx - myy) > 1e-12)
+                           ? 0.5 * std::atan2(2.0 * mxy, mxx - myy)
+                           : 0.0;
+        seed_ok = true;
+      }
+    }
   }
 
-  // Sanity check: if peak is too far from centroid, it's likely noise
-  if (dx_peak * dx_peak + dy_peak * dy_peak > 4.0)
-    return params;
+  // Naive fallback for tiny ROIs if full seed fails
+  if (!seed_ok) {
+    if ((x1_fit - x0_fit) <= 3 && (y1_fit - y0_fit) <= 3 && max_val > 10.0) {
+      params.a = max_val;
+      params.b = params.c = 1.0;
+      params.alpha = 0.0;
+      dx_peak = dy_peak = 0.0;
+    } else {
+      return params;
+    }
+  }
 
-  double ln_a = p0 + p1 * dx_peak + p2 * dy_peak + p3 * dx_peak * dx_peak +
-                p4 * dy_peak * dy_peak + p5 * dx_peak * dy_peak;
+  auto normalize = [](double &b, double &c, double &alpha) {
+    if (b > c) {
+      std::swap(b, c);
+      alpha += 1.57079632679;
+    }
+    while (alpha > 1.57079632679)
+      alpha -= 3.14159265359;
+    while (alpha < -1.57079632679)
+      alpha += 3.14159265359;
+    if (c > 6.0 * b)
+      c = 6.0 * b;
+    if (b < 0.001)
+      b = 0.001;
+    if (c < 0.001)
+      c = 0.001;
+  };
+  normalize(params.b, params.c, params.alpha);
 
-  params.a = std::exp(ln_a);
+  // 3. Stage 2: Non-linear Refinement (Gauss-Newton/LM)
+  bool use_isotropic = is_tiny;
+  int n_params = use_isotropic ? 4 : 6;
+  Matrix<double> theta(n_params, 1, 0.0);
 
-  // Intensity sanity check
-  if (params.a < 1.0 || params.a > 1000.0)
-    return params;
+  theta(0, 0) = std::clamp(params.a, 0.1 * max_val, 5.0 * max_val);
+  theta(1, 0) = std::clamp(xc + dx_peak, (double)x0_fit, (double)(x1_fit - 1));
+  theta(2, 0) = std::clamp(yc + dy_peak, (double)y0_fit, (double)(y1_fit - 1));
+  if (use_isotropic)
+    theta(3, 0) = 0.5 * (params.b + params.c);
+  else {
+    theta(3, 0) = params.b;
+    theta(4, 0) = params.c;
+    theta(5, 0) = params.alpha;
+  }
 
-  params.valid = true;
+  const int max_iter = 10;
+  double gn_threshold = use_isotropic ? (0.01 * max_val) : (0.05 * max_val);
+
+  for (int iter = 0; iter < max_iter; ++iter) {
+    Matrix<double> JtJ(n_params, n_params, 0.0);
+    Matrix<double> Jtr(n_params, 1, 0.0);
+
+    double A = theta(0, 0), x_p = theta(1, 0), y_p = theta(2, 0);
+
+    for (int y = y0_fit; y < y1_fit; ++y) {
+      for (int x = x0_fit; x < x1_fit; ++x) {
+        double val = roi(y, x);
+        if (val < gn_threshold)
+          continue;
+
+        double dx = x - x_p, dy = y - y_p;
+        double Q = 0, e = 0, f = 0;
+        double grad_Q[5] = {0}; // dQ/dx0, dQ/dy0, dQ/db(k), dQ/dc, dQ/dalpha
+
+        if (use_isotropic) {
+          double k = theta(3, 0);
+          double r2 = dx * dx + dy * dy;
+          Q = k * r2;
+          e = std::exp(-Q);
+          if (!is_tiny && e < 1e-13)
+            continue;
+          e = std::max(e, 1e-13);
+          f = A * e;
+          grad_Q[0] = -2.0 * k * dx;
+          grad_Q[1] = -2.0 * k * dy;
+          grad_Q[2] = r2;
+        } else {
+          double b = theta(3, 0), c = theta(4, 0), a_rad = theta(5, 0);
+          double ca = std::cos(a_rad), sa = std::sin(a_rad);
+          double xp = dx * ca + dy * sa, yp = -dx * sa + dy * ca;
+          Q = b * xp * xp + c * yp * yp;
+          e = std::exp(-Q);
+          if (!is_tiny && e < 1e-13)
+            continue;
+          e = std::max(e, 1e-13);
+          f = A * e;
+          grad_Q[0] = -2.0 * b * xp * ca + 2.0 * c * yp * sa;
+          grad_Q[1] = -2.0 * b * xp * sa - 2.0 * c * yp * ca;
+          grad_Q[2] = xp * xp;
+          grad_Q[3] = yp * yp;
+          grad_Q[4] = 2.0 * (b - c) * xp * yp;
+        }
+
+        double res = val - f;
+        double J[6] = {e,
+                       -f * grad_Q[0],
+                       -f * grad_Q[1],
+                       -f * grad_Q[2],
+                       -f * grad_Q[3],
+                       -f * grad_Q[4]};
+
+        // Weighted Least Squares: prioritize high SNR peak pixels
+        double w2 = (val / max_val) * (val / max_val);
+
+        for (int i = 0; i < n_params; ++i) {
+          double wJ_i = w2 * J[i];
+          for (int j = i; j < n_params; ++j)
+            JtJ(i, j) += wJ_i * J[j];
+          Jtr(i, 0) += wJ_i * res;
+        }
+      }
+    }
+
+    // Fill lower triangle for solver compatibility
+    for (int i = 0; i < n_params; ++i)
+      for (int j = 0; j < i; ++j)
+        JtJ(i, j) = JtJ(j, i);
+
+    // Scale-Adaptive Additive Damping (Robust LM)
+    double lambda = 1e-3;
+    for (int i = 0; i < n_params; ++i)
+      JtJ(i, i) += lambda * (JtJ(i, i) + 1.0);
+
+    Matrix<double> delta = solveSymmetricSVD(JtJ, Jtr);
+    if (!std::isfinite(delta(0, 0)))
+      break;
+
+    for (int i = 0; i < n_params; ++i)
+      theta(i, 0) += delta(i, 0);
+
+    // Iterative Box Constraints
+    theta(0, 0) = std::clamp(theta(0, 0), 0.1 * max_val, 5.0 * max_val);
+    theta(1, 0) =
+        std::clamp(theta(1, 0), xc - 2.0, xc + 2.0); // Center drift limit
+    theta(2, 0) = std::clamp(theta(2, 0), yc - 2.0, yc + 2.0);
+    theta(1, 0) = std::clamp(theta(1, 0), (double)x0_fit, (double)(x1_fit - 1));
+    theta(2, 0) = std::clamp(theta(2, 0), (double)y0_fit, (double)(y1_fit - 1));
+
+    if (use_isotropic) {
+      theta(3, 0) = std::max(theta(3, 0), 0.001);
+    } else {
+      double &b = theta(3, 0), &c = theta(4, 0);
+      b = std::max(b, 0.001);
+      c = std::max(c, 0.001);
+      if (c > 6.0 * b)
+        c = 6.0 * b;
+      if (b > 6.0 * c)
+        b = 6.0 * c;
+    }
+
+    double step_norm = 0;
+    for (int i = 0; i < n_params; ++i)
+      step_norm += delta(i, 0) * delta(i, 0);
+    if (step_norm < 1e-8)
+      break; // Converged
+  }
+
+  // Final params assignment
+  params.a = theta(0, 0);
+  if (use_isotropic) {
+    params.b = params.c = theta(3, 0);
+    params.alpha = 0.0;
+  } else {
+    params.b = theta(3, 0);
+    params.c = theta(4, 0);
+    params.alpha = theta(5, 0);
+    normalize(params.b, params.c, params.alpha);
+  }
+
+  // Tighter final validation logic
+  bool center_ok =
+      std::pow(theta(1, 0) - xc, 2) + std::pow(theta(2, 0) - yc, 2) < 4.1;
+  params.valid =
+      (params.a > 0.1 * max_val && params.b > 0 && params.c > 0 && center_ok);
   return params;
 }
 
