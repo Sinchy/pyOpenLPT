@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openlpt"
-version = "2.1.6"
+dynamic = ["version"]
 description = "Open-source Lagrangian Particle Tracking (LPT) with GUI and CLI"
 readme = "README.md"
 authors = [{ name = "Shiyong Tan @ JHU Ni Research Lab", email = "tanshiyong84@gmail.com" }]
@@ -27,7 +27,7 @@ dependencies = [
     "numba>=0.60.0",
     "matplotlib>=3.7.0",
     "requests>=2.31.0",
-    "pycine>=0.4.6",
+    "pycine>=0.3.2",
     "pywin32>=306; sys_platform == 'win32'",
 ]
 
@@ -46,6 +46,9 @@ openlpt-gui = "openlpt:launch_gui"
 
 [tool.setuptools]
 py-modules = ["openlpt", "_version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "_version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
